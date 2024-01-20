@@ -1,0 +1,34 @@
+{
+    "databaseList": 
+    [
+        {
+            "database":"plane" 
+        },
+        {
+            "database":"car"
+        },
+        {
+            "database":"bike",
+            "tables":
+            [
+                {
+                    "customer": "customer.dat",
+                    "columns":
+                    [
+                        {"deleted":{"bool":1}},
+                        {"customerID":{"char":11}},
+                        {"givenName":{"char":21}},
+                        {"middleInitial":{"char":1}},
+                        {"surName":{"char":21}},
+                        {"phone":{"char":21}},
+                        {"email":{"char":41}}
+                    ]
+                },
+                {
+                    "vender": "vender.dat"
+                }
+            ],
+            "key":123
+        }
+    ]
+}

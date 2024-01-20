@@ -1,0 +1,9 @@
+Colon separates key from value
+A value can be:
+    1: A value
+    2: A list
+    3: An object
+
+A value can be a string or a number
+
+between begin and end quotes, include all characters.
