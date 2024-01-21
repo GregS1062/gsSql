@@ -8,6 +8,7 @@
 
 using namespace std;
 
+keyValue* getKeyValues(ifstream& in);
 
 keyValue* head = nullptr;  //first element
 keyValue* tail = nullptr;  //tail of list (the tail grows with each addition)
@@ -76,14 +77,25 @@ keyValue* getKeyValue(ifstream& in)
         result = getToken(in);              //value
         return kv;
     }
-    
+
     valueList* vl = new valueList{};
+    if(result->lastChar == openObject)
+    {
+        vl->value = (void*)getKeyValues(in);
+        vl->t_type = t_Object;
+        kv->value = vl;
+        return kv;
+    }
+    
     vl->value = (void*)result->token;
     vl->t_type = t_string;
     kv->value = vl;
 
     return kv;
 }
+/******************************************************
+ * Get KeyValues
+ ******************************************************/
 keyValue* getKeyValues(ifstream& in)
 {
     keyValue* newkv = getKeyValue(in);
@@ -119,7 +131,10 @@ keyValue* getObject(ifstream& in)
         return nullptr;
     }
 
-    keyValue* kv = getKeyValues(in);
+    keyValue* kv = new keyValue;
+    result = getToken(in);
+    kv->key = result->token;
+    getKeyValues(in);
     
     result = getToken(in);
 
@@ -131,7 +146,7 @@ keyValue* getObject(ifstream& in)
  ******************************************************/
 int main()
 {
-    const char* fileName = "t1.json";
+    const char* fileName = "test1.json";
     ifstream in (fileName);
     if(!in.is_open())
     {

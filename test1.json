@@ -1,7 +1,10 @@
-{
-    
-    "bart":"simpson", 
-    
+{ 
+    "homer":"simpson",
+    "children":
+    {
+        "bart":"simpson",
+        "lisa":"simpson"
+    }, 
     "ralph":"wigham",
-    "dList": ["a","b","c","d"]
+    "lst": ["a","b","c","d"]
 }
