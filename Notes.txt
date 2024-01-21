@@ -7,3 +7,9 @@ A value can be:
 A value can be a string or a number
 
 between begin and end quotes, include all characters.
+
+    "children":
+    {
+        "bart":"simpson",
+        "lisa":"simpson"
+    }, 

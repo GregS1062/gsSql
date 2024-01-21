@@ -26,11 +26,11 @@ void printValue(keyValue* kv, int8_t _t)
         {
             case t_string:
                 printf("%s",(char*)list->value);
-            case t_Object:
+         /*   case t_Object:
             {
                 _t++;
                 printObject((keyValue*)list->value,_t);
-            }
+            }*/
         }
         if(list->next != nullptr)
             printf(",");

@@ -13,6 +13,15 @@ keyValue* getKeyValues(ifstream& in);
 keyValue* head = nullptr;  //first element
 keyValue* tail = nullptr;  //tail of list (the tail grows with each addition)
 /******************************************************
+ * Link ValueList
+ ******************************************************/
+void linkValueList(valueList* newValue, valueList* tail)
+{
+    valueList* temp = tail;
+    tail = newValue;
+    temp->next = newValue;
+}
+/******************************************************
  * Get List
  ******************************************************/
 valueList* getList(ifstream& in)
@@ -131,15 +140,15 @@ keyValue* getObject(ifstream& in)
         return nullptr;
     }
 
-    keyValue* kv = new keyValue;
-    result = getToken(in);
-    kv->key = result->token;
-    getKeyValues(in);
+   //keyValue* kv = new keyValue;
+    //result = getToken(in);
+    //kv->key = result->token;
+    return getKeyValues(in);
     
-    result = getToken(in);
+    //result = getToken(in);
 
 
-    return kv;
+    //return kv;
 }
 /******************************************************
  * main

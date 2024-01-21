@@ -1,10 +1,5 @@
 { 
     "homer":"simpson",
-    "children":
-    {
-        "bart":"simpson",
-        "lisa":"simpson"
-    }, 
     "ralph":"wigham",
     "lst": ["a","b","c","d"]
 }
