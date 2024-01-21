@@ -18,7 +18,7 @@ char closeList = ']';
 char space = ' ';
 char newline = '\n';
 tokenResult* result;
-bool debug = true;
+bool debug = false;
 /******************************************************
  * getToken  Read tokens from file
  ******************************************************/

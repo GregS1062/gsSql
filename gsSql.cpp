@@ -140,15 +140,11 @@ keyValue* getObject(ifstream& in)
         return nullptr;
     }
 
-   //keyValue* kv = new keyValue;
-    //result = getToken(in);
-    //kv->key = result->token;
-    return getKeyValues(in);
+    keyValue* kv = getKeyValues(in);
     
     //result = getToken(in);
 
-
-    //return kv;
+    return kv;
 }
 /******************************************************
  * main

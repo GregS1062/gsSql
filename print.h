@@ -18,19 +18,21 @@ void indent(int8_t _t)
 }
 void printValue(keyValue* kv, int8_t _t)
 {
-    indent(_t);
     valueList* list = (valueList*)kv->value;
     while(list != nullptr)
     {
         switch (list->t_type)
         {
             case t_string:
-                printf("%s",(char*)list->value);
-         /*   case t_Object:
             {
-                _t++;
+                printf("%s",(char*)list->value);
+                break;
+            }
+            case t_Object:
+            {
                 printObject((keyValue*)list->value,_t);
-            }*/
+                break;
+            }
         }
         if(list->next != nullptr)
             printf(",");
@@ -47,6 +49,7 @@ void printObject(keyValue* kv, int8_t _t)
     while(list != nullptr)
     {
         printf("\n");
+        indent(_t);
         printf("%s:",list->key);
         printValue(list,_t);
         list = list->next;

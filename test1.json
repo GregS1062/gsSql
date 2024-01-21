@@ -1,5 +1,13 @@
 { 
-    "homer":"simpson",
-    "ralph":"wigham",
+    "the simpson family":
+    {
+        "homer":"simpson",
+        "marg":"simpson",
+        "children":
+        {
+            "bart":"simpson",
+            "lisa":"simpson"
+        }
+    },
     "lst": ["a","b","c","d"]
 }
