@@ -9,24 +9,16 @@
 using namespace std;
 
 keyValue* getKeyValues(ifstream& in);
+keyValue* getObject(ifstream& in);
 
 keyValue* head = nullptr;  //first element
 keyValue* tail = nullptr;  //tail of list (the tail grows with each addition)
-/******************************************************
- * Link ValueList
- ******************************************************/
-void linkValueList(valueList* newValue, valueList* tail)
-{
-    valueList* temp = tail;
-    tail = newValue;
-    temp->next = newValue;
-}
 /******************************************************
  * Get List
  ******************************************************/
 valueList* getList(ifstream& in)
 {
-
+    printDebug((char*)"getList");
     if(result->lastChar != openList)
     {
         printf("\nFailed to find openList");
@@ -51,8 +43,16 @@ valueList* getList(ifstream& in)
         result = getToken(in);
 
         newValue = new valueList;
-        newValue->t_type = t_string;
-        newValue->value = result->token;
+        if(result->lastChar == openObject)
+        {
+            newValue->t_type = t_Object;
+            newValue->value = (void*)getObject(in);
+        }
+        else
+        {
+            newValue->t_type = t_string;
+            newValue->value = result->token;
+        }
 
         valueList* temp = tail;
         tail = newValue;
@@ -69,10 +69,11 @@ valueList* getList(ifstream& in)
  ******************************************************/
 keyValue* getKeyValue(ifstream& in)
 {
+    printDebug((char*)"getKeyValueBegin");
     keyValue* kv = new keyValue();
      
     result = getToken(in);              //key
-
+    printf("\n key : %s",result->token);
     kv->key = result->token;
 
     if(result->lastChar != colon)
@@ -83,14 +84,13 @@ keyValue* getKeyValue(ifstream& in)
     if(result->lastChar == openList)
     {
         kv->value = getList(in);
-        result = getToken(in);              //value
         return kv;
     }
 
     valueList* vl = new valueList{};
     if(result->lastChar == openObject)
     {
-        vl->value = (void*)getKeyValues(in);
+        vl->value = (void*)getObject(in);
         vl->t_type = t_Object;
         kv->value = vl;
         return kv;
@@ -107,6 +107,7 @@ keyValue* getKeyValue(ifstream& in)
  ******************************************************/
 keyValue* getKeyValues(ifstream& in)
 {
+    printDebug((char*)"getKeyValuesBegin");
     keyValue* newkv = getKeyValue(in);
     keyValue* head = newkv;
     keyValue* tail = head;
@@ -117,6 +118,11 @@ keyValue* getKeyValues(ifstream& in)
         tail = newkv;
         temp->next = newkv;
     }
+    if(result->lastChar == closeObject
+    || result->lastChar == closeList)
+        result = getToken(in);
+
+    printDebug((char*)"getKeyValuesEnd");
     return head;
 }
 /******************************************************
@@ -124,16 +130,7 @@ keyValue* getKeyValues(ifstream& in)
  ******************************************************/
 keyValue* getObject(ifstream& in)
 { 
-    
-   /* //is this an embedded object
-    if(result->lastChar == closeObject)
-        result = getToken(in);
-
-    //is this a list member
-    if(result->lastChar == comma)
-        result = getToken(in);
-    */
-
+    printDebug((char*)"getObjectBegin");
     if(result->lastChar != openObject)
     {
         printf("\nExpecting open object");
@@ -141,9 +138,7 @@ keyValue* getObject(ifstream& in)
     }
 
     keyValue* kv = getKeyValues(in);
-    
-    //result = getToken(in);
-
+    printDebug((char*)"getObjectEnd");
     return kv;
 }
 /******************************************************
@@ -151,7 +146,7 @@ keyValue* getObject(ifstream& in)
  ******************************************************/
 int main()
 {
-    const char* fileName = "test1.json";
+    const char* fileName = "test2.json";
     ifstream in (fileName);
     if(!in.is_open())
     {
@@ -161,6 +156,7 @@ int main()
         return 0;
     }
     result = getToken(in);
+        
     keyValue* kv = getObject(in);
 
     in.close();

@@ -6,11 +6,17 @@
 #include <fstream>
 #include <string.h>
 #include "keyValue.h"
+#include "tokenizer.h"
 
 using namespace std;
 
 void printObject(keyValue* kv, int8_t _t);
 
+void printDebug(char* _txt)
+{
+    if(debug)
+        printf("\n%s",_txt);
+}
 void indent(int8_t _t)
 {
     for(int8_t i=0;i<_t;i++)
