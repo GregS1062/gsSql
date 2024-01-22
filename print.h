@@ -27,21 +27,31 @@ void printValue(keyValue* kv, int8_t _t)
     valueList* list = (valueList*)kv->value;
     while(list != nullptr)
     {
-        switch (list->t_type)
+        if(list->value == nullptr)
         {
-            case t_string:
+            printf("\n");
+            indent(_t);
+        }
+        else
+        {
+            switch (list->t_type)
             {
-                printf("%s",(char*)list->value);
-                break;
-            }
-            case t_Object:
-            {
-                printObject((keyValue*)list->value,_t);
-                break;
+                case t_string:
+                {
+                    printf("%s",(char*)list->value);
+                    break;
+                }
+                case t_Object:
+                {
+                    printObject((keyValue*)list->value,_t);
+                    break;
+                }
             }
         }
-        if(list->next != nullptr)
+        if(list->next != nullptr
+        && list->value != nullptr)
             printf(",");
+        
         list = list->next;
     }
 }

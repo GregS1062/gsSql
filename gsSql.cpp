@@ -25,24 +25,16 @@ valueList* getList(ifstream& in)
         return nullptr;
     }
 
-    valueList* newValue = new valueList;
-
-    //what kind of list is this?
-    result = getToken(in); 
-    newValue->t_type = t_string;
-    newValue->value = result->token;
-
-    valueList* head = newValue;
-    valueList* tail = head;
-
-    //if(result->lastChar == openObject)
-    //    head = getObject(in);
+    valueList* newValue = nullptr;
+    valueList* head = nullptr;
+    valueList* tail = nullptr;
 
     while(true)
     {
         result = getToken(in);
 
         newValue = new valueList;
+
         if(result->lastChar == openObject)
         {
             newValue->t_type = t_Object;
@@ -54,13 +46,20 @@ valueList* getList(ifstream& in)
             newValue->value = result->token;
         }
 
-        valueList* temp = tail;
-        tail = newValue;
-        temp->next = newValue;
+        if(head == nullptr)
+        {
+            head = newValue;
+            tail = head;
+        }
+        else
+        {
+            valueList* temp = tail;
+            tail = newValue;
+            temp->next = newValue;
+        }
 
         if(result->lastChar == closeList)
            return head;
-
     }
     return head;
 }
@@ -73,7 +72,6 @@ keyValue* getKeyValue(ifstream& in)
     keyValue* kv = new keyValue();
      
     result = getToken(in);              //key
-    printf("\n key : %s",result->token);
     kv->key = result->token;
 
     if(result->lastChar != colon)
@@ -146,7 +144,7 @@ keyValue* getObject(ifstream& in)
  ******************************************************/
 int main()
 {
-    const char* fileName = "test2.json";
+    const char* fileName = "test3.json";
     ifstream in (fileName);
     if(!in.is_open())
     {
