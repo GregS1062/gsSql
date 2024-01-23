@@ -5,6 +5,7 @@
 #include "keyValue.h"
 #include "print.h"
 #include "tokenizer.h"
+#include "query.h"
 
 using namespace std;
 
@@ -158,6 +159,7 @@ int main()
     keyValue* kv = getObject(in);
 
     in.close();
-    printObject(kv,-1);
+    //printObject(kv,-1);
+    query(kv);
     printf("\n\n");
 }
