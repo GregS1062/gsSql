@@ -29,7 +29,7 @@ void printValue(keyValue* kv, int8_t _t)
     {
         if(list->value == nullptr)
         {
-            printf("\n");
+            printf("\n value = null");
             indent(_t);
         }
         else
@@ -38,11 +38,12 @@ void printValue(keyValue* kv, int8_t _t)
             {
                 case t_string:
                 {
-                    printf("%s",(char*)list->value);
+                    printf("\t value=%s",(char*)list->value);
                     break;
                 }
                 case t_Object:
                 {
+                    printf("\n next value found in object");
                     printObject((keyValue*)list->value,_t);
                     break;
                 }
@@ -64,7 +65,7 @@ void printObject(keyValue* kv, int8_t _t)
     keyValue* list = kv;
     while(list != nullptr)
     {
-        printf("\n");
+        printf("\n %s \t",list->key);
         indent(_t);
         printf("%s:",list->key);
         printValue(list,_t);

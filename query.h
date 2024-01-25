@@ -5,60 +5,80 @@
 #include "keyValue.h"
 using namespace std;
 
-string darabase;
-string table;
+#define lit_database            "database"
+#define lit_table               "table"
+#define lit_column              "column"
+#define lit_type                "type"
 string column;
-
-bool parseDatabase(keyValue* dbDef, const char* _queryString)
+/****************************************************************
+   Parse Database Definition
+ ****************************************************************/
+keyValue* parseDatabaseDefinition(keyValue* qKV, const char* _key, const char* _target)
 {
-    valueList* list = (valueList*)dbDef->value;
+    valueList* list = (valueList*)qKV->value;
+    printf("\nsearch on %s ",qKV->key);
     while(list != nullptr)
     {
         keyValue* kv = (keyValue*)list->value;
+        printf("\n\tsearching %s ",kv->key);
         if(kv->key != nullptr)
         {
-            printf("\nkey = %s",kv->key); 
-            if(list->t_type == t_string)
-            {          
-                printf("\nvalue = %s",(char*)kv->value);
+            if (strcmp(kv->key, _key) == 0)
+            {
+                valueList* v = (valueList*)kv->value;
+                if(v->t_type == t_string)
+                {
+                    printf("\nvalue=%s",(char*)v->value);
+                    if (strcmp((char*)v->value, _target) == 0)
+                    {
+                        printf("\nfound");
+                        return (keyValue*)kv->next;
+                    }
+                }
+                if(v->t_type == t_Object)
+                {
+                    keyValue* nkv = (keyValue*)v->value;
+                    printf("\nobject key=%s",nkv->key);
+                    if (strcmp(nkv->key, _target) == 0)
+                    {
+                        printf("\nfound");
+                        return nkv;
+                    }
+                }
+            }  
+        }
+        
+        list = list->next;
+    }
+    return nullptr;
+}
+/****************************************************************
+   Query
+ ****************************************************************/
+void query(keyValue* dbDef)
+{
+    string queryString; 
+    char* lit_node = (char*)lit_database;
+    while(true)
+    {
+        printf("\nEnter ");
+        printf("%s ",lit_node);
+        printf("name:");
+        getline(cin,queryString);
+        keyValue* result = parseDatabaseDefinition(dbDef,lit_node,queryString.c_str());
+        if(result != nullptr)
+        {
+            dbDef = result;
+            if(lit_node == lit_database)
+            {
+                lit_node = (char*)lit_table;
             }
             else
             {
-                keyValue* k = (keyValue*)kv->value;
-                printf("\nkey = %s",k->key);
-                printf("\nvalue = %s",(char*)k->value);
+                if(lit_node == lit_table)
+                    lit_node = (char*)lit_column;
             }
-           /*if (strcmp(kv->key,"""database""") == 0)
-           {
-            printf("\nkey = %s",kv->key);
-                printf("\nvalue = %s",(char*)kv->value);
-           } 
-            
-            if(list->t_type == t_string)
-            {
-                printf("\nvalue = %s",(char*)kv->value);
-                if (strcmp((char*)kv->value, _queryString) == 0)
-                {
-                    printf("\nfound");
-                    return true;
-                }
-            }*/
         }
- 
-        list = list->next;
-    }
-    printf("\nnot found");
-    return false;
-}
-void query(keyValue* dbDef)
-{
-
-    string queryString;
-    while(true)
-    {
-        printf("\nEnter database name: ");
-        getline(cin,queryString);
-        parseDatabase(dbDef,queryString.c_str());
         if(queryString.compare("exit") == 0)
             return;
     }

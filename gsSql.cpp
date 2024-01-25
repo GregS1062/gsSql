@@ -57,6 +57,7 @@ valueList* getList(ifstream& in)
             valueList* temp = tail;
             tail = newValue;
             temp->next = newValue;
+            printDebug((char*)"value list chain next");
         }
 
         if(result->lastChar == closeList)
@@ -92,6 +93,7 @@ keyValue* getKeyValue(ifstream& in)
         vl->value = (void*)getObject(in);
         vl->t_type = t_Object;
         kv->value = vl;
+        printDebug((char*)"Object embedded in value list");
         return kv;
     }
     
@@ -116,6 +118,7 @@ keyValue* getKeyValues(ifstream& in)
         keyValue* temp = tail;
         tail = newkv;
         temp->next = newkv;
+        printDebug((char*)"keyValue chain next");
     }
     if(result->lastChar == closeObject
     || result->lastChar == closeList)
@@ -159,6 +162,7 @@ int main()
     keyValue* kv = getObject(in);
 
     in.close();
+
     //printObject(kv,-1);
     query(kv);
     printf("\n\n");

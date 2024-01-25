@@ -49,6 +49,7 @@ tokenResult* getToken(ifstream& in)
                 betweenQuotes = true; 
                 isToken = true;  
             }
+            continue;
        }
 
         if(c >= '0'

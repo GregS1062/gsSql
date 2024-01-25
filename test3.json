@@ -7,37 +7,44 @@
             [
                 {
                     "table": "customer",
-                    "fileName":"customer.dat",
                     "columns":
                         [
                             {
-                                "cust_id":
-                                    {
-                                    "type":"char",
-                                    "length": 8
-                                    },
-                                "surname":{
-                                        "type":"char",
-                                        "length": 20},
-                                "givenname":{
-                                            "type":"char",
-                                            "length": 20}
+                                "column":"cust_id",
+                                "type":{
+                                    "char": 8
+                                    }
+                            },
+                            {    
+                                "column":"surname",
+                                "type":{
+                                    "char": 21
+                                    }
+                            },
+                            {
+                                "column":"givenname",
+                                "type":{
+                                    "char": 21
+                                    }
                             }
                         ]
                 },
                 {
                     "table": "store",
-                    "fileName":"store.dat",
                     "columns":
                     [
+                        {    
+                            "column":"store_id",
+                            "type":{
+                                "char": 11
+                                }
+                        },
                         {
-                            "store_id":{
-                                "type":"char",
-                                "length": 8},
-                            "store_name":{
-                                    "type":"char",
-                                    "length": 30}
+                            "column":"store_name",
+                            "type":{
+                                "char": 30                              }
                         }
+ 
                     ]
                 }
             ]

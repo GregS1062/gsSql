@@ -1,0 +1,189 @@
+{
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+    "databases": 
+    [
+getList
+        {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+            "database":"bike",
+getKeyValueBegin
+            "tables":
+            [
+getList
+                {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                    "table": "customer",
+getKeyValueBegin
+                    "columns":
+                        [
+getList
+                            {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                                "cust_id":
+                                    {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                                    "type":"char",
+getKeyValueBegin
+                                    "length": 8
+                                    }
+keyValue chain next,
+getKeyValuesEnd
+getObjectEnd
+Object embedded in value list
+getKeyValueBegin
+                                "surname":{
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                                        "type":"char",
+getKeyValueBegin
+                                        "length": 20}
+keyValue chain next,
+getKeyValuesEnd
+getObjectEnd
+Object embedded in value list
+keyValue chain next
+getKeyValueBegin
+                                "givenname":{
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                                            "type":"char",
+getKeyValueBegin
+                                            "length": 20}
+keyValue chain next
+                            }
+getKeyValuesEnd
+getObjectEnd
+Object embedded in value list
+keyValue chain next
+                        ]
+getKeyValuesEnd
+getObjectEnd
+keyValue chain next
+                }
+getKeyValuesEnd
+getObjectEnd,
+value list chain next
+                {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                    "table": "store",
+getKeyValueBegin
+                    "columns":
+                    [
+getList
+                        {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                            "store_id":{
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                                "type":"char",
+getKeyValueBegin
+                                "length": 8}
+keyValue chain next,
+getKeyValuesEnd
+getObjectEnd
+Object embedded in value list
+getKeyValueBegin
+                            "store_name":{
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+                                    "type":"char",
+getKeyValueBegin
+                                    "length": 30}
+keyValue chain next
+                        }
+getKeyValuesEnd
+getObjectEnd
+Object embedded in value list
+keyValue chain next
+                    ]
+getKeyValuesEnd
+getObjectEnd
+keyValue chain next
+                }
+getKeyValuesEnd
+getObjectEnd
+value list chain next
+            ]
+value list chain next
+keyValue chain next
+        }
+getKeyValuesEnd
+getObjectEnd,
+value list chain next
+        {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+            "database":"car"
+        },
+getKeyValuesEnd
+getObjectEnd
+value list chain next
+        {
+getObjectBegin
+getKeyValuesBegin
+getKeyValueBegin
+            "database":"plane"
+        }
+    ]
+getKeyValuesEnd
+getObjectEnd
+value list chain next
+}
+getKeyValuesEnd
+getObjectEnd
+ databases 	databases:
+ next value found in object
+ database 		database:	 value=bike
+ tables 		tables:
+ next value found in object
+ table 			table:	 value=customer
+ columns 			columns:
+ next value found in object
+ cust_id 				cust_id:
+ next value found in object
+ type 					type:	 value=char
+ length 					length:	 value=8
+ surname 				surname:
+ next value found in object
+ type 					type:	 value=char
+ length 					length:	 value=20
+ givenname 				givenname:
+ next value found in object
+ type 					type:	 value=char
+ length 					length:	 value=20,	 value=,
+ next value found in object
+ table 			table:	 value=store
+ columns 			columns:
+ next value found in object
+ store_id 				store_id:
+ next value found in object
+ type 					type:	 value=char
+ length 					length:	 value=8
+ store_name 				store_name:
+ next value found in object
+ type 					type:	 value=char
+ length 					length:	 value=30,	 value=,	 value=,
+ next value found in object
+ database 		database:	 value=car,
+ next value found in object
+ database 		database:	 value=plane
+
