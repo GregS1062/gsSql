@@ -17,6 +17,14 @@ void printDebug(char* _txt)
     if(debug)
         printf("\n%s",_txt);
 }
+void printDebug(const char* _txt, const char* _txt2)
+{
+    if(debug)
+    {
+        printf("\n%s",_txt);
+        printf("%s",_txt2);
+    }
+}
 void indent(int8_t _t)
 {
     for(int8_t i=0;i<_t;i++)
