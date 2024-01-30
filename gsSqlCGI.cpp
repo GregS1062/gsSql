@@ -28,7 +28,7 @@ string formatNotFound(string _target)
 	errText.append(" not found");
 	return errText;
 }
-string parseSQL(string _database, string _table, string _column)
+string parseSql(string _database, string _table, string _column)
 {
 	string htmResponse;
 	valueList* v;
@@ -87,20 +87,43 @@ int main()
 			traceFile.close();
 		}
 
-		cout << "Content-type:text/html\r\n\r\n";
-		cout << HTMLDoctype(HTMLDoctype::eStrict) << endl;
-		htmlResponse.append("<html><body>");
-		htmlResponse.append("<table>");
-		//htmlResponse.append("<td id=" + QUOTE);
-		//htmlResponse.append("123" + QUOTE);
-		//htmlResponse.append(">");
-		htmlResponse.append("<tr>");
-		htmlResponse.append("<td>Enter something</td>");
-		htmlResponse.append("<input></input>");
-		htmlResponse.append("<button type=\"submit\">");
-		htmlResponse.append("<td>");
+		htmlResponse.append("Content-type:text/html\r\n\r\n");
+		htmlResponse.append("<!DOCTYPE HTML//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">");
+		htmlResponse.append("\n");
+		htmlResponse.append("<html>");
+		htmlResponse.append("\n<link rel=\"stylesheet\" href=\"gsSql.css\">");
+		htmlResponse.append("\n<body>");
+		htmlResponse.append("\n<FORM METHOD=POST ACTION=\"http://localhost/gsSql.cgi#\">");
+		htmlResponse.append("\n<table>");
+		htmlResponse.append("\n\t<tr>");
+		htmlResponse.append("\n\t<td width=\"30%\"></td>");
+		htmlResponse.append("\n\t<td width=\"30%\" style=\"text-align:center; font-size:34px;\">Enter Query</td>");
+		htmlResponse.append("\n\t<td align=\"right\">");
+		htmlResponse.append("\n\t\t\t<button class=\"btnSubmit\" style=\"height:50px; width:150px; font-size:24px;\" >Submit</button>");
+		htmlResponse.append("\n\t\t\t</td>");
+		htmlResponse.append("\n\t</tr>");
+		htmlResponse.append("\n\t<tr>");
+		htmlResponse.append("\n\t\t<td colspan=\"3\">");
+		htmlResponse.append("\n\t\t<textarea name=\"query\" rows=\"5\" cols=\"80\" wrap=\"soft\" maxlength=\"60\"");
+		htmlResponse.append(" style=\"overflow:hidden; resize:none; font-size:24px;\"> ");
 		htmlResponse.append(htmlRequest);
-		htmlResponse.append("</td></tr></table></body></html>");
+		htmlResponse.append("</textarea>");
+		htmlResponse.append("\n\t\t</td>");
+		htmlResponse.append("\n\t</tr>");
+		htmlResponse.append("\n\t<tr>");
+		htmlResponse.append("\n\t\t<td height=\"100px\" colspan=\"3\" style=\"font-size:24px; background-color: white; vertical-align:top;\">");
+		htmlResponse.append("\n\t\t<div name=\"errmsg\" contenteditable=\"true\" style=\"font-size:24px; background-color: white;\">");
+		htmlResponse.append("\n\t\t<span style=\"color: blue;\">");
+		htmlResponse.append(htmlRequest);
+		htmlResponse.append("</span>");
+		htmlResponse.append("\n\t\t<span style=\"color: red;\">error text</span>");
+		htmlResponse.append("\n\t\t</div>");
+		htmlResponse.append("\n\t\t</td>");
+		htmlResponse.append("\n\t</tr>");
+		htmlResponse.append("\n</table>");
+		htmlResponse.append("\n</FORM>");
+		htmlResponse.append("\n</body>");
+		htmlResponse.append("\n</html>");
 		cout << htmlResponse;
 		return 0;
 	}
