@@ -6,12 +6,14 @@
 #include "print.h"
 #include "tokenizer.h"
 #include "parseJason.h"
+#include "global.h"
+#include "sql.h"
 
 using namespace std;
 
 int main()
 {
-    valueList* v;
+    /* valueList* v;
     keyValue* result;
     keyValue* kv = parseDatabaseDefinition();
     result = getDatabaseEntity(kv, lit_database, "bike");
@@ -27,5 +29,9 @@ int main()
             printf("\nlength:%s", (char*)v->value);
     }
 
-    printf("\n\n");
+    printf("\n\n"); */
+    string htmlRequest = "select";
+    string htmlResponse;
+    htmlResponse = parseSqlStatement(htmlRequest);
+    printf("\n\n Executed = %s", htmlResponse.c_str());
 }

@@ -7,6 +7,7 @@
 #include <string.h>
 #include "keyValue.h"
 #include "tokenizer.h"
+#include "global.h"
 
 using namespace std;
 

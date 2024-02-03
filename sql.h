@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <iostream>
+#include <sstream>
 
 using namespace std;
 
@@ -13,6 +14,13 @@ using namespace std;
 #define COLUMN_EMAIL_SIZE 255
 #define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute);
 #define TABLE_MAX_PAGES 100
+
+class ReturnResult{
+  public:
+  string resultTable;
+  string message;
+  string error;
+};
 
 typedef enum { 
   EXECUTE_SUCCESS, 
@@ -76,6 +84,7 @@ typedef struct {
   ssize_t input_length;
 } InputBuffer;
 
+ReturnResult returnResult;
 /*--------------------------------------------------------------
   Serialize Row
   -------------------------------------------------------------*/
@@ -87,10 +96,10 @@ void serialize_row(Row* source, void* destination) {
 /*--------------------------------------------------------------
   Deserialize Row
   -------------------------------------------------------------*/
-void deserialize_row(void* source, Row* destination) {
-  memcpy(&(destination->id), source + ID_OFFSET, ID_SIZE);
-  memcpy(&(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
-  memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
+void deserialize_row(void* source, Row* _destination) {
+  memcpy(&(_destination->id), source + ID_OFFSET, ID_SIZE);
+  memcpy(&(_destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
+  memcpy(&(_destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
 /*--------------------------------------------------------------
   Pager Open
@@ -104,7 +113,7 @@ Pager* pager_open(const char* filename) {
                 );
 
   if (fd == -1) {
-    printf("Unable to open file\n");
+    returnResult.error.append("Unable to open file\n");
     exit(EXIT_FAILURE);
   }
 
@@ -112,7 +121,7 @@ Pager* pager_open(const char* filename) {
 
   Pager* pager = (Pager*)malloc(sizeof(Pager));
   pager->file_descriptor = fd;
-  pager->file_length = file_length;
+  pager->file_length = (uint32_t)file_length;
 
   for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
     pager->pages[i] = NULL;
@@ -124,15 +133,18 @@ Pager* pager_open(const char* filename) {
   Pager Flush
   -------------------------------------------------------------*/
 void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
+  std::ostringstream o;
   if (pager->pages[page_num] == NULL) {
-    printf("Tried to flush null page\n");
+    returnResult.error.append("Tried to flush null page\n");
     exit(EXIT_FAILURE);
   }
 
   off_t offset = lseek(pager->file_descriptor, page_num * PAGE_SIZE, SEEK_SET);
 
   if (offset == -1) {
-    printf("Error seeking: %d\n", errno);
+    returnResult.error.append("Error seeking:");
+    o << errno;
+    returnResult.error.append(o.str());
     exit(EXIT_FAILURE);
   }
 
@@ -140,7 +152,9 @@ void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
       write(pager->file_descriptor, pager->pages[page_num], size);
 
   if (bytes_written == -1) {
-    printf("Error writing: %d\n", errno);
+    returnResult.error.append("Error writing:"); 
+    o << errno;
+    returnResult.error.append(o.str());
     exit(EXIT_FAILURE);
   }
 }
@@ -149,7 +163,10 @@ void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
   -------------------------------------------------------------*/
 void* get_page(Pager* pager, uint32_t page_num) {
   if (page_num > TABLE_MAX_PAGES) {
-    printf("Tried to fetch page number out of bounds. %d > %d\n", page_num,+ TABLE_MAX_PAGES);
+    std::ostringstream o;
+    o << page_num + TABLE_MAX_PAGES;
+    returnResult.error.append("Tried to fetch page number out of bounds.");
+    returnResult.error.append(o.str());
     exit(EXIT_FAILURE);
   }
 
@@ -228,7 +245,7 @@ void db_close(Table* table) {
 
   int result = close(pager->file_descriptor);
   if (result == -1) {
-    printf("Error closing db file.\n");
+    returnResult.error.append("Error closing db file.\n");
     exit(EXIT_FAILURE);
   }
   for (uint32_t i = 0; i < TABLE_MAX_PAGES; i++) {
@@ -276,7 +293,7 @@ MetaCommandResult do_meta_command(InputBuffer* input_buffer, Table* table) {
   -------------------------------------------------------------*/
 PrepareResult prepare_insert(InputBuffer* input_buffer, Statement* statement) {
 
-    char* keyword = strtok(input_buffer->buffer, " ");
+    [[maybe_unused]] char* keyword = strtok(input_buffer->buffer, " ");
     char* id_string = strtok(NULL, " ");
     char* username = strtok(NULL, " ");
     char* email = strtok(NULL, " ");
@@ -340,13 +357,25 @@ ExecuteResult execute_insert(Statement* statement, Table* table) {
   Print Row
   -------------------------------------------------------------*/
 void print_row(Row* row) {
-  printf("(%d, %s, %s)\n", row->id, row->username, row->email);
+    std::ostringstream o;
+    o << row->id;
+    returnResult.resultTable.append("<tr>");
+    returnResult.resultTable.append("<td>");
+    returnResult.resultTable.append(o.str());
+    returnResult.resultTable.append("</td>");
+    returnResult.resultTable.append("<td>");
+    returnResult.resultTable.append(row->username);
+    returnResult.resultTable.append("</td>");
+    returnResult.resultTable.append("<td>");
+    returnResult.resultTable.append(row->email);
+    returnResult.resultTable.append("</td>");
+    returnResult.resultTable.append("</tr>");
 }
 
 /*--------------------------------------------------------------
   Select
   -------------------------------------------------------------*/
-ExecuteResult execute_select(Statement* statement, Table* table) {
+ExecuteResult execute_select(Table* table) {
   Row row;
   for (uint32_t i = 0; i < table->num_rows; i++) {
      deserialize_row(row_slot(table, i), &row);
@@ -363,66 +392,100 @@ ExecuteResult execute_statement(Statement* statement, Table *table) {
     case (STATEMENT_INSERT):
        	return execute_insert(statement, table);
     case (STATEMENT_SELECT):
-	    return execute_select(statement, table);
+	    return execute_select(table);
   }
+  return EXECUTE_SUCCESS;
 }
-
-
 
 /*--------------------------------------------------------------
   Parse Sql Statement
   -------------------------------------------------------------*/
- string parseSqlStatement(string _input) {
+ReturnResult parseSqlStatement(string _input) {
 
-    Table* table = db_open("db.dbf");
+    Table* table = db_open("db");
 
     InputBuffer* input_buffer = new_input_buffer();
     input_buffer->buffer = (char*)_input.c_str();
     input_buffer->buffer_length = _input.length();
+    if(input_buffer->buffer[0] == ' ')
+    {
+      db_close(table);
+      returnResult.error.append("trim input");
+      return returnResult;
+    }
 
-    string returnResult;
-
-        //Looking for meta prefix (.)
-        if (input_buffer->buffer[0] == '.') {
-            switch (do_meta_command(input_buffer, table)) {
-                case (META_COMMAND_SUCCESS):
-                return returnResult;
-                case (META_COMMAND_UNRECOGNIZED_COMMAND):
-                returnResult.append("Unrecognized command ");
-                returnResult.append(input_buffer->buffer);
-                return returnResult;
+    //Looking for meta prefix (.)
+    if (input_buffer->buffer[0] == '.') {
+        switch (do_meta_command(input_buffer, table)) {
+            case (META_COMMAND_SUCCESS):
+            {
+              db_close(table);
+              return returnResult;
+              break;
+            }
+            
+            case (META_COMMAND_UNRECOGNIZED_COMMAND):
+            {
+              db_close(table);
+              returnResult.error.append("Unrecognized command ");
+              returnResult.error.append(input_buffer->buffer);
+              return returnResult;
             }
         }
+    }
 
-        // Edit and prepare statements
-        Statement statement;
-        switch (prepare_statement(input_buffer, &statement)) {
-            case (PREPARE_SUCCESS):
-                break;
-            case (PREPARE_NEGATIVE_ID):
-                printf("ID must be positive.\n");
-                continue;
-            case (PREPARE_STRING_TOO_LONG):
-                printf("String is too long.\n");
-                continue;
-            case (PREPARE_SYNTAX_ERROR):
-                printf("Syntax error. Could not parse statement.\n");
-                continue;
-            case (PREPARE_UNRECOGNIZED_STATEMENT):
-                returnResult.append("Unrecognized keyword at start of ");
-                returnResult.append(input_buffer->buffer);
-                return returnResult;
+    // Edit and prepare statements
+    Statement statement;
+    switch (prepare_statement(input_buffer, &statement)) {
+        case (PREPARE_SUCCESS):
+            break;
+        case (PREPARE_NEGATIVE_ID):
+        {
+            db_close(table);
+            returnResult.error.append("ID must be positive.\n");
+            returnResult.error.append(input_buffer->buffer);
+            return returnResult;
+            break;
         }
-
-        //Execute statements
-        switch (execute_statement(&statement, table)) {
-            case (EXECUTE_SUCCESS):
-                returnResult.append("Executed.\n");
-                break;
-            case (EXECUTE_TABLE_FULL):
-                returnResult.append("Error: Table full.");
-                break;
+        case (PREPARE_STRING_TOO_LONG):
+        {
+          db_close(table);
+          returnResult.error.append("String is too long.\n");
+          returnResult.error.append(input_buffer->buffer);
+          return returnResult;
+          break;
         }
+        case (PREPARE_SYNTAX_ERROR):
+        {
+          db_close(table);
+          returnResult.error.append("Syntax error. Could not parse statement.\n");
+          returnResult.error.append(input_buffer->buffer);
+          return returnResult;
+          break;
+        }
+        case (PREPARE_UNRECOGNIZED_STATEMENT):
+        {
+          db_close(table);
+          returnResult.error.append("Unrecognized keyword at start of ");
+          returnResult.error.append(input_buffer->buffer);
+          return returnResult;
+          break;
+        }
+    }
 
-   return returnResult;
+    //Execute statements
+    switch (execute_statement(&statement, table)) {
+        case (EXECUTE_SUCCESS):
+        {
+          returnResult.message.append("Executed.\n");
+          break;
+        }
+        case (EXECUTE_TABLE_FULL):
+        {
+            returnResult.error.append("Error: Table full.");
+            break;
+        }
+    }
+    db_close(table);
+    return returnResult;
  }

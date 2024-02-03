@@ -64,7 +64,7 @@ string serializeCGIFormData(Cgicc _formData)
 /*---------------------------------------
    Deserialize Form Data
 -----------------------------------------*/
-void deserializeFormData(std::map<int, string> &_requestData, string _nameValue)
+void deserializeFormData(std::map<string, string> &_requestData, string _nameValue)
 {
 	/*  This is half of a serialize/deserialize process that passes html form data
 		through a named pipes in the form of name/value pairs then loads them into 
@@ -76,7 +76,7 @@ void deserializeFormData(std::map<int, string> &_requestData, string _nameValue)
 	traceFile.close();
 
 	char * token;
-	int name;
+	string name;
 	string value;
 	token = strtok (&_nameValue[0],"\n");
 	while(token != NULL)
@@ -85,7 +85,7 @@ void deserializeFormData(std::map<int, string> &_requestData, string _nameValue)
 		auto pos = wrk.find("|");
 		if(pos > 0)
 		{
-			name = atoi(wrk.substr(0,pos).c_str());
+			name = wrk.substr(0,pos).c_str();
 			value = wrk.substr(pos+1,wrk.length() - (pos+1));
 			//clear the space placed into an empty string by the Serializer
 			if((value.length() == 1)
