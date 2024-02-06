@@ -10,3 +10,4 @@ enum class DISPLAY
 	{ ERROR, INFO };
 
 bool debug = false;
+string errText;

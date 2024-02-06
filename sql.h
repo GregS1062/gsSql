@@ -354,9 +354,9 @@ ExecuteResult execute_insert(Statement* statement, Table* table) {
 }
 
 /*--------------------------------------------------------------
-  Print Row
+  Display Row
   -------------------------------------------------------------*/
-void print_row(Row* row) {
+void display_row(Row* row) {
     std::ostringstream o;
     o << row->id;
     returnResult.resultTable.append("<tr>");
@@ -379,7 +379,7 @@ ExecuteResult execute_select(Table* table) {
   Row row;
   for (uint32_t i = 0; i < table->num_rows; i++) {
      deserialize_row(row_slot(table, i), &row);
-     print_row(&row);
+     display_row(&row);
   }
   return EXECUTE_SUCCESS;
 }

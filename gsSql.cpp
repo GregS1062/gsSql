@@ -6,6 +6,7 @@
 #include "print.h"
 #include "tokenizer.h"
 #include "parseJason.h"
+#include "sqlClassLoader.h"
 #include "global.h"
 #include "sql.h"
 
@@ -13,25 +14,31 @@ using namespace std;
 
 int main()
 {
-    /* valueList* v;
-    keyValue* result;
-    keyValue* kv = parseDatabaseDefinition();
-    result = getDatabaseEntity(kv, lit_database, "bike");
-    result = getDatabaseEntity(result, lit_table, "customer");
-    result = getDatabaseEntity(result, lit_column, "givenname");
-    v = (valueList*)result->value;
-    if(v->t_type == t_Object)
+
+    loadSqlClasses("dbDef.json","bike");
+
+    table* t = tableHead;
+    while(t != nullptr)
     {
-        keyValue* nkv = (keyValue*)v->value;
-        printf("\ntype:%s", nkv->key);
-        v = (valueList*)nkv->value;
-        if(v->t_type == t_string)
-            printf("\nlength:%s", (char*)v->value);
+        printf("\n table %s",t->name.c_str());
+        printf(" recordlength %d",t->recordLength);
+        column* c = t->columnHead;
+        while(c != nullptr)
+        {
+            printf("\n\t %s",c->name.c_str());
+            printf(" length %d",c->length);
+            printf(" position %d",c->position);
+            c = c->next;
+        }
+        t = t->next;
     }
 
-    printf("\n\n"); */
+  
+    printf("\n");
+    return 0;
+
+    printf("\n\n"); 
     string htmlRequest = "select";
     string htmlResponse;
-    htmlResponse = parseSqlStatement(htmlRequest);
     printf("\n\n Executed = %s", htmlResponse.c_str());
 }

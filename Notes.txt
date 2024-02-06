@@ -8,4 +8,14 @@ A value can be a string or a number
 
 between begin and end quotes, include all characters.
 
+Edit Sql statement
+is table valid?
+Is column valid?
+
+list of columns
+build a linked list of columns
+    Edit
+    Length
+    Begin
+
  

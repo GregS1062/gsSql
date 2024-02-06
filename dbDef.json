@@ -10,10 +10,28 @@
                     "location":"customer.dat",
                     "columns":
                         [
-                            {
+                            {    
+                                "column":"deleted",
+                                "type":{
+                                    "char": 1
+                                    }
+                            },
+                            {    
                                 "column":"cust_id",
                                 "type":{
                                     "char": 8
+                                    }
+                            },
+                            {
+                                "column":"given_name",
+                                "type":{
+                                    "char": 21
+                                    }
+                            },
+                            {
+                                "column":"middle_initial",
+                                "type":{
+                                    "char": 2
                                     }
                             },
                             {    
@@ -23,9 +41,56 @@
                                     }
                             },
                             {
-                                "column":"givenname",
+                                "column":"phone",
                                 "type":{
                                     "char": 21
+                                    }
+                            },
+                            {
+                                "column":"email",
+                                "type":{
+                                    "char": 41
+                                    }
+                            },
+                            {
+                                "column":"street1",
+                                "type":{
+                                    "char": 31
+                                    }
+                            }
+                            ,
+                            {
+                                "column":"street2",
+                                "type":{
+                                    "char": 31
+                                    }
+                            }
+                            ,
+                            {
+                                "column":"city",
+                                "type":{
+                                    "char": 21
+                                    }
+                            }
+                            ,
+                            {
+                                "column":"state",
+                                "type":{
+                                    "char": 4
+                                    }
+                            }
+                            ,
+                            {
+                                "column":"country",
+                                "type":{
+                                    "char": 4
+                                    }
+                            }
+                            ,
+                            {
+                                "column":"zipcode",
+                                "type":{
+                                    "char": 11
                                     }
                             }
                         ]

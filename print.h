@@ -31,6 +31,30 @@ void indent(int8_t _t)
     for(int8_t i=0;i<_t;i++)
             printf("\t");
 }
+void printValueList(valueList* list)
+{
+    while(list != nullptr)
+    {
+        if(list->t_type == t_string)
+        {
+           // printf(" value = %s",(char*)list->value);
+        }
+        else
+        {
+            if(list->t_type == t_Object)
+            {
+                keyValue* kv = (keyValue*)list->value;
+                valueList* v2 = (valueList*)kv->value;
+                printf("\n key = %s",kv->key);
+                if(v2->t_type == t_string)
+                {
+                    printf(" value = %s",(char*)v2->value);
+                }
+            }
+        }
+        list = list->next;
+    }
+}
 void printValue(keyValue* kv, int8_t _t)
 {
     valueList* list = (valueList*)kv->value;
@@ -52,7 +76,7 @@ void printValue(keyValue* kv, int8_t _t)
                 }
                 case t_Object:
                 {
-                    printf("\n next value found in object");
+                    printDebug((char*)"\n next value found in object");
                     printObject((keyValue*)list->value,_t);
                     break;
                 }
