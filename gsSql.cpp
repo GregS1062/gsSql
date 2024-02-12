@@ -4,8 +4,8 @@
 #include <string.h>
 #include "keyValue.h"
 #include "print.h"
-#include "tokenizer.h"
 #include "parseJason.h"
+#include "parseSql.h"
 #include "sqlClassLoader.h"
 #include "global.h"
 #include "sql.h"
@@ -15,13 +15,33 @@ using namespace std;
 int main()
 {
 
+   /* sqlParser parser;
+    parser.parse("select cust, givenname, surname, middlename, address from customer, store");
+    printf("\n Columns \n");
+    tokens* nextTok = parser.getNextColumnToken(nullptr);  //get first token (head)
+    while( nextTok != nullptr)
+    {
+        printf("\n %s", nextTok->token);
+        nextTok = parser.getNextColumnToken(nextTok);
+    }
+    printf("\n\n Tables \n");
+    
+    nextTok = parser.getNextTableToken(nullptr);  //get first token (head)
+    while( nextTok != nullptr)
+    {
+        printf("\n %s", nextTok->token);
+        nextTok = parser.getNextTableToken(nextTok);
+    }
+    printf("\n\n");
+    */
     loadSqlClasses("dbDef.json","bike");
 
-    table* t = tableHead;
-    while(t != nullptr)
+     table* t = tableHead;
+  /* while(t != nullptr)
     {
         printf("\n table %s",t->name.c_str());
-        printf(" recordlength %d",t->recordLength);
+        printf("\n table location = %s", t->fileName.c_str());
+        printf("\n recordlength %d",t->recordLength);
         column* c = t->columnHead;
         while(c != nullptr)
         {
@@ -32,13 +52,12 @@ int main()
         }
         t = t->next;
     }
+    */ 
+    
+    
 
-  
-    printf("\n");
-    return 0;
-
-    printf("\n\n"); 
-    string htmlRequest = "select";
-    string htmlResponse;
-    printf("\n\n Executed = %s", htmlResponse.c_str());
+  // keyValue* jasonDef = parseJasonDatabaseDefinition("dbDef.json");
+  //  printObject(jasonDef,0);
+    printf("\n\n");
+ 
 }

@@ -25,12 +25,6 @@ enum t_edit{
     t_date
 };
 
-enum ParseResult
-{
-    SUCCESS,
-    FAILURE
-};
-
 class column
 {
     public:
@@ -42,24 +36,90 @@ class column
 };
 class table
 {
+    protected:
+        fstream* tableFile = new fstream{};
+    
     public:
-    string name;
-    int recordLength = 0;
-    column* columnHead = nullptr;
-    table*  next = nullptr;
+        string      name;
+        string      fileName;
+        int         recordLength = 0;
+        column*     columnHead = nullptr;
+        table*      next = nullptr;
+        fstream*    open();
+        void        close();
 };
+fstream* table::open()
+{
 
-table* tableHead;
-table* tableTail;
+		////Open index file
+		tableFile ->open(fileName, ios::in | ios::out | ios::binary);
+		if (!tableFile ->is_open()) {
+			return nullptr;
+		}
+        return tableFile;
+}
+void table::close()
+{
+    tableFile->close();
+}
+
+
+class sqlClassLoader
+{
+    table* tableHead;
+    table* tableTail;
+    public:
+        ParseResult calculateTableColumnValues(table*);
+        ParseResult loadSqlClasses(const char*, const char*);
+        ParseResult calculateTableColumnValues(table* _table);
+        ParseResult loadColumnValues(keyValue*, column*);
+        ParseResult loadColumns(keyValue*, table*);
+        ParseResult loadTables(valueList*);
+        table*      getTableByName(table*, char*);
+};
 /*-------------------------------------------------------------
     These functions read through the hierachy of key/value and 
     value lists built from a json file and load a hierarchy
     of classes to define the database, tables and columns
  ------------------------------------------------------------*/
+ /******************************************************
+ * Load Sql Classes
+ ******************************************************/
+ParseResult sqlClassLoader::loadSqlClasses(const char* _jasonFile, const char* _database)
+{
+    try
+    {
+        keyValue* jasonDef = parseJasonDatabaseDefinition(_jasonFile);
+        valueList* dbValueList = getNodeList(jasonDef,lit_databaseList);
+        keyValue* databaseDef = getMember(dbValueList,_database);
+        if(databaseDef == nullptr)
+        {
+            errText.append("<p> Failed to find database ");
+            errText.append(_database);
+            return ParseResult::FAILURE;
+        }
+
+        valueList* tableList = getNodeList(databaseDef,lit_tableList);
+        if(tableList == nullptr)
+        {
+            errText.append("<p> Failed to find table list for database ");
+            errText.append(_database);
+            return ParseResult::FAILURE;
+        }
+
+        return loadTables(tableList);
+    }
+    catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return ParseResult::FAILURE;
+    }
+    
+}
 /******************************************************
  * Calculate Table Column Values
  ******************************************************/
-ParseResult calculateTableColumnValues(table* _table)
+ParseResult sqlClassLoader::calculateTableColumnValues(table* _table)
 {
     try
     {
@@ -85,7 +145,7 @@ ParseResult calculateTableColumnValues(table* _table)
 /******************************************************
  * Load Column Values
  ******************************************************/
-ParseResult loadColumnValues(keyValue* _columnKV, column* _column)
+ParseResult sqlClassLoader::loadColumnValues(keyValue* _columnKV, column* _column)
 {
     try
     {
@@ -119,7 +179,7 @@ ParseResult loadColumnValues(keyValue* _columnKV, column* _column)
 /******************************************************
  * Load Columns
  ******************************************************/
-ParseResult loadColumns(keyValue* _tableKV, table* _table)
+ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, table* _table)
 {
     try
     {
@@ -159,34 +219,35 @@ ParseResult loadColumns(keyValue* _tableKV, table* _table)
 /******************************************************
  * Load Tables
  ******************************************************/
-ParseResult loadTables(valueList* _tableList)
+ParseResult sqlClassLoader::loadTables(valueList* _tableList)
 {
     try{
         while(_tableList != nullptr)
         {
             if(_tableList->t_type == t_Object)
             {
+                table* t = new table();
                 keyValue* kv = (keyValue*)_tableList->value;
                 valueList* v2 = (valueList*)kv->value;
                 if(v2->t_type == t_string)
                 {
-                    table* t = new table();
                     t->name = (char*)v2->value;
+                }
+                t->fileName = getMemberValue(kv,"location");
+ 
+                if(loadColumns(kv,t) == ParseResult::FAILURE)
+                    return ParseResult::FAILURE;
 
-                    if(loadColumns(kv,t) == ParseResult::FAILURE)
-                        return ParseResult::FAILURE;
-
-                    if(tableHead == nullptr)
-                    {
-                        tableHead = t;
-                        tableTail = t;
-                    }
-                    else
-                    {
-                        table* temp = tableTail;
-                        tableTail = t;
-                        temp->next = t;
-                    }
+                if(tableHead == nullptr)
+                {
+                    tableHead = t;
+                    tableTail = t;
+                }
+                else
+                {
+                    table* temp = tableTail;
+                    tableTail = t;
+                    temp->next = t;
                 }
             }
             _tableList = _tableList->next;
@@ -200,37 +261,17 @@ ParseResult loadTables(valueList* _tableList)
     }
 
 }
+
 /******************************************************
- * Load Sql Classes
+ * Get Table By Name
  ******************************************************/
-ParseResult loadSqlClasses(const char* _jasonFile, const char* _database)
+table* sqlClassLoader::getTableByName(table* _tableList, char* _tableName)
 {
-    try
+    while(_tableList != nullptr)
     {
-        keyValue* jasonDef = parseJasonDatabaseDefinition(_jasonFile);
-        valueList* dbValueList = getNodeList(jasonDef,lit_databaseList);
-        keyValue* databaseDef = getMember(dbValueList,_database);
-        if(databaseDef == nullptr)
-        {
-            errText.append("<p> Failed to find database ");
-            errText.append(_database);
-            return ParseResult::FAILURE;
-        }
-
-        valueList* tableList = getNodeList(databaseDef,lit_tableList);
-        if(tableList == nullptr)
-        {
-            errText.append("<p> Failed to find table list for database ");
-            errText.append(_database);
-            return ParseResult::FAILURE;
-        }
-
-        return loadTables(tableList);
+        if(strcmp(_tableList->name.c_str(), _tableName) == 0)
+            return _tableList;
+        _tableList = _tableList->next;
     }
-    catch(const std::exception& e)
-    {
-        errText.append( e.what());
-        return ParseResult::FAILURE;
-    }
-    
+    return nullptr;
 }

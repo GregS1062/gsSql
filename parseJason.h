@@ -5,27 +5,24 @@
 #include <string.h>
 #include "keyValue.h"
 #include "print.h"
-#include "tokenizer.h"
 
 using namespace std;
 
-char colon = ':';
-char comma = ',';
-char quote = '"';
 char openObject = '{';
 char closeObject = '}';
 char openList = '[';
 char closeList = ']';
-char space = ' ';
-char newline = '\n';
+
 
 keyValue* getKeyValues(ifstream& in);
 keyValue* getObject(ifstream& in);
 
 tokenResult* tkResult;
 /*-------------------------------------------------------------
-    These functions parses a json text file into a hierachy
-    of key/values and value lists
+    These functions parses a json text file into a hierachial
+    structure consisting of key/values and value lists.
+
+    The purpose is generic and not tied to SQL.
  --------------------------------------------------------------*/
 /******************************************************
  * getToken  Read tokens from file
@@ -46,7 +43,7 @@ tokenResult* getToken(ifstream& in)
             if(debug)
                 printf("%c",c);
 
-            if(c == quote)
+            if(c == QUOTE)
             {
                 if(betweenQuotes)
                 {
@@ -60,8 +57,8 @@ tokenResult* getToken(ifstream& in)
                 continue;
             }
 
-            if((c == space && !betweenQuotes)  //Elinimate white space but not inside token
-            || c == newline)
+            if((c == SPACE && !betweenQuotes)  //Elinimate white SPACE but not inside token
+            || c == NEWLINE)
             {
                 continue;
             }
@@ -72,8 +69,8 @@ tokenResult* getToken(ifstream& in)
                 return tkResult;  
             }
 
-            if(c == comma
-            || c == colon
+            if(c == COMMA
+            || c == COLON
             || c == closeObject
             || c == closeList)
             {
@@ -204,7 +201,7 @@ keyValue* getKeyValues(ifstream& in)
         keyValue* newkv = getKeyValue(in);
         keyValue* head = newkv;
         keyValue* tail = head;
-        while(tkResult->lastChar == comma)
+        while(tkResult->lastChar == COMMA)
         {
             newkv = getKeyValue(in);
             keyValue* temp = tail;
@@ -358,6 +355,27 @@ keyValue* getMember(valueList* _vl, const char* _key)
                 }
             }
             _vl = _vl->next;
+        }  
+        return nullptr;
+    }
+    catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return nullptr;
+    }  
+}
+/****************************************************************
+   Get Member
+ ****************************************************************/
+keyValue* getMember(keyValue* _kv, const char* _key)
+{
+    try
+    {
+        while(_kv != nullptr)
+        {
+            if(strcmp(_kv->key,_key) == 0)
+                return _kv;
+            _kv = _kv->next;
         }  
         return nullptr;
     }
