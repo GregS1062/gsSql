@@ -34,7 +34,7 @@ class column
     int position = 0;
     column* next = nullptr;
 };
-class table
+class ctable
 {
     protected:
         fstream* tableFile = new fstream{};
@@ -44,13 +44,12 @@ class table
         string      fileName;
         int         recordLength = 0;
         column*     columnHead = nullptr;
-        table*      next = nullptr;
+        ctable*      next = nullptr;
         fstream*    open();
         void        close();
 };
-fstream* table::open()
+fstream* ctable::open()
 {
-
 		////Open index file
 		tableFile ->open(fileName, ios::in | ios::out | ios::binary);
 		if (!tableFile ->is_open()) {
@@ -58,7 +57,7 @@ fstream* table::open()
 		}
         return tableFile;
 }
-void table::close()
+void ctable::close()
 {
     tableFile->close();
 }
@@ -66,16 +65,15 @@ void table::close()
 
 class sqlClassLoader
 {
-    table* tableHead;
-    table* tableTail;
+    ctable* tableHead;
+    ctable* tableTail;
     public:
-        ParseResult calculateTableColumnValues(table*);
         ParseResult loadSqlClasses(const char*, const char*);
-        ParseResult calculateTableColumnValues(table* _table);
+        ParseResult calculateTableColumnValues(ctable*);
         ParseResult loadColumnValues(keyValue*, column*);
-        ParseResult loadColumns(keyValue*, table*);
+        ParseResult loadColumns(keyValue*, ctable*);
         ParseResult loadTables(valueList*);
-        table*      getTableByName(table*, char*);
+        ctable*      getTableByName(char*);
 };
 /*-------------------------------------------------------------
     These functions read through the hierachy of key/value and 
@@ -119,7 +117,7 @@ ParseResult sqlClassLoader::loadSqlClasses(const char* _jasonFile, const char* _
 /******************************************************
  * Calculate Table Column Values
  ******************************************************/
-ParseResult sqlClassLoader::calculateTableColumnValues(table* _table)
+ParseResult sqlClassLoader::calculateTableColumnValues(ctable* _table)
 {
     try
     {
@@ -179,7 +177,7 @@ ParseResult sqlClassLoader::loadColumnValues(keyValue* _columnKV, column* _colum
 /******************************************************
  * Load Columns
  ******************************************************/
-ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, table* _table)
+ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, ctable* _table)
 {
     try
     {
@@ -226,7 +224,7 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
         {
             if(_tableList->t_type == t_Object)
             {
-                table* t = new table();
+                ctable* t = new ctable();
                 keyValue* kv = (keyValue*)_tableList->value;
                 valueList* v2 = (valueList*)kv->value;
                 if(v2->t_type == t_string)
@@ -245,7 +243,7 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
                 }
                 else
                 {
-                    table* temp = tableTail;
+                    ctable* temp = tableTail;
                     tableTail = t;
                     temp->next = t;
                 }
@@ -265,13 +263,15 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
 /******************************************************
  * Get Table By Name
  ******************************************************/
-table* sqlClassLoader::getTableByName(table* _tableList, char* _tableName)
+ctable* sqlClassLoader::getTableByName(char* _tableName)
 {
-    while(_tableList != nullptr)
+    ctable* tableList = tableHead;
+    while(tableList != nullptr)
     {
-        if(strcmp(_tableList->name.c_str(), _tableName) == 0)
-            return _tableList;
-        _tableList = _tableList->next;
+        //printf("\n %s",tableList->name.c_str());
+        if(strcmp(tableList->name.c_str(), _tableName) == 0)
+            return tableList;
+        tableList = tableList->next;
     }
     return nullptr;
 }

@@ -7,11 +7,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <syslog.h>
+#include "parseJason.h"
+#include "parseSql.h"
+#include "sqlClassLoader.h"
+#include "sqlEngine.h"
 #include "global.h"
 #include "userException.h"
 #include "pipes.h"
 #include "keyValue.h"
-#include "sql.h"
 
 #include <cgicc/CgiDefs.h> 
 #include <cgicc/Cgicc.h> 
@@ -27,6 +30,8 @@ using namespace cgicc;
 int main()
 {
     Cgicc formData;
+
+	ReturnResult returnResult;
 
 	string htmlRequest = "hello";
 
@@ -48,8 +53,27 @@ int main()
 			}
 		}
 		
-		//Process the SQL statement
-		returnResult = parseSqlStatement(htmlRequest);
+	sqlParser* parser = new sqlParser();
+    sqlClassLoader* loader = new sqlClassLoader();
+
+	parser->parse(htmlRequest.c_str());
+    
+    loader->loadSqlClasses("dbDef.json","bike");
+    
+    ctable* qtable = loader->getTableByName((char*)"customer");
+    if(qtable == nullptr)
+    {
+		returnResult.error.append("customer table not found");
+    }
+	else{
+    
+		sqlEngine* engine = new sqlEngine(parser,qtable);
+		if(engine->open() == ParseResult::SUCCESS)
+		{
+			engine->selectQueryColumns();
+			returnResult.resultTable = engine->fetchRow();
+		}
+	}
 
 		//Format output
 		htmlResponse.append("Content-type:text/html\r\n\r\n");
@@ -69,7 +93,7 @@ int main()
 		htmlResponse.append("\n\t</tr>");
 		htmlResponse.append("\n\t<tr>");
 		htmlResponse.append("\n\t\t<td colspan=\"3\">");
-		htmlResponse.append("\n\t\t<textarea name=\"query\" rows=\"5\" cols=\"80\" wrap=\"soft\" maxlength=\"60\"");
+		htmlResponse.append("\n\t\t<textarea name=\"query\" rows=\"5\" cols=\"80\" wrap=\"soft\" maxlength=\"1000\"");
 		htmlResponse.append(" style=\"overflow:hidden; resize:none; font-size:24px;\">");
 		//Echo request statement
 		htmlResponse.append(htmlRequest);

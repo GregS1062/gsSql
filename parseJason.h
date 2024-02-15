@@ -80,7 +80,7 @@ tokenResult* getToken(ifstream& in)
                 return tkResult;                          //return unique pointer address
             }
 
-            token[i] = c;                               //populate char[]
+            token[i] = c;                //populate char[]
             i++;                                        //increment char cursor
         }
         return tkResult;

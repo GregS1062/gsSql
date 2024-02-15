@@ -15,13 +15,6 @@ using namespace std;
 #define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute);
 #define TABLE_MAX_PAGES 100
 
-class ReturnResult{
-  public:
-  string resultTable;
-  string message;
-  string error;
-};
-
 typedef enum { 
   EXECUTE_SUCCESS, 
   EXECUTE_TABLE_FULL 

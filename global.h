@@ -13,8 +13,15 @@ using namespace std;
 #define COMMA 			','
 #define MAXSQLTOKENSIZE	50
 
-#define errorColor "#ef7f7d"
-#define infoColor "#f9f1b2"
+#define errorColor  "#ef7f7d"
+#define infoColor   "#f9f1b2"
+
+#define cellBegin   "<td>"
+#define cellEnd     "</td>"
+#define rowBegin    "<tr>"
+#define rowEnd      "</tr>"
+#define hdrBegin    "<th>"
+#define hdrEnd      "</th>"
 
 enum class DISPLAY
 	{ ERROR, INFO };
@@ -23,6 +30,13 @@ enum ParseResult
 {
     SUCCESS,
     FAILURE
+};
+
+class ReturnResult{
+  public:
+  string resultTable;
+  string message;
+  string error;
 };
 
 bool debug = false;

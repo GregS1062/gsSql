@@ -7,7 +7,7 @@
             [
                 {
                     "table": "customer",
-                    "location":"customer.dat",
+                    "location":"/home/gregs/projects/bikeData/Customers.dat",
                     "columns":
                         [
                             {    
@@ -17,19 +17,19 @@
                                     }
                             },
                             {    
-                                "column":"cust_id",
+                                "column":"custid",
                                 "type":{
-                                    "char": 8
+                                    "char": 11
                                     }
                             },
                             {
-                                "column":"given_name",
+                                "column":"givenname",
                                 "type":{
                                     "char": 21
                                     }
                             },
                             {
-                                "column":"middle_initial",
+                                "column":"middleinitial",
                                 "type":{
                                     "char": 2
                                     }

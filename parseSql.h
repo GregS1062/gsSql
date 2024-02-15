@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include "sqlClassLoader.h"
 
@@ -77,7 +78,6 @@ ParseResult sqlParser::determineAction(char* _token)
 }
 ParseResult sqlParser::addToken(char* _token)
 {
-
     tokens* tok = new tokens();
     tok->token = (char*)malloc(strlen(_token));
     strcpy(tok->token,_token);
@@ -215,7 +215,7 @@ ParseResult sqlParser::parse(const char* _sql)
             }
         }
         isToken = true;
-        token[t] = (char)toupper(c);
+        token[t] = c;
         t++;
     }
     if(t>0)
