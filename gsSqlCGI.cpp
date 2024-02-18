@@ -13,7 +13,7 @@
 #include "sqlEngine.h"
 #include "global.h"
 #include "userException.h"
-#include "pipes.h"
+//#include "pipes.h"
 #include "keyValue.h"
 
 #include <cgicc/CgiDefs.h> 
@@ -70,10 +70,14 @@ int main()
 		sqlEngine* engine = new sqlEngine(parser,qtable);
 		if(engine->open() == ParseResult::SUCCESS)
 		{
-			engine->selectQueryColumns();
-			returnResult.resultTable = engine->fetchRow();
+			if(engine->selectQueryColumns() == ParseResult::SUCCESS)
+			{
+				returnResult.resultTable = engine->fetchRow();
+			}
 		}
 	}
+
+	returnResult.error.append(errText);
 
 		//Format output
 		htmlResponse.append("Content-type:text/html\r\n\r\n");
@@ -83,7 +87,7 @@ int main()
 		htmlResponse.append("\n<link rel=\"stylesheet\" href=\"gsSql.css\">");
 		htmlResponse.append("\n<body>");
 		htmlResponse.append("\n<FORM METHOD=POST ACTION=\"http://localhost/gsSql.cgi#\">");
-		htmlResponse.append("\n<table>");
+		htmlResponse.append("\n<table style=""width:100%"">");
 		htmlResponse.append("\n\t<tr>");
 		htmlResponse.append("\n\t<td width=\"30%\"></td>");
 		htmlResponse.append("\n\t<td width=\"30%\" style=\"text-align:center; font-size:34px;\">Enter Query</td>");
@@ -93,9 +97,8 @@ int main()
 		htmlResponse.append("\n\t</tr>");
 		htmlResponse.append("\n\t<tr>");
 		htmlResponse.append("\n\t\t<td colspan=\"3\">");
-		htmlResponse.append("\n\t\t<textarea name=\"query\" rows=\"5\" cols=\"80\" wrap=\"soft\" maxlength=\"1000\"");
+		htmlResponse.append("\n\t\t<textarea name=\"query\" rows=\"5\" cols=\"100\" wrap=\"soft\" maxlength=\"1000\"");
 		htmlResponse.append(" style=\"overflow:hidden; resize:none; font-size:24px;\">");
-		//Echo request statement
 		htmlResponse.append(htmlRequest);
 		htmlResponse.append("</textarea>");
 		htmlResponse.append("\n\t\t</td>");
@@ -114,7 +117,8 @@ int main()
 		htmlResponse.append("\n\t\t</div>");
 		htmlResponse.append("\n\t\t</td>");
 		htmlResponse.append("\n\t</tr>");
-		htmlResponse.append("\n<table>");
+		htmlResponse.append("\n</table>");
+		htmlResponse.append("\n<table style=""width:100%"">");
 		htmlResponse.append(returnResult.resultTable);
 		htmlResponse.append("\n</table>");
 		htmlResponse.append("\n</FORM>");

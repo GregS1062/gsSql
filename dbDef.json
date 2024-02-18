@@ -7,7 +7,7 @@
             [
                 {
                     "table": "customer",
-                    "location":"/home/gregs/projects/bikeData/Customers.dat",
+                    "location":"Customers.dat",
                     "columns":
                         [
                             {    

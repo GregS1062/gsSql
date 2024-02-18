@@ -5,10 +5,10 @@
 using namespace std;
 
 #define NEGATIVE		-1
-#define QUOTE			'"'
+#define QUOTE			  '"'
 #define SPACE  			' '
 #define NEWLINE 		'\n'
-#define TAB 			'\t'
+#define TAB 			  '\t'
 #define COLON 			':'
 #define COMMA 			','
 #define MAXSQLTOKENSIZE	50
@@ -16,11 +16,12 @@ using namespace std;
 #define errorColor  "#ef7f7d"
 #define infoColor   "#f9f1b2"
 
+#define gtr         ">"
 #define cellBegin   "<td>"
 #define cellEnd     "</td>"
 #define rowBegin    "<tr>"
 #define rowEnd      "</tr>"
-#define hdrBegin    "<th>"
+#define hdrBegin    "<th"
 #define hdrEnd      "</th>"
 
 enum class DISPLAY

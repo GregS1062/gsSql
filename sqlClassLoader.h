@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <cstdio>
+#include <list>
 #include "keyValue.h"
 #include "parseJason.h"
 #include "global.h"
@@ -32,7 +33,6 @@ class column
     t_edit edit;
     int length = 0;
     int position = 0;
-    column* next = nullptr;
 };
 class ctable
 {
@@ -40,19 +40,21 @@ class ctable
         fstream* tableFile = new fstream{};
     
     public:
-        string      name;
-        string      fileName;
-        int         recordLength = 0;
-        column*     columnHead = nullptr;
-        ctable*      next = nullptr;
-        fstream*    open();
-        void        close();
+        string          name;
+        string          fileName;
+        int             recordLength = 0;
+        list<column*>   columns;
+        ctable*         next = nullptr;
+        fstream*        open();
+        void            close();
 };
 fstream* ctable::open()
 {
 		////Open index file
 		tableFile ->open(fileName, ios::in | ios::out | ios::binary);
 		if (!tableFile ->is_open()) {
+            errText.append(fileName);
+            errText.append(" not opened ");
 			return nullptr;
 		}
         return tableFile;
@@ -73,7 +75,7 @@ class sqlClassLoader
         ParseResult loadColumnValues(keyValue*, column*);
         ParseResult loadColumns(keyValue*, ctable*);
         ParseResult loadTables(valueList*);
-        ctable*      getTableByName(char*);
+        ctable*     getTableByName(char*);
 };
 /*-------------------------------------------------------------
     These functions read through the hierachy of key/value and 
@@ -123,13 +125,11 @@ ParseResult sqlClassLoader::calculateTableColumnValues(ctable* _table)
     {
         int recordLength        = 0;
         int position            = 0;
-        column* c               = _table->columnHead;
-        while(c != nullptr)
+        for(column* c : _table->columns)
         {
             c->position     = position;
             position        = position + c->length;
             recordLength    = recordLength + c->length;
-            c = c->next;
         }
         _table->recordLength = recordLength;
         return ParseResult::SUCCESS;
@@ -181,7 +181,6 @@ ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, ctable* _table)
 {
     try
     {
-        column* tail = new column();
 
         valueList* columnList = getNodeList(_tableKV,lit_columnList);
         while(columnList != nullptr)
@@ -193,14 +192,7 @@ ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, ctable* _table)
                 column* c = new column();
                 c->name = (char*)v2->value;
                 loadColumnValues(kv,c);
-                if(_table->columnHead == nullptr)
-                {
-                    _table->columnHead = c;
-                    tail = c;
-                }
-                column* temp = tail;
-                tail = c;
-                temp->next = c;
+                _table->columns.push_back(c);
             }
             columnList = columnList->next;
         }

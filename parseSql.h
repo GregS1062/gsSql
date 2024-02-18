@@ -1,14 +1,18 @@
 #pragma once
 #include <string>
+#include <list>
 #include "sqlClassLoader.h"
 
 using namespace std;
 
-#define sqlTokenCreate  "CREATE"
-#define sqlTokenDelete  "DELETE"
-#define sqlTokenFrom    "FROM"
-#define sqlTokenSelect  "SELECT"
-#define sqlTokenUpdate  "UPDATE"
+#define sqlTokenSelect      "SELECT"
+#define sqlTokenTop         "TOP"
+#define sqlTokenAsterisk    "*"
+#define sqlTokenFrom        "FROM"
+#define sqlTokenWhere       "WHERE"
+#define sqlTokenCreate      "CREATE"
+#define sqlTokenDelete      "DELETE"
+#define sqlTokenUpdate      "UPDATE"
 
 enum class SQLACTION{
     NOACTION,
@@ -19,55 +23,56 @@ enum class SQLACTION{
     DELETE
 };
 
-class tokens
+class condition
 {
     public:
-    char* token;
-    tokens* next = nullptr;
+        char* conColumn     = nullptr;
+        char* conOperator   = nullptr;
+        char* conValue      = nullptr;
 };
 
 class sqlParser
 {
     public:
-    tokens* columnHead = nullptr;
-    tokens* columnTail = nullptr;
-    tokens* tableHead = nullptr;
-    tokens* tableTail = nullptr;
 
+    list<char*> queryColumn;
+    list<char*> queryTable;
     ParseResult parse(const char*);
     ParseResult addToken(char*);
+    ParseResult addCondition(char*);
     bool        isToken(char*);
-    bool        isColumn = false;
-    bool        isTable  = false;
-    tokens*     getNextColumnToken(tokens*);
-    tokens*     getNextTableToken(tokens*);
     ParseResult determineAction(char*);
-
-
-    SQLACTION sqlAction = SQLACTION::NOACTION;
+    bool        ignoringCaseIsEqual(char*, const char*);
+    
+    condition*  conditions      = nullptr;
+    int         rowsToReturn    = 0;
+    bool        isColumn        = false;
+    bool        isTable         = false;
+    bool        isTop           = false;
+    bool        isCondition     = false;
+    SQLACTION sqlAction         = SQLACTION::NOACTION;
 };
 ParseResult sqlParser::determineAction(char* _token)
 {
-
-    if(strcmp(_token,sqlTokenSelect) == 0)
+    if(ignoringCaseIsEqual(_token,sqlTokenSelect))
     {
         sqlAction = SQLACTION::SELECT;
         return ParseResult::SUCCESS;
     }
     
-    if(strcmp(_token,sqlTokenUpdate) == 0)
+    if(ignoringCaseIsEqual(_token,sqlTokenUpdate))
     {
         sqlAction = SQLACTION::UPDATE;
         return ParseResult::SUCCESS;
     }
 
-    if(strcmp(_token,sqlTokenDelete) == 0)
+    if(ignoringCaseIsEqual(_token,sqlTokenDelete))
     {
         sqlAction = SQLACTION::DELETE;
         return ParseResult::SUCCESS;
     }
 
-    if(strcmp(_token,sqlTokenCreate) == 0)
+    if(ignoringCaseIsEqual(_token,sqlTokenCreate))
     {
         sqlAction = SQLACTION::CREATE;
         return ParseResult::SUCCESS;
@@ -76,106 +81,140 @@ ParseResult sqlParser::determineAction(char* _token)
     sqlAction = SQLACTION::INVALID;
     return ParseResult::FAILURE;
 }
+ParseResult sqlParser::addCondition(char* _token)
+{
+    /* First sprint: Looking for 4 things:
+        A column name   - text not enclosed in quotes
+        A value         - enclosed in quotes
+        A numeric       - no quotes, but numeric
+        An operator     - Math operators =, !=, <>, >, <, >=, <=
+
+        Initially only looking for column, opeator, value in quotes
+    */
+
+    if(conditions == nullptr)
+        conditions = new condition();
+
+    if(conditions->conColumn == nullptr)
+    {
+        conditions->conColumn = _token;
+        return ParseResult::SUCCESS;
+    }
+    if(conditions->conOperator == nullptr)
+    {
+        conditions->conOperator = _token;
+        return ParseResult::SUCCESS;
+    }
+    if(conditions->conValue == nullptr)
+    {
+        //strip quotes from value
+        size_t s = 0;
+        size_t len = strlen(_token);
+        for(size_t i = 0;i< len; i++)
+        {
+            if(_token[i] == QUOTE)
+                s++;
+
+            if(_token[s] == QUOTE)
+            {
+                _token[i] = '\0';
+            }
+            else{
+                _token[i] = _token[s];
+            }
+            s++;  
+        }
+        
+        conditions->conValue = _token;
+        return ParseResult::SUCCESS;
+    }
+    return ParseResult::FAILURE;
+}
 ParseResult sqlParser::addToken(char* _token)
 {
-    tokens* tok = new tokens();
-    tok->token = (char*)malloc(strlen(_token));
-    strcpy(tok->token,_token);
+    char* token = (char*)malloc(strlen(_token));
+    strcpy(token,_token);
 
     //This is the first token and must be the sql verb
     if(sqlAction == SQLACTION::NOACTION)
     {
-        if(determineAction(_token) != ParseResult::SUCCESS)
+        if(determineAction(token) != ParseResult::SUCCESS)
                 return ParseResult::FAILURE;
 
         isColumn = true;
         return ParseResult::SUCCESS;
     }
 
-    if(strcmp(_token,sqlTokenFrom) == 0)
+    //Conditions are everything after the WHERE clause
+    //  It is best that the columns,values and compares be isolated
+    //  from the Action segment of the statment.
+
+    if(isCondition)
+    {
+        return addCondition(token);
+    }
+
+    if(isTop)
+    {
+        rowsToReturn = atoi(token);
+        isTop = false;
+        isColumn = true;
+        return ParseResult::SUCCESS;
+    }
+    
+    if(ignoringCaseIsEqual(_token,sqlTokenAsterisk))
+    {
+        isColumn = false;
+        isTable = false;
+        queryColumn.push_back(token);
+        return ParseResult::SUCCESS;
+    }
+
+    if(ignoringCaseIsEqual(_token,sqlTokenFrom))
     {
         isColumn = false;
         isTable = true;
         return ParseResult::SUCCESS;
     }
 
+    if(ignoringCaseIsEqual(token,sqlTokenTop))
+    {
+        isColumn = false;
+        isTable = false;
+        isTop   = true;
+        return ParseResult::SUCCESS;
+    }
+
+    if(ignoringCaseIsEqual(token,sqlTokenWhere))
+    {
+        isColumn    = false;
+        isTable     = false;
+        isTop       = false;
+        isCondition = true;
+        return ParseResult::SUCCESS;
+    }
+
     if(isColumn)
     {
-        if(columnHead == nullptr)
-        {
-            columnHead = tok;
-            columnTail = tok;
-            return ParseResult::SUCCESS;
-        }
-        else
-        {
-            tokens* temp = columnTail;
-            columnTail = tok;
-            temp->next = tok;
-            return ParseResult::SUCCESS;
-        }
+        queryColumn.push_back(token);
+        return ParseResult::SUCCESS;
     }
 
     if(isTable)
     {
-        if(tableHead == nullptr)
-        {
-            tableHead = tok;
-            tableTail = tok;
-            return ParseResult::SUCCESS;
-        }
-        else
-        {
-            tokens* temp = tableTail;
-            tableTail = tok;
-            temp->next = tok;
-            return ParseResult::SUCCESS;
-        }
+        queryTable.push_back(token);
+        return ParseResult::SUCCESS;
     }
-
 
     return ParseResult::FAILURE;
 }
-tokens* sqlParser::getNextColumnToken(tokens* _token)
-{
-    try
-    {
-        if(_token == nullptr)
-        {
-            return columnHead;
-        }
-        return _token->next;
-    }
-    catch(const std::exception& e)
-    {
-        errText.append( e.what());
-        return nullptr;
-    } 
-}
-tokens* sqlParser::getNextTableToken(tokens* _token)
-{
-    try
-    {
-        if(_token == nullptr)
-        {
-            return tableHead;
-        }
-        return _token->next;
-    }
-    catch(const std::exception& e)
-    {
-        errText.append( e.what());
-        return nullptr;
-    } 
-}
+
 bool sqlParser::isToken(char* _token)
 {
-    tokens* tok = columnHead;
-    while(tok != nullptr)
+    for(char* token : queryColumn)
     {
-        if(strcmp(tok->token,_token) == 0)
+        if(strcmp(token,_token) == 0)
             return true;
-        tok = tok->next;
     }
     return false;
 }
@@ -218,7 +257,7 @@ ParseResult sqlParser::parse(const char* _sql)
         token[t] = c;
         t++;
     }
-    if(t>0)
+    if(t > 0)
     {
         token[t] = '\0';
 
@@ -227,8 +266,15 @@ ParseResult sqlParser::parse(const char* _sql)
     }
     return ParseResult::SUCCESS;
 }
+bool sqlParser::ignoringCaseIsEqual(char* _str1, const char* _str2)
+{
+	if(strlen(_str1) != strlen(_str2))
+		return false;
 
-
-
-
- 
+	for(size_t i = 0;i<strlen(_str1); i++)
+	{
+		if(tolower(_str1[i]) != tolower(_str2[i]))
+			return false;
+	}
+	return true;
+}

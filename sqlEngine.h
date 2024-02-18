@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <list>
-
 #include "global.h"
 #include "sqlClassLoader.h"
 #include "parseSql.h"
@@ -18,17 +17,22 @@ class sqlEngine
 	/***************************************
 	 * Assuming a single table for now
 	*******************************************/
-	ctable* 			queryTable;
+	ctable* 		queryTable;
 	fstream* 		tableStream;
 	sqlParser* 		query;
 	list<column*>	queryColumn;
+	char* line;
+	//assuming one column
+	column* conditionColumn = nullptr;
 
 	public:
     	sqlEngine(sqlParser*, ctable*);
 		ParseResult open();
+		ParseResult close();
 		ParseResult selectQueryColumns();
 		string 		fetchRow();
 		char* 		getRecord(long, fstream*, int);
+		bool		queryContitionsMet();
 };
 
 sqlEngine::sqlEngine(sqlParser* _query, ctable* _table)
@@ -52,55 +56,144 @@ ParseResult sqlEngine::open()
 		
 		return ParseResult::FAILURE;
 }
+ParseResult sqlEngine::close()
+{
+	tableStream->close();
+	return ParseResult::SUCCESS;
+}
+bool sqlEngine::queryContitionsMet()
+{
+	if(query->conditions == nullptr)
+		return true;
+		
+	if(conditionColumn == nullptr)
+	{
+		for(column* col : queryTable->columns)
+		{
+			if(query->ignoringCaseIsEqual(query->conditions->conColumn,col->name.c_str()))
+			{
+				conditionColumn = col;
+				break;
+			}
+		}
+	}
+	if(conditionColumn == nullptr)
+	{
+		errText.append(" condition column ");
+		errText.append(query->conditions->conColumn);
+		errText.append(" condition operator ");
+		errText.append(query->conditions->conOperator);
+		errText.append(" condition value ");
+		errText.append(query->conditions->conValue);
+		errText.append(" not found ");
+		query->rowsToReturn = 0;
+		return false;
+	}
+	
+	char buff[60];
+	strncpy(buff, line+conditionColumn->position, conditionColumn->length);
+	buff[conditionColumn->length] = '\0';
+	if(strcmp(query->conditions->conValue,buff) == 0)
+	{
+		return true;
+	}
+	return false;
+}
 ParseResult sqlEngine::selectQueryColumns()
 {
-	tokens* col = query->getNextColumnToken(nullptr);
-	while(col != nullptr)
+	bool syntaxError = false;
+	bool match = false;
+	for(char* token : query->queryColumn)
 	{
-		column* qColumn          = queryTable->columnHead;
-        while(qColumn != nullptr)
+		match = false; 
+        for(column* qColumn : queryTable->columns)
         {
-            if(strcmp(col->token,qColumn->name.c_str()) == 0)
+			if(query->ignoringCaseIsEqual(token,sqlTokenAsterisk))
 			{
+				match = true;
 				queryColumn.push_back(qColumn);
 			}
-            qColumn = qColumn->next;
+			if (query->ignoringCaseIsEqual(token,qColumn->name.c_str()))
+			{
+				match = true;
+				queryColumn.push_back(qColumn);
+				break;
+			}
         }
-		col = col->next;
+		if(!match)
+		{
+			errText.append(" ");
+			errText.append(token);
+			errText.append(" not found ");
+			syntaxError = true;
+		}
 	}
+	if(syntaxError)
+		return ParseResult::FAILURE;
+
 	return ParseResult::SUCCESS;
 }
 string sqlEngine::fetchRow()
 {
 	string rowResponse;
+	string header;
 	int recordPosition = 0;
-	char* line;
 	char buff[60];
 
-	rowResponse.append(rowBegin);
+
+	int sumOfColumnSize = 0;
+
+	//list<int>columnSize;
 	for (column* col : queryColumn)
 	{
-		rowResponse.append("\n");
-		rowResponse.append(hdrBegin);
-		rowResponse.append(col->name);
-		rowResponse.append(hdrEnd);
+		sumOfColumnSize = sumOfColumnSize + col->length;
 	}
-	rowResponse.append(rowEnd);
+	
+	double percentage = 0;
 
-	for(int i=0;i<15;i++)
+	header.append(rowBegin);
+	for (column* col : queryColumn)
+	{
+		header.append("\n\t");
+		header.append(hdrBegin);
+		header.append(" style="" width:");
+		percentage = (double)col->length / sumOfColumnSize * 100;
+		header.append(to_string((int)percentage));
+		header.append("%"">");
+		header.append(col->name);
+		header.append(hdrEnd);
+
+	}
+	header.append(rowEnd);
+
+	rowResponse.append(header);
+	int rowCount = 0;
+
+	while(true)
 	{
 		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
-		rowResponse.append(rowBegin);
-		for (column* col : queryColumn)
+		if(line == nullptr)
+			break;
+
+		if(query->rowsToReturn > 0
+		&& rowCount > query->rowsToReturn)
+			break;
+
+		if(queryContitionsMet())
 		{
-			rowResponse.append("\n");
-			rowResponse.append(cellBegin);
-			strncpy(buff, line+col->position, col->length);
-			buff[col->length] = '\0';
-			rowResponse.append(buff);
-			rowResponse.append(cellEnd);
+			rowResponse.append("\n\t\t");
+			rowResponse.append(rowBegin);
+			for (column* col : queryColumn)
+			{
+				rowResponse.append(cellBegin);
+				strncpy(buff, line+col->position, col->length);
+				buff[col->length] = '\0';
+				rowResponse.append(buff);
+				rowResponse.append(cellEnd);
+			}
+			rowResponse.append(rowEnd);
+			rowCount++;
 		}
-		rowResponse.append(rowEnd);
 		recordPosition = recordPosition + queryTable->recordLength;
 	}
 	
