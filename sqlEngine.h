@@ -22,17 +22,16 @@ class sqlEngine
 	sqlParser* 		query;
 	list<column*>	queryColumn;
 	char* line;
-	//assuming one column
-	column* conditionColumn = nullptr;
 
 	public:
     	sqlEngine(sqlParser*, ctable*);
 		ParseResult open();
 		ParseResult close();
 		ParseResult selectQueryColumns();
-		string 		fetchRow();
+		ParseResult	getConditionColumns();
+		ParseResult queryContitionsMet();
+		string 		fetchData();
 		char* 		getRecord(long, fstream*, int);
-		bool		queryContitionsMet();
 };
 
 sqlEngine::sqlEngine(sqlParser* _query, ctable* _table)
@@ -44,6 +43,9 @@ sqlEngine::sqlEngine(sqlParser* _query, ctable* _table)
 		query 		= _query;
 		queryTable  = _table;
 }
+/******************************************************
+ * Open
+ ******************************************************/
 ParseResult sqlEngine::open()
 {
 		////Open data file
@@ -56,49 +58,78 @@ ParseResult sqlEngine::open()
 		
 		return ParseResult::FAILURE;
 }
+/******************************************************
+ * Load Close
+ ******************************************************/
 ParseResult sqlEngine::close()
 {
 	tableStream->close();
 	return ParseResult::SUCCESS;
 }
-bool sqlEngine::queryContitionsMet()
+/******************************************************
+ * Get Condition Columns
+ ******************************************************/
+ParseResult sqlEngine::getConditionColumns()
 {
-	if(query->conditions == nullptr)
-		return true;
-		
-	if(conditionColumn == nullptr)
+
+	for(Condition* condition : query->conditions)
 	{
+		if(condition == nullptr)
+			return ParseResult::FAILURE;
+		
 		for(column* col : queryTable->columns)
 		{
-			if(query->ignoringCaseIsEqual(query->conditions->conColumn,col->name.c_str()))
+			if(query->ignoringCaseIsEqual(condition->ColumnName,col->name.c_str()))
 			{
-				conditionColumn = col;
+				condition->Column = col;
 				break;
 			}
 		}
+		if(condition->Column == nullptr)
+		{
+			errText.append(" condition column ");
+			errText.append(condition->ColumnName);
+			errText.append(" not found ");
+			query->rowsToReturn = 1;
+			return ParseResult::FAILURE;
+		}
 	}
-	if(conditionColumn == nullptr)
-	{
-		errText.append(" condition column ");
-		errText.append(query->conditions->conColumn);
-		errText.append(" condition operator ");
-		errText.append(query->conditions->conOperator);
-		errText.append(" condition value ");
-		errText.append(query->conditions->conValue);
-		errText.append(" not found ");
-		query->rowsToReturn = 0;
-		return false;
-	}
-	
-	char buff[60];
-	strncpy(buff, line+conditionColumn->position, conditionColumn->length);
-	buff[conditionColumn->length] = '\0';
-	if(strcmp(query->conditions->conValue,buff) == 0)
-	{
-		return true;
-	}
-	return false;
+	return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Query Conditions Met
+ ******************************************************/
+ParseResult sqlEngine::queryContitionsMet()
+{
+
+	char buffRecord[60];
+	column* column;
+	for(Condition* condition : query->conditions)
+	{
+		column = condition->Column;
+		strncpy(buffRecord, line+column->position, column->length);
+		buffRecord[column->length] = '\0';
+
+		if(strcmp(condition->Operator,"=") == 0
+		&& (!query->ignoringCaseIsEqual(condition->Value,buffRecord)))
+		{
+			return ParseResult::FAILURE;
+		}
+
+		strncpy(buffRecord, line+column->position, strlen(condition->Value));
+		buffRecord[strlen(condition->Value)] = '\0';
+		
+		if(query->ignoringCaseIsEqual(condition->Operator,"like")
+		&& (!query->ignoringCaseIsEqual(condition->Value,buffRecord)))
+		{
+			return ParseResult::FAILURE;
+		}
+	}
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Select Query Columns
+ ******************************************************/
 ParseResult sqlEngine::selectQueryColumns()
 {
 	bool syntaxError = false;
@@ -133,14 +164,21 @@ ParseResult sqlEngine::selectQueryColumns()
 
 	return ParseResult::SUCCESS;
 }
-string sqlEngine::fetchRow()
+/******************************************************
+ * Fetch Row
+ ******************************************************/
+string sqlEngine::fetchData()
 {
 	string rowResponse;
 	string header;
 	int recordPosition = 0;
 	char buff[60];
 
-
+	if(getConditionColumns() == ParseResult::FAILURE)
+	{
+		errText.append( " Query condition failure");
+		return "";
+	};
 	int sumOfColumnSize = 0;
 
 	//list<int>columnSize;
@@ -171,6 +209,8 @@ string sqlEngine::fetchRow()
 
 	while(true)
 	{
+		if(rowCount > 100)
+			break;
 		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
 		if(line == nullptr)
 			break;
@@ -179,7 +219,7 @@ string sqlEngine::fetchRow()
 		&& rowCount > query->rowsToReturn)
 			break;
 
-		if(queryContitionsMet())
+		if(queryContitionsMet() == ParseResult::SUCCESS)
 		{
 			rowResponse.append("\n\t\t");
 			rowResponse.append(rowBegin);
@@ -201,9 +241,9 @@ string sqlEngine::fetchRow()
 	return rowResponse;
 }
 
-/*-----------------------------------------------------------
-	Get (read) record
--------------------------------------------------------------*/
+/******************************************************
+ * Get Record
+ ******************************************************/
 char* sqlEngine::getRecord(long _address, fstream* _file, int _size)
 {
 	try

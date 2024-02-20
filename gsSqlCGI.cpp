@@ -72,7 +72,7 @@ int main()
 		{
 			if(engine->selectQueryColumns() == ParseResult::SUCCESS)
 			{
-				returnResult.resultTable = engine->fetchRow();
+				returnResult.resultTable = engine->fetchData();
 			}
 		}
 	}

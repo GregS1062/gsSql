@@ -19,7 +19,7 @@ int main()
     sqlParser* parser = new sqlParser();
     sqlClassLoader* loader = new sqlClassLoader();
 
-    parser->parse("SELECT top 5 custid, givenname, surname, middleinitial, email from customer");
+    parser->parse("SELECT top 5 * from customer where surname like ""sch""");
     
     loader->loadSqlClasses("dbDef.json","bike");
     
@@ -34,7 +34,7 @@ int main()
     if(engine->open() == ParseResult::SUCCESS)
     {
         engine->selectQueryColumns();
-        string output = engine->fetchRow();
+        string output = engine->fetchData();
         printf("\n %s", output.c_str());
     }
     
