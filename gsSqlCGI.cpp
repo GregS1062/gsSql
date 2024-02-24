@@ -31,9 +31,7 @@ int main()
 {
     Cgicc formData;
 
-	ReturnResult returnResult;
-
-	string htmlRequest = "hello";
+	string htmlRequest = "select top 5 * from customer";
 
 	string htmlResponse;
 
@@ -56,23 +54,25 @@ int main()
 	sqlParser* parser = new sqlParser();
     sqlClassLoader* loader = new sqlClassLoader();
 
-	parser->parse(htmlRequest.c_str());
+	if(parser->parse(htmlRequest.c_str()) == ParseResult::SUCCESS)
+	{
     
-    loader->loadSqlClasses("dbDef.json","bike");
-    
-    ctable* qtable = loader->getTableByName((char*)"customer");
-    if(qtable == nullptr)
-    {
-		returnResult.error.append("customer table not found");
-    }
-	else{
-    
-		sqlEngine* engine = new sqlEngine(parser,qtable);
-		if(engine->open() == ParseResult::SUCCESS)
+		loader->loadSqlClasses("dbDef.json","bike");
+		
+		ctable* qtable = loader->getTableByName((char*)"customer");
+		if(qtable == nullptr)
 		{
-			if(engine->selectQueryColumns() == ParseResult::SUCCESS)
+			returnResult.error.append("customer table not found");
+		}
+		else{
+		
+			sqlEngine* engine = new sqlEngine(parser,qtable);
+			if(engine->open() == ParseResult::SUCCESS)
 			{
-				returnResult.resultTable = engine->fetchData();
+				if(engine->selectQueryColumns() == ParseResult::SUCCESS)
+				{
+					returnResult.resultTable = engine->fetchData();
+				}
 			}
 		}
 	}

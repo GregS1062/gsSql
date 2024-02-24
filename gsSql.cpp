@@ -9,19 +9,24 @@
 #include "sqlClassLoader.h"
 #include "sqlEngine.h"
 #include "global.h"
-#include "sql.h"
 
 using namespace std;
 
 int main()
 {
+    //Reads jason database description and load sql classes for the sqlEngine
+    sqlClassLoader* loader = new sqlClassLoader();
+    loader->loadSqlClasses("dbDef.json","bike");
+
+    return 0;
 
     sqlParser* parser = new sqlParser();
-    sqlClassLoader* loader = new sqlClassLoader();
-
-    parser->parse("SELECT top 5 * from customer where surname like ""sch""");
-    
-    loader->loadSqlClasses("dbDef.json","bike");
+    const char * sql = "SELECT top 5 * from customer where surname like ""sch""";
+    if(parser->parse(sql) == ParseResult::FAILURE)
+    {
+        printf("%s",errText.c_str());
+        return 0;
+    }
     
     ctable* table = loader->getTableByName((char*)"customer");
     if(table == nullptr)

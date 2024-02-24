@@ -39,7 +39,9 @@ tokenResult* getToken(ifstream& in)
         while(in.good())
         {
             in.get(c);
-            tkResult->lastChar = c;                //pass last character to caller
+
+                tkResult->lastChar = c;                //pass last character to caller
+            
             if(debug)
                 printf("%c",c);
 
@@ -58,7 +60,8 @@ tokenResult* getToken(ifstream& in)
             }
 
             if((c == SPACE && !betweenQuotes)  //Elinimate white SPACE but not inside token
-            || c == NEWLINE)
+            || c == NEWLINE
+            || c == TAB)
             {
                 continue;
             }
@@ -69,15 +72,23 @@ tokenResult* getToken(ifstream& in)
                 return tkResult;  
             }
 
+            if(c == closeList)
+            {
+                if(debug)
+                    printf(" this is a closeList \n");
+            }
+
             if(c == COMMA
             || c == COLON
             || c == closeObject
             || c == closeList)
             {
-                token[i] = '\0';                          //terminate string
-                tkResult->token = (char*)malloc(i);       //create new char pointer
-                strcpy(tkResult->token,token);            //copy char[] before it is destroyed
-                return tkResult;                          //return unique pointer address
+
+                    token[i] = '\0';                          //terminate string
+                    tkResult->token = (char*)malloc(i);       //create new char pointer
+                    strcpy(tkResult->token,token);            //copy char[] before it is destroyed
+                    return tkResult;
+                           //return unique pointer address
             }
 
             token[i] = c;                //populate char[]
@@ -99,12 +110,14 @@ valueList* getList(ifstream& in)
 {
     try
     {
-
     
         if(tkResult->lastChar != openList)
         {
             return nullptr;
         }
+
+        if(debug)
+            printf("\n getKeyValue for token %s\n",tkResult->token);
 
         valueList* newValue = nullptr;
         valueList* head = nullptr;
@@ -113,7 +126,6 @@ valueList* getList(ifstream& in)
         while(true)
         {
             tkResult = getToken(in);
-
             newValue = new valueList;
 
             if(tkResult->lastChar == openObject)
@@ -140,7 +152,7 @@ valueList* getList(ifstream& in)
             }
 
             if(tkResult->lastChar == closeList)
-            return head;
+                return head;
         }
         return head;
     }
@@ -161,8 +173,13 @@ keyValue* getKeyValue(ifstream& in)
      
         tkResult = getToken(in);              //key
         kv->key = tkResult->token;
+        if(debug)
+            printf("\n getKeyValue for kv->key %s \n",kv->key);
 
         tkResult = getToken(in);              //value
+
+        if(debug)
+            printf("\n getKeyValue for token %s\n",tkResult->token);
 
         if(tkResult->lastChar == openList)
         {
@@ -171,6 +188,7 @@ keyValue* getKeyValue(ifstream& in)
         }
 
         valueList* vl = new valueList{};
+
         if(tkResult->lastChar == openObject)
         {
             vl->value = (void*)getObject(in);
@@ -201,16 +219,24 @@ keyValue* getKeyValues(ifstream& in)
         keyValue* newkv = getKeyValue(in);
         keyValue* head = newkv;
         keyValue* tail = head;
+
         while(tkResult->lastChar == COMMA)
         {
             newkv = getKeyValue(in);
             keyValue* temp = tail;
             tail = newkv;
             temp->next = newkv;
+            if (tkResult->lastChar == closeList)
+            {
+                tkResult = getToken(in);
+            }
         }
-        if(tkResult->lastChar == closeObject
-        || tkResult->lastChar == closeList)
+
+
+        if(tkResult->lastChar == closeObject)
+        {
             tkResult = getToken(in);
+        }
 
         return head;
     }

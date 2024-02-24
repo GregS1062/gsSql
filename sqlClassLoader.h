@@ -16,6 +16,8 @@ using namespace std;
 #define lit_table               "table"
 #define lit_columnList          "columns"
 #define lit_column              "column"
+#define lit_indexList           "indexes"
+#define lit_index               "index"
 #define lit_type                "type"
 #define lit_char                "char"
 #define lit_int                 "int"
@@ -34,35 +36,44 @@ class column
     int length = 0;
     int position = 0;
 };
-class ctable
+
+class baseData
 {
     protected:
-        fstream* tableFile = new fstream{};
-    
+        fstream* fileStream = new fstream{};
     public:
         string          name;
         string          fileName;
-        int             recordLength = 0;
         list<column*>   columns;
-        ctable*         next = nullptr;
         fstream*        open();
         void            close();
 };
-fstream* ctable::open()
+fstream* baseData::open()
 {
 		////Open index file
-		tableFile ->open(fileName, ios::in | ios::out | ios::binary);
-		if (!tableFile ->is_open()) {
+		fileStream->open(fileName, ios::in | ios::out | ios::binary);
+		if (!fileStream->is_open()) {
             errText.append(fileName);
             errText.append(" not opened ");
 			return nullptr;
 		}
-        return tableFile;
+        return fileStream;
 }
-void ctable::close()
+void baseData::close()
 {
-    tableFile->close();
+    fileStream->close();
 }
+class ctable : public baseData
+{  
+    public:
+        int             recordLength = 0;
+        ctable*         next = nullptr;
+};
+class cIndex : public baseData
+{
+    public:
+        cIndex*         next = nullptr;
+};
 
 
 class sqlClassLoader
@@ -72,8 +83,11 @@ class sqlClassLoader
     public:
         ParseResult loadSqlClasses(const char*, const char*);
         ParseResult calculateTableColumnValues(ctable*);
+        ParseResult loadTableColumns(keyValue*, ctable*);
+        ParseResult loadIndexColumns(keyValue*, cIndex*);
         ParseResult loadColumnValues(keyValue*, column*);
-        ParseResult loadColumns(keyValue*, ctable*);
+        ParseResult loadIndexes(keyValue*, ctable*);
+        ParseResult loadIndexValues(keyValue*, column*);
         ParseResult loadTables(valueList*);
         ctable*     getTableByName(char*);
 };
@@ -177,7 +191,7 @@ ParseResult sqlClassLoader::loadColumnValues(keyValue* _columnKV, column* _colum
 /******************************************************
  * Load Columns
  ******************************************************/
-ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, ctable* _table)
+ParseResult sqlClassLoader::loadTableColumns(keyValue* _tableKV, ctable* _table)
 {
     try
     {
@@ -185,18 +199,106 @@ ParseResult sqlClassLoader::loadColumns(keyValue* _tableKV, ctable* _table)
         valueList* columnList = getNodeList(_tableKV,lit_columnList);
         while(columnList != nullptr)
         {
+            
             keyValue* kv = (keyValue*)columnList->value;
             valueList* v2 = (valueList*)kv->value;
-            if(v2->t_type == t_string)
+            if(v2 != nullptr)
             {
-                column* c = new column();
-                c->name = (char*)v2->value;
-                loadColumnValues(kv,c);
-                _table->columns.push_back(c);
+                if(v2->value != nullptr)
+                {
+                    if(v2->t_type == t_string)
+                    {
+                        column* c = new column();
+                        c->name = (char*)v2->value;
+                        printf("\n column %s", c->name.c_str());
+                        loadColumnValues(kv,c);
+                        _table->columns.push_back(c);
+                    }
+                }
+
             }
             columnList = columnList->next;
         }
         calculateTableColumnValues(_table);
+        return ParseResult::SUCCESS;
+    }
+    catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return ParseResult::FAILURE;
+    }
+
+}
+/******************************************************
+ * Load Columns
+ ******************************************************/
+ParseResult sqlClassLoader::loadIndexColumns(keyValue* _indexKV, cIndex* _index)
+{
+    try
+    {
+
+        valueList* columnList = getNodeList(_indexKV,lit_columnList);
+        while(columnList != nullptr)
+        {
+            
+            keyValue* kv = (keyValue*)columnList->value;
+            valueList* v2 = (valueList*)kv->value;
+            if(v2 != nullptr)
+            {
+                if(v2->value != nullptr)
+                {
+                    if(v2->t_type == t_string)
+                    {
+                        column* c = new column();
+                        c->name = (char*)v2->value;
+                        printf("\n column %s", c->name.c_str());
+                        loadColumnValues(kv,c);
+                        _index->columns.push_back(c);
+                    }
+                }
+
+            }
+            columnList = columnList->next;
+        }
+
+        return ParseResult::SUCCESS;
+    }
+    catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return ParseResult::FAILURE;
+    }
+
+}
+
+/******************************************************
+ * Load Indexes
+ ******************************************************/
+ParseResult sqlClassLoader::loadIndexes(keyValue* _tableKV, ctable* _table)
+{
+    try
+    {
+
+        valueList* indexList = getNodeList(_tableKV,lit_indexList);
+        while(indexList != nullptr)
+        {
+            keyValue* kv = (keyValue*)indexList->value;
+            printf("\n table = %s", _table->name.c_str());
+            valueList* v2 = (valueList*)kv->value;
+            if(v2->t_type == t_string)
+            {
+                cIndex* index = new cIndex();
+                index->name.append((char*)v2->value);
+                index->fileName = getMemberValue(kv,"location");
+                printf("\n index name = %s",index->name.c_str());
+                printf("\n index location = %s",index->fileName.c_str());
+                column* c = new column();
+                c->name = (char*)v2->value;
+                loadIndexColumns(kv,index);
+                index->columns.push_back(c);
+            }
+            indexList = indexList->next;
+        }
         return ParseResult::SUCCESS;
     }
     catch(const std::exception& e)
@@ -218,6 +320,14 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
             {
                 ctable* t = new ctable();
                 keyValue* kv = (keyValue*)_tableList->value;
+
+                if(strcmp(kv->key,lit_table) != 0)
+                {
+                    if(debug)
+                        printf("\n key = %s", kv->key);
+                    break;
+                }
+
                 valueList* v2 = (valueList*)kv->value;
                 if(v2->t_type == t_string)
                 {
@@ -225,7 +335,10 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
                 }
                 t->fileName = getMemberValue(kv,"location");
  
-                if(loadColumns(kv,t) == ParseResult::FAILURE)
+                if(loadTableColumns(kv,t) == ParseResult::FAILURE)
+                    return ParseResult::FAILURE;
+
+                if(loadIndexes(kv,t) == ParseResult::FAILURE)
                     return ParseResult::FAILURE;
 
                 if(tableHead == nullptr)
@@ -260,7 +373,6 @@ ctable* sqlClassLoader::getTableByName(char* _tableName)
     ctable* tableList = tableHead;
     while(tableList != nullptr)
     {
-        //printf("\n %s",tableList->name.c_str());
         if(strcmp(tableList->name.c_str(), _tableName) == 0)
             return tableList;
         tableList = tableList->next;

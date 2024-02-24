@@ -23,6 +23,6 @@ class keyValue
 class tokenResult
 {
     public:
-    char  lastChar;
+    char  lastChar = ' ';
     char* token = nullptr;
 };

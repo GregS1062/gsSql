@@ -37,6 +37,9 @@ class Condition
 
 class sqlParser
 {
+    const char*     sqlString;
+    size_t          sqlStringLength = 0;
+    size_t          pos             = 0; //pointer to position in string being parsed
     public:
 
     list<char*>     queryColumn;
@@ -52,13 +55,17 @@ class sqlParser
     bool            isCondition     = false;
     SQLACTION       sqlAction       = SQLACTION::NOACTION;
 
+    char*           getToken();
     ParseResult     parse(const char*);
-    ParseResult     addToken(char*);
-    ParseResult     addCondition(char*);
-    bool            isToken(char*);
     ParseResult     determineAction(char*);
+    ParseResult     parseColumnList();
+    ParseResult     parseTableList();
+    ParseResult     parseConditions();
+    ParseResult     addCondition(char*);
     bool            ignoringCaseIsEqual(char*, const char*);
+    bool            isNumeric(char*);
 };
+
 /******************************************************
  * Determine Actopm
  ******************************************************/
@@ -143,121 +150,151 @@ ParseResult sqlParser::addCondition(char* _token)
             }
             s++;  
         }
+
         condition->Value = _token;
         conditions.push_back(condition);
+
         condition = new Condition();
         return ParseResult::SUCCESS;
     }
     return ParseResult::FAILURE;
 }
+
 /******************************************************
- * Add Token
+ * Parse Conditions
  ******************************************************/
-ParseResult sqlParser::addToken(char* _token)
+ParseResult sqlParser::parseConditions()
 {
-    char* token = (char*)malloc(strlen(_token));
-    strcpy(token,_token);
-
-    //This is the first token and must be the sql verb
-    if(sqlAction == SQLACTION::NOACTION)
-    {
-        if(determineAction(token) != ParseResult::SUCCESS)
-                return ParseResult::FAILURE;
-
-        isColumn = true;
-        return ParseResult::SUCCESS;
-    }
-
-    //Conditions are everything after the WHERE clause
-    //  It is best that the columns,values and compares be isolated
-    //  from the Action segment of the statment.
-
-    if(isCondition)
-    {
-        return addCondition(token);
-    }
-
-    if(isTop)
-    {
-        rowsToReturn = atoi(token);
-        isTop = false;
-        isColumn = true;
-        return ParseResult::SUCCESS;
-    }
+    char* token;
+    int count = 0;
     
-    if(ignoringCaseIsEqual(_token,sqlTokenAsterisk))
+    //No conditions test
+    if(pos >= sqlStringLength)
+        return ParseResult::SUCCESS;
+
+    while(pos < sqlStringLength)
     {
-        isColumn = false;
-        isTable = false;
+        token = getToken();
+        if(addCondition(token) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        count++;
+    }
+    if(count == 0)
+    {
+        errText.append(" expecting at least one condition column");
+        return ParseResult::FAILURE;
+    }
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Parse Column List
+ ******************************************************/
+ParseResult sqlParser::parseColumnList()
+{
+    char* token;
+    int count = 0;
+    while(pos < sqlStringLength)
+    {
+        token = getToken();
+        if(ignoringCaseIsEqual(token,sqlTokenFrom))
+            return ParseResult::SUCCESS;
         queryColumn.push_back(token);
-        return ParseResult::SUCCESS;
+        count++;
     }
-
-    if(ignoringCaseIsEqual(_token,sqlTokenFrom))
-    {
-        isColumn = false;
-        isTable = true;
-        return ParseResult::SUCCESS;
-    }
-
-    if(ignoringCaseIsEqual(token,sqlTokenTop))
-    {
-        isColumn = false;
-        isTable = false;
-        isTop   = true;
-        return ParseResult::SUCCESS;
-    }
-
-    if(ignoringCaseIsEqual(token,sqlTokenWhere))
-    {
-        isColumn    = false;
-        isTable     = false;
-        isTop       = false;
-        isCondition = true;
-        return ParseResult::SUCCESS;
-    }
-
-    if(isColumn)
-    {
-        queryColumn.push_back(token);
-        return ParseResult::SUCCESS;
-    }
-
-    if(isTable)
-    {
-        queryTable.push_back(token);
-        return ParseResult::SUCCESS;
-    }
-
+    if(count == 0)
+        errText.append(" expecting at least one column");
+    errText.append(" expecting FROM after column list");
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Is Token
+ * Parse Table List
  ******************************************************/
-bool sqlParser::isToken(char* _token)
+ParseResult sqlParser::parseTableList()
 {
-    for(char* token : queryColumn)
+    char* token;
+    int count = 0;
+    while(pos < sqlStringLength)
     {
-        if(strcmp(token,_token) == 0)
-            return true;
+        token = getToken();
+        if(ignoringCaseIsEqual(token,sqlTokenWhere))
+            return ParseResult::SUCCESS;
+        queryTable.push_back(token);
+        count++;
     }
-    return false;
+    if(count == 0)
+    {
+        errText.append(" expecting at least one table");
+        return ParseResult::FAILURE;
+    }
+    return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse
  ******************************************************/
-ParseResult sqlParser::parse(const char* _sql)
+ParseResult sqlParser::parse(const char* _sqlString)
+{
+    sqlString       = _sqlString;
+    sqlStringLength = strlen(_sqlString);
+    
+    char* token     = getToken();
+    if(token == nullptr)
+    {
+        errText.append(" first token is null ");
+        return ParseResult::FAILURE;
+    }
+
+    if(determineAction(token) == ParseResult::FAILURE)
+    {
+        errText.append(" cannot determine action: select, update? ");
+        return ParseResult::FAILURE;
+    }
+    
+    token = getToken();
+    if(ignoringCaseIsEqual(token,sqlTokenTop))
+    {
+        token = getToken();
+        if(!isNumeric(token))
+        {
+            errText.append(" expecting numeric after top ");
+            return ParseResult::FAILURE;
+        }
+        rowsToReturn = atoi(token);
+    }
+    else
+    {
+        // Check for "top", a column was picked up - reverse
+        pos = pos - strlen(token);
+    }
+
+    if(parseColumnList() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    if(parseTableList() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    if(parseConditions() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Get Token
+ ******************************************************/
+char* sqlParser::getToken()
 {
     bool isToken = false;
     char token[MAXSQLTOKENSIZE];            //token buffer space            
     char c = ' ';                           //character in question
     int  t = 0;                             //token character pointer
-    size_t sqlStringLength = strlen(_sql);
+    token[0] = '\0';
+    char* retToken;
 
     //read string loop
-    for (size_t i = 0;i< sqlStringLength;i++)
+    while(pos < sqlStringLength)
     {
-        c = _sql[i];
+        c = sqlString[pos];
+        pos++;
+        
         //whitespace
         if( c == SPACE
          || c == COMMA
@@ -269,15 +306,12 @@ ParseResult sqlParser::parse(const char* _sql)
 
             if(isToken)
             {
-               isToken = false;
-               token[t] = '\0';
+                isToken = false;
+                token[t] = '\0';
 
-               if(addToken(token) != ParseResult::SUCCESS)
-                    return ParseResult::FAILURE;
-
-               token[0] = '\0';
-               t = 0;
-               continue;
+                retToken = (char*)malloc(strlen(token));
+                strcpy(retToken,token);
+                return retToken;
             }
         }
         isToken = true;
@@ -287,11 +321,11 @@ ParseResult sqlParser::parse(const char* _sql)
     if(t > 0)
     {
         token[t] = '\0';
-
-        if(addToken(token) != ParseResult::SUCCESS)
-            return ParseResult::FAILURE;
+        retToken = (char*)malloc(strlen(token));
+        strcpy(retToken,token);
+        return retToken;
     }
-    return ParseResult::SUCCESS;
+    return nullptr;
 }
 /******************************************************
  * Ignoring Case Is Equal
@@ -307,4 +341,16 @@ bool sqlParser::ignoringCaseIsEqual(char* _str1, const char* _str2)
 			return false;
 	}
 	return true;
+}
+/******************************************************
+ * Is Numeric
+ ******************************************************/
+bool sqlParser::isNumeric(char* _token)
+{
+    for(size_t i=0;i<strlen(_token);i++)
+    {
+        if(!isdigit(_token[i]))
+            return false;
+    }
+    return true;
 }

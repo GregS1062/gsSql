@@ -40,5 +40,7 @@ class ReturnResult{
   string error;
 };
 
+ReturnResult returnResult;
+
 bool debug = false;
 string errText;

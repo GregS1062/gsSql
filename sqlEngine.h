@@ -171,7 +171,8 @@ string sqlEngine::fetchData()
 {
 	string rowResponse;
 	string header;
-	int recordPosition = 0;
+	int recordPosition 	= 0;
+	int resultCount 	= 0; 
 	char buff[60];
 
 	if(getConditionColumns() == ParseResult::FAILURE)
@@ -209,18 +210,17 @@ string sqlEngine::fetchData()
 
 	while(true)
 	{
-		if(rowCount > 100)
-			break;
 		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
 		if(line == nullptr)
 			break;
 
 		if(query->rowsToReturn > 0
-		&& rowCount > query->rowsToReturn)
+		&& rowCount >= query->rowsToReturn)
 			break;
 
 		if(queryContitionsMet() == ParseResult::SUCCESS)
 		{
+			resultCount++;
 			rowResponse.append("\n\t\t");
 			rowResponse.append(rowBegin);
 			for (column* col : queryColumn)
@@ -236,8 +236,8 @@ string sqlEngine::fetchData()
 		}
 		recordPosition = recordPosition + queryTable->recordLength;
 	}
-	
-
+	returnResult.message.append(std::to_string(resultCount));
+	returnResult.message.append(" rows returned ");
 	return rowResponse;
 }
 
