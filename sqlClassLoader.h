@@ -210,7 +210,8 @@ ParseResult sqlClassLoader::loadTableColumns(keyValue* _tableKV, ctable* _table)
                     {
                         column* c = new column();
                         c->name = (char*)v2->value;
-                        printf("\n column %s", c->name.c_str());
+                        if(debug)
+                            printf("\n column %s", c->name.c_str());
                         loadColumnValues(kv,c);
                         _table->columns.push_back(c);
                     }
@@ -251,7 +252,10 @@ ParseResult sqlClassLoader::loadIndexColumns(keyValue* _indexKV, cIndex* _index)
                     {
                         column* c = new column();
                         c->name = (char*)v2->value;
-                        printf("\n column %s", c->name.c_str());
+
+                        if(debug)
+                            printf("\n column %s", c->name.c_str());
+
                         loadColumnValues(kv,c);
                         _index->columns.push_back(c);
                     }
@@ -283,15 +287,19 @@ ParseResult sqlClassLoader::loadIndexes(keyValue* _tableKV, ctable* _table)
         while(indexList != nullptr)
         {
             keyValue* kv = (keyValue*)indexList->value;
-            printf("\n table = %s", _table->name.c_str());
+            if(debug)
+                printf("\n table = %s", _table->name.c_str());
             valueList* v2 = (valueList*)kv->value;
             if(v2->t_type == t_string)
             {
                 cIndex* index = new cIndex();
                 index->name.append((char*)v2->value);
                 index->fileName = getMemberValue(kv,"location");
-                printf("\n index name = %s",index->name.c_str());
-                printf("\n index location = %s",index->fileName.c_str());
+                if(debug)
+                {
+                    printf("\n index name = %s",index->name.c_str());
+                    printf("\n index location = %s",index->fileName.c_str());
+                }
                 column* c = new column();
                 c->name = (char*)v2->value;
                 loadIndexColumns(kv,index);

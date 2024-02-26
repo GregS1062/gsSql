@@ -19,19 +19,23 @@ class sqlEngine
 	*******************************************/
 	ctable* 		queryTable;
 	fstream* 		tableStream;
-	sqlParser* 		query;
 	list<column*>	queryColumn;
 	char* line;
 
 	public:
-    	sqlEngine(sqlParser*, ctable*);
+		sqlParser* 	query;
+
+		sqlEngine(sqlParser*, ctable*);
 		ParseResult open();
 		ParseResult close();
-		ParseResult selectQueryColumns();
+		ParseResult ValidateQueryColumns();
+		ParseResult ValidateQueryValues();
 		ParseResult	getConditionColumns();
 		ParseResult queryContitionsMet();
 		string 		fetchData();
 		char* 		getRecord(long, fstream*, int);
+
+
 };
 
 sqlEngine::sqlEngine(sqlParser* _query, ctable* _table)
@@ -64,6 +68,44 @@ ParseResult sqlEngine::open()
 ParseResult sqlEngine::close()
 {
 	tableStream->close();
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Select Query Columns
+ ******************************************************/
+ParseResult sqlEngine::ValidateQueryColumns()
+{
+	bool syntaxError = false;
+	bool match = false;
+	for(char* token : query->queryColumn)
+	{
+		errText.append(token); // debug
+		match = false; 
+        for(column* qColumn : queryTable->columns)
+        {
+			if(query->ignoringCaseIsEqual(token,sqlTokenAsterisk))
+			{
+				match = true;
+				queryColumn.push_back(qColumn);
+			}
+			if (query->ignoringCaseIsEqual(token,qColumn->name.c_str()))
+			{
+				match = true;
+				queryColumn.push_back(qColumn);
+				break;
+			}
+        }
+		if(!match)
+		{
+			errText.append(" ");
+			errText.append(token);
+			errText.append(" not found ");
+			syntaxError = true;
+		}
+	}
+	if(syntaxError)
+		return ParseResult::FAILURE;
+
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -130,28 +172,35 @@ ParseResult sqlEngine::queryContitionsMet()
 /******************************************************
  * Select Query Columns
  ******************************************************/
-ParseResult sqlEngine::selectQueryColumns()
+ParseResult sqlEngine::ValidateQueryValues()
 {
 	bool syntaxError = false;
-	bool match = false;
-	for(char* token : query->queryColumn)
+	bool valid = false;
+
+	if(queryTable->columns.size() != query->queryValue.size())
 	{
-		match = false; 
+		errText.append(" Count of table columns not equal count of values ");
+		return ParseResult::FAILURE;
+	}
+
+	for(char* token : query->queryValue)
+	{
+		valid = false; 
         for(column* qColumn : queryTable->columns)
         {
 			if(query->ignoringCaseIsEqual(token,sqlTokenAsterisk))
 			{
-				match = true;
+				valid = true;
 				queryColumn.push_back(qColumn);
 			}
 			if (query->ignoringCaseIsEqual(token,qColumn->name.c_str()))
 			{
-				match = true;
+				valid = true;
 				queryColumn.push_back(qColumn);
 				break;
 			}
         }
-		if(!match)
+		if(!valid)
 		{
 			errText.append(" ");
 			errText.append(token);

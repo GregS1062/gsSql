@@ -11,6 +11,9 @@ using namespace std;
 #define TAB 			  '\t'
 #define COLON 			':'
 #define COMMA 			','
+#define OPENPAREN   '('   //Note difference between OPENPAREN and sqlTokenOpenParen
+#define CLOSEPAREN  ')'
+
 #define MAXSQLTOKENSIZE	50
 
 #define errorColor  "#ef7f7d"

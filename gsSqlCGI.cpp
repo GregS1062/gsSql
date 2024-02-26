@@ -69,9 +69,10 @@ int main()
 			sqlEngine* engine = new sqlEngine(parser,qtable);
 			if(engine->open() == ParseResult::SUCCESS)
 			{
-				if(engine->selectQueryColumns() == ParseResult::SUCCESS)
+				if(engine->ValidateQueryColumns() == ParseResult::SUCCESS)
 				{
-					returnResult.resultTable = engine->fetchData();
+					if(engine->query->sqlAction == SQLACTION::SELECT)
+						returnResult.resultTable = engine->fetchData();
 				}
 			}
 		}

@@ -18,10 +18,9 @@ int main()
     sqlClassLoader* loader = new sqlClassLoader();
     loader->loadSqlClasses("dbDef.json","bike");
 
-    return 0;
-
     sqlParser* parser = new sqlParser();
-    const char * sql = "SELECT top 5 * from customer where surname like ""sch""";
+   // const char * sql = "SELECT top 5 * from customer where surname like ""sch""";
+    const char * sql = "Insert";
     if(parser->parse(sql) == ParseResult::FAILURE)
     {
         printf("%s",errText.c_str());

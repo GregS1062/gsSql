@@ -317,14 +317,14 @@ valueList* getNodeList(keyValue* _kv,const char* _key)
 {
     /*  Returns the child list from a parent list based on a key*/
     try{
-        //Get the child list
-        keyValue* result = getNode(_kv,_key);
-        if(result == nullptr)
-        {
-            targetNotFound("",_key);
-            return nullptr;
-        }
-        return result->value;
+            //Get the child list
+            keyValue* result = getNode(_kv,_key);
+            if(result == nullptr)
+            {
+                targetNotFound("",_key);
+                return nullptr;
+            }
+            return result->value;
         }
     catch(const std::exception& e)
     {
