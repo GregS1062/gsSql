@@ -37,7 +37,8 @@ int main()
 
 	ofstream traceFile;
 
-	try{
+	try
+	{
 		Cgicc cgi = formData;
 		const_form_iterator iter;
 		for (iter = cgi.getElements().begin();
@@ -51,34 +52,41 @@ int main()
 			}
 		}
 		
-	sqlParser* parser = new sqlParser();
-    sqlClassLoader* loader = new sqlClassLoader();
+		sqlParser* parser = new sqlParser();
+		sqlClassLoader* loader = new sqlClassLoader();
 
-	if(parser->parse(htmlRequest.c_str()) == ParseResult::SUCCESS)
-	{
-    
-		loader->loadSqlClasses("dbDef.json","bike");
-		
-		ctable* qtable = loader->getTableByName((char*)"customer");
-		if(qtable == nullptr)
+		if(parser->parse(htmlRequest.c_str()) == ParseResult::SUCCESS)
 		{
-			returnResult.error.append("customer table not found");
-		}
-		else{
 		
-			sqlEngine* engine = new sqlEngine(parser,qtable);
-			if(engine->open() == ParseResult::SUCCESS)
+			loader->loadSqlClasses("dbDef.json","bike");
+			
+			cTable* qtable = loader->getTableByName((char*)"customer");
+			errText.append(" count of customer indexes =");
+			errText.append(std::to_string(qtable->indexes.size()));
+			if(qtable == nullptr)
 			{
-				if(engine->ValidateQueryColumns() == ParseResult::SUCCESS)
+				returnResult.error.append("customer table not found");
+			}
+			else{
+			
+				sqlEngine* engine = new sqlEngine(parser,qtable);
+				if(engine->open() == ParseResult::SUCCESS)
 				{
-					if(engine->query->sqlAction == SQLACTION::SELECT)
-						returnResult.resultTable = engine->fetchData();
+					if(engine->ValidateQueryColumns() == ParseResult::SUCCESS)
+					{
+						if(engine->query->sqlAction == SQLACTION::SELECT)
+							returnResult.resultTable = engine->fetchData();
+						if(engine->query->sqlAction == SQLACTION::INSERT)
+						{
+							if(engine->storeData() == ParseResult::SUCCESS)
+								returnResult.message.append(" Record Stored");
+						}
+					}
 				}
 			}
 		}
-	}
 
-	returnResult.error.append(errText);
+		returnResult.error.append(errText);
 
 		//Format output
 		htmlResponse.append("Content-type:text/html\r\n\r\n");
@@ -125,9 +133,18 @@ int main()
 		htmlResponse.append("\n</FORM>");
 		htmlResponse.append("\n</body>");
 		htmlResponse.append("\n</html>");
+
+		traceFile.open ("gsSqlTrace.txt");
+		traceFile << htmlResponse;
+		traceFile.close();
+
 		//Send Response
 		cout << htmlResponse;
 		return 0;
 	}
-	catch_and_trace
+    catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return 0;
+    } 
 }

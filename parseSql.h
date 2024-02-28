@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <list>
+#include <vector>
 #include "sqlClassLoader.h"
 
 using namespace std;
@@ -57,8 +58,8 @@ class sqlParser
     public:
 
     list<char*>     queryTable;
-    list<char*>     queryColumn;
-    list<char*>     queryValue;
+    std::vector<char*>     queryColumn;
+    std::vector<char*>     queryValue;
     list<Condition*> conditions;
 
     Condition*      condition       = nullptr;
@@ -82,6 +83,7 @@ class sqlParser
     ParseResult     addCondition(char*);
     bool            ignoringCaseIsEqual(char*, const char*);
     bool            isNumeric(char*);
+    bool            isDelimiter();
 };
 /******************************************************
  * Parse
@@ -226,8 +228,22 @@ ParseResult sqlParser::parseInsert()
     if(parseValueList() == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
+    if(queryColumn.size() > 1
+    && queryColumn.size() != queryValue.size())
+    {
+        errText.append(" columns =");
+        errText.append(std::to_string(queryColumn.size())); 
+        errText.append(" values =");
+        errText.append(std::to_string(queryValue.size())); 
+        for (char* value : queryValue)
+        {
+            errText.append(value);
+            errText.append("|");
+        }
+        return ParseResult::FAILURE;
+    }
 
-    return ParseResult::FAILURE;
+    return ParseResult::SUCCESS;
 }
 
 /******************************************************
@@ -325,13 +341,21 @@ ParseResult sqlParser::parseColumnList()
 {
     char* token;
     int count = 0;
+    int stop = 0;
     while(pos < sqlStringLength)
     {
+        stop++;
+        if(stop > 20)
+        { 
+            errText.append("\n parse column list loop");
+            return ParseResult::FAILURE;
+        }
         token = getToken();
+
         if(sqlAction == SQLACTION::SELECT)
         {
             if(ignoringCaseIsEqual(token,sqlTokenFrom))
-            return ParseResult::SUCCESS;
+                return ParseResult::SUCCESS;
         }else
         {
             if(sqlAction == SQLACTION::INSERT)
@@ -341,7 +365,7 @@ ParseResult sqlParser::parseColumnList()
                 {
                     // if no columns specified then all columns are assumed
                     //      an asterisk signifies all columns
-                    if(count == 0)
+                    //if(count == 0)
                      queryColumn.push_back((char*)sqlTokenAsterisk); 
 
                     return ParseResult::SUCCESS;
@@ -370,17 +394,21 @@ ParseResult sqlParser::parseValueList()
 {
     char* token;
     int count = 0;
+    int stop = 0;
     while(pos < sqlStringLength)
     {
+        stop++;
+        if(stop > 20)
+        { 
+            errText.append("\n parse value list loop");
+            return ParseResult::FAILURE;
+        }
         token = getToken();
 
-        errText.append("|");
-        token = getToken();
-        errText.append(token);  //DEBUG
-        errText.append("|");
-
-        if(ignoringCaseIsEqual(token,sqlTokenOpenParen)
-        && count == 0)
+        if(ignoringCaseIsEqual(token,sqlTokenOpenParen))
+            continue;
+        
+        if(ignoringCaseIsEqual(token,sqlTokenValues))
             continue;
 
         if(sqlAction == SQLACTION::INSERT)
@@ -414,8 +442,23 @@ ParseResult sqlParser::parseTableList()
 {
     char* token;
     int count = 0;
+
+    int stop = 0;
     while(pos < sqlStringLength)
     {
+        token = getToken();
+
+        if(strlen(token) == 1
+        && strcmp(token,sqlTokenOpenParen) != 0)
+            continue;
+
+        stop++;
+        if(stop > 20)
+        { 
+            errText.append(" parse table loop ");
+            return ParseResult::FAILURE;
+        }
+
         if(sqlAction == SQLACTION::SELECT)
             if(ignoringCaseIsEqual(token,sqlTokenWhere))
                 return ParseResult::SUCCESS;
@@ -464,9 +507,9 @@ char* sqlParser::getToken()
     //read string loop
     while(pos < sqlStringLength)
     {
+        
         c = sqlString[pos];
         pos++;
-
         if(c == QUOTE)
         {
             if(betweenQuotes)
@@ -500,6 +543,7 @@ char* sqlParser::getToken()
         {
             if(t > 0)
             {
+                pos = pos -1;
                 token[t] = '\0';
                 retToken = (char*)malloc(strlen(token));
                 strcpy(retToken,token);
@@ -507,7 +551,6 @@ char* sqlParser::getToken()
             }
             else
             {
-                t = 1;
                 token[0] = c;
                 token[1] = '\0';
                 retToken = (char*)malloc(strlen(token));
@@ -515,22 +558,13 @@ char* sqlParser::getToken()
                 return retToken;
             }
          }
-         
         
-        if(c == COMMA
-        || c == OPENPAREN      //Note difference between OPENPAREN and sqlTokenOpenParen
-        || c == CLOSEPAREN)
+        if(c == COMMA)
          {
-            if(t == 0)
-                continue;
-
-            if(t > 0)
-            {
-                token[t] = '\0';
-                retToken = (char*)malloc(strlen(token));
-                strcpy(retToken,token);
-                return retToken;
-            }
+            token[t] = '\0';
+            retToken = (char*)malloc(strlen(token));
+            strcpy(retToken,token);
+            return retToken;
         }
         token[t] = c;
         t++;
@@ -543,6 +577,10 @@ char* sqlParser::getToken()
         return retToken;
     }
     return nullptr;
+}
+bool sqlParser::isDelimiter()
+{
+    return true;
 }
 /******************************************************
  * Ignoring Case Is Equal

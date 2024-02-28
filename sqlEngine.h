@@ -17,7 +17,7 @@ class sqlEngine
 	/***************************************
 	 * Assuming a single table for now
 	*******************************************/
-	ctable* 		queryTable;
+	cTable* 		queryTable;
 	fstream* 		tableStream;
 	list<column*>	queryColumn;
 	char* line;
@@ -25,20 +25,23 @@ class sqlEngine
 	public:
 		sqlParser* 	query;
 
-		sqlEngine(sqlParser*, ctable*);
+		sqlEngine(sqlParser*, cTable*);
 		ParseResult open();
 		ParseResult close();
 		ParseResult ValidateQueryColumns();
 		ParseResult ValidateQueryValues();
 		ParseResult	getConditionColumns();
 		ParseResult queryContitionsMet();
+		ParseResult storeData();
 		string 		fetchData();
+		char*		getValue(char*);
 		char* 		getRecord(long, fstream*, int);
+		long		appendRecord(void*, fstream*, int);
 
 
 };
 
-sqlEngine::sqlEngine(sqlParser* _query, ctable* _table)
+sqlEngine::sqlEngine(sqlParser* _query, cTable* _table)
 {
     /***************************************
 	 * Assuming a single table for now
@@ -79,7 +82,6 @@ ParseResult sqlEngine::ValidateQueryColumns()
 	bool match = false;
 	for(char* token : query->queryColumn)
 	{
-		errText.append(token); // debug
 		match = false; 
         for(column* qColumn : queryTable->columns)
         {
@@ -149,13 +151,16 @@ ParseResult sqlEngine::queryContitionsMet()
 	for(Condition* condition : query->conditions)
 	{
 		column = condition->Column;
-		strncpy(buffRecord, line+column->position, column->length);
-		buffRecord[column->length] = '\0';
 
-		if(strcmp(condition->Operator,"=") == 0
-		&& (!query->ignoringCaseIsEqual(condition->Value,buffRecord)))
+		if(strcmp(condition->Operator,"=") == 0)
 		{
-			return ParseResult::FAILURE;
+			strncpy(buffRecord, line+column->position, column->length);
+			buffRecord[column->length] = '\0';
+
+			if (!query->ignoringCaseIsEqual(condition->Value,buffRecord))
+				return ParseResult::FAILURE;
+			
+			continue;
 		}
 
 		strncpy(buffRecord, line+column->position, strlen(condition->Value));
@@ -289,6 +294,23 @@ string sqlEngine::fetchData()
 	returnResult.message.append(" rows returned ");
 	return rowResponse;
 }
+/******************************************************
+ * Store Record
+ ******************************************************/
+ParseResult sqlEngine::storeData()
+{
+	char* buff = (char*)malloc(queryTable->recordLength);
+	size_t count = 0;
+	char* value;
+	for (column* col : queryColumn)
+	{
+		value = query->queryValue[count];
+		memmove(&buff[col->position], value, col->length);
+		count++;
+	}
+	appendRecord(buff, tableStream, queryTable->recordLength);
+	return ParseResult::SUCCESS;
+}
 
 /******************************************************
  * Get Record
@@ -324,5 +346,32 @@ char* sqlEngine::getRecord(long _address, fstream* _file, int _size)
     {
         errText.append( e.what());
         return nullptr;
+    } 
+}
+/******************************************************
+ * Append Record
+ ******************************************************/
+long sqlEngine::appendRecord(void* _ptr, fstream* _file, int _size)
+{
+	try
+	{
+		_file->clear();
+		_file->seekg(0, _file->end);
+		long eof = _file->tellg();
+		if (!_file->write((char*)_ptr, _size))
+		{
+			errText.append("Write to file failed");
+			eof = 0;
+		}
+			
+
+		_file->flush();
+
+		return eof;
+	}
+	catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return 0;
     } 
 }

@@ -321,7 +321,7 @@ valueList* getNodeList(keyValue* _kv,const char* _key)
             keyValue* result = getNode(_kv,_key);
             if(result == nullptr)
             {
-                targetNotFound("",_key);
+                //targetNotFound("",_key);
                 return nullptr;
             }
             return result->value;

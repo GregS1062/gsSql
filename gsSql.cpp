@@ -20,14 +20,16 @@ int main()
 
     sqlParser* parser = new sqlParser();
    // const char * sql = "SELECT top 5 * from customer where surname like ""sch""";
-    const char * sql = "Insert";
+    const char * sql = "INSERT INTO customer (deleted, custid, givenname, middleinitial, surname, phone, email, street1, street2, city, state, country, zipcode) VALUES ()"; 
+
+
     if(parser->parse(sql) == ParseResult::FAILURE)
     {
         printf("%s",errText.c_str());
         return 0;
     }
     
-    ctable* table = loader->getTableByName((char*)"customer");
+    cTable* table = loader->getTableByName((char*)"customer");
     if(table == nullptr)
     {
         printf("\n table not found");
@@ -37,7 +39,7 @@ int main()
     sqlEngine* engine = new sqlEngine(parser,table);
     if(engine->open() == ParseResult::SUCCESS)
     {
-        engine->selectQueryColumns();
+        engine->ValidateQueryColumns();
         string output = engine->fetchData();
         printf("\n %s", output.c_str());
     }

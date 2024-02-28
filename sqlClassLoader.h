@@ -63,33 +63,33 @@ void baseData::close()
 {
     fileStream->close();
 }
-class ctable : public baseData
-{  
-    public:
-        int             recordLength = 0;
-        ctable*         next = nullptr;
-};
 class cIndex : public baseData
 {
     public:
         cIndex*         next = nullptr;
 };
+class cTable : public baseData
+{  
+    public:
+        list<cIndex*>    indexes;
+        int             recordLength = 0;
+        cTable*         next = nullptr;
+};
 
 
 class sqlClassLoader
 {
-    ctable* tableHead;
-    ctable* tableTail;
+    list<cTable*> tables;
     public:
         ParseResult loadSqlClasses(const char*, const char*);
-        ParseResult calculateTableColumnValues(ctable*);
-        ParseResult loadTableColumns(keyValue*, ctable*);
+        ParseResult calculateTableColumnValues(cTable*);
+        ParseResult loadTableColumns(keyValue*, cTable*);
         ParseResult loadIndexColumns(keyValue*, cIndex*);
         ParseResult loadColumnValues(keyValue*, column*);
-        ParseResult loadIndexes(keyValue*, ctable*);
+        ParseResult loadIndexes(keyValue*, cTable*);
         ParseResult loadIndexValues(keyValue*, column*);
         ParseResult loadTables(valueList*);
-        ctable*     getTableByName(char*);
+        cTable*     getTableByName(char*);
 };
 /*-------------------------------------------------------------
     These functions read through the hierachy of key/value and 
@@ -133,7 +133,7 @@ ParseResult sqlClassLoader::loadSqlClasses(const char* _jasonFile, const char* _
 /******************************************************
  * Calculate Table Column Values
  ******************************************************/
-ParseResult sqlClassLoader::calculateTableColumnValues(ctable* _table)
+ParseResult sqlClassLoader::calculateTableColumnValues(cTable* _table)
 {
     try
     {
@@ -191,7 +191,7 @@ ParseResult sqlClassLoader::loadColumnValues(keyValue* _columnKV, column* _colum
 /******************************************************
  * Load Columns
  ******************************************************/
-ParseResult sqlClassLoader::loadTableColumns(keyValue* _tableKV, ctable* _table)
+ParseResult sqlClassLoader::loadTableColumns(keyValue* _tableKV, cTable* _table)
 {
     try
     {
@@ -278,7 +278,7 @@ ParseResult sqlClassLoader::loadIndexColumns(keyValue* _indexKV, cIndex* _index)
 /******************************************************
  * Load Indexes
  ******************************************************/
-ParseResult sqlClassLoader::loadIndexes(keyValue* _tableKV, ctable* _table)
+ParseResult sqlClassLoader::loadIndexes(keyValue* _tableKV, cTable* _table)
 {
     try
     {
@@ -300,10 +300,8 @@ ParseResult sqlClassLoader::loadIndexes(keyValue* _tableKV, ctable* _table)
                     printf("\n index name = %s",index->name.c_str());
                     printf("\n index location = %s",index->fileName.c_str());
                 }
-                column* c = new column();
-                c->name = (char*)v2->value;
                 loadIndexColumns(kv,index);
-                index->columns.push_back(c);
+                _table->indexes.push_back(index);
             }
             indexList = indexList->next;
         }
@@ -326,7 +324,7 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
         {
             if(_tableList->t_type == t_Object)
             {
-                ctable* t = new ctable();
+                cTable* t = new cTable();
                 keyValue* kv = (keyValue*)_tableList->value;
 
                 if(strcmp(kv->key,lit_table) != 0)
@@ -349,17 +347,7 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
                 if(loadIndexes(kv,t) == ParseResult::FAILURE)
                     return ParseResult::FAILURE;
 
-                if(tableHead == nullptr)
-                {
-                    tableHead = t;
-                    tableTail = t;
-                }
-                else
-                {
-                    ctable* temp = tableTail;
-                    tableTail = t;
-                    temp->next = t;
-                }
+                tables.push_back(t);
             }
             _tableList = _tableList->next;
         }
@@ -376,14 +364,12 @@ ParseResult sqlClassLoader::loadTables(valueList* _tableList)
 /******************************************************
  * Get Table By Name
  ******************************************************/
-ctable* sqlClassLoader::getTableByName(char* _tableName)
+cTable* sqlClassLoader::getTableByName(char* _tableName)
 {
-    ctable* tableList = tableHead;
-    while(tableList != nullptr)
+    for(cTable* table : tables)
     {
-        if(strcmp(tableList->name.c_str(), _tableName) == 0)
-            return tableList;
-        tableList = tableList->next;
+        if(strcmp(table->name.c_str(), _tableName) == 0)
+            return table;
     }
     return nullptr;
 }
