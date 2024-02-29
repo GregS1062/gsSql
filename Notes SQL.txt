@@ -1,5 +1,6 @@
 Notes on SQL parseing
 
+***********************************************************************
 SQL statements are delimited by
 - comma
 - open paren 
@@ -14,3 +15,7 @@ if space, newline or tab are encountered, not between quotes,
 
 if open or close paren are encounted while a token is being populated
     write the token and decriment the position counter
+
+*****************************************************************************
+condition
+

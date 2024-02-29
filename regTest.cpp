@@ -46,7 +46,7 @@ bool runScript(string script)
         return 0;
     }
     
-    ctable* table = loader->getTableByName((char*)"customer");
+    cTable* table = loader->getTableByName((char*)"customer");
     if(table == nullptr)
     {
         printf("\n table not found");
@@ -76,29 +76,34 @@ int main()
     string result;
     string proof;
 
-    std::vector<string> scripts;
- 
+    std::list<string> scripts;
+
     for (const auto & entry : fs::directory_iterator(scriptPath))
     {
         fileName = entry.path().filename();
-        runScript(fileName);
+        scripts.push_back(fileName);
+    }
+    scripts.sort();
+ 
+    for (string name : scripts)
+    {
+        runScript(scriptPath + "/" + name);
     }
 
-    for (const auto & entry : fs::directory_iterator(scriptPath))
+    for (string name : scripts)
     {
-        fileName = entry.path().filename();
 
         ifstream inStream;
-        inStream.open (resultPath + "/" + fileName);
+        inStream.open (resultPath + "/" + name);
         inStream >> result;
         inStream.close();
 
-        inStream.open (proofPath + "/" + fileName);
+        inStream.open (proofPath + "/" + name);
         inStream >> proof;
         inStream.close();
 
         if(result.compare(proof) != 0)
-            printf("\n %s failed test", fileName.c_str());
+            printf("\n %s failed test", name.c_str());
     }
 
 

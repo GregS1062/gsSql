@@ -32,6 +32,8 @@ class sqlEngine
 		ParseResult ValidateQueryValues();
 		ParseResult	getConditionColumns();
 		ParseResult queryContitionsMet();
+		ParseResult compareLike(Condition*);
+		ParseResult compareEqual(Condition*);
 		ParseResult storeData();
 		string 		fetchData();
 		char*		getValue(char*);
@@ -141,38 +143,106 @@ ParseResult sqlEngine::getConditionColumns()
 	return ParseResult::SUCCESS;
 }
 /******************************************************
+ * Compare like
+ ******************************************************/
+ParseResult sqlEngine::compareLike(Condition* _condition)
+{
+	//Like condition compares the condition value length to the record
+	// so "sch" = "schiller" because only three characters are being compared
+	
+	char buffRecord[60];
+	column* column = _condition->Column;
+
+	strncpy(buffRecord, line+column->position, strlen(_condition->Value));
+	buffRecord[strlen(_condition->Value)] = '\0';
+		
+	if(query->ignoringCaseIsEqual(_condition->Value,buffRecord))
+	{
+		return ParseResult::SUCCESS;
+	}
+
+	return ParseResult::FAILURE;
+}
+/******************************************************
+ * Compare Equal
+ ******************************************************/
+ParseResult sqlEngine::compareEqual(Condition* _condition)
+{
+	//Equal condition compares the full column length to the record
+	// so "sch" != "schiller" 
+
+	char buffRecord[60];
+	column* column = _condition->Column;
+	strncpy(buffRecord, line+column->position, column->length);
+			buffRecord[column->length] = '\0';
+		
+	if(query->ignoringCaseIsEqual(_condition->Value,buffRecord))
+	{
+		return ParseResult::SUCCESS;
+	}
+
+	return ParseResult::FAILURE;
+}
+/******************************************************
  * Query Conditions Met
  ******************************************************/
 ParseResult sqlEngine::queryContitionsMet()
 {
+	//Nothing to see, move along
+	if(query->conditions.size() == 0)
+		return ParseResult::SUCCESS;
 
-	char buffRecord[60];
-	column* column;
+	ParseResult queryResult = ParseResult::FAILURE;
+	ParseResult queryResults = ParseResult::FAILURE;
+
 	for(Condition* condition : query->conditions)
 	{
-		column = condition->Column;
 
-		if(strcmp(condition->Operator,"=") == 0)
+
+		if(query->ignoringCaseIsEqual(condition->Operator,"like"))
 		{
-			strncpy(buffRecord, line+column->position, column->length);
-			buffRecord[column->length] = '\0';
-
-			if (!query->ignoringCaseIsEqual(condition->Value,buffRecord))
-				return ParseResult::FAILURE;
-			
-			continue;
+			queryResult = compareLike(condition);
+		}
+		else
+		{
+			if(query->ignoringCaseIsEqual(condition->Operator,"="))
+			{
+				queryResult = compareEqual(condition);
+			}
+			else
+			{
+				// Neither = nor like
+				errText.append("condition neither like nor =");
+			}
 		}
 
-		strncpy(buffRecord, line+column->position, strlen(condition->Value));
-		buffRecord[strlen(condition->Value)] = '\0';
-		
-		if(query->ignoringCaseIsEqual(condition->Operator,"like")
-		&& (!query->ignoringCaseIsEqual(condition->Value,buffRecord)))
-		{
+		if(query->conditions.size() == 1)
+			return queryResult;
+
+		if(!query->ignoringCaseIsEqual(condition->Condition,"AND")
+		&& !query->ignoringCaseIsEqual(condition->Condition,"OR")
+		&& query->conditions.size() == 1
+		&& queryResult == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
-		}
+
+		if(query->ignoringCaseIsEqual(condition->Condition,"AND")
+		&& queryResult == ParseResult::FAILURE)
+			return ParseResult::FAILURE;
+		
+		if(query->ignoringCaseIsEqual(condition->Condition,"AND")
+		&& queryResult  == ParseResult::SUCCESS
+		&& queryResults == ParseResult::SUCCESS)
+			return ParseResult::SUCCESS;
+
+		if(query->ignoringCaseIsEqual(condition->Condition,"OR")
+		&& (queryResult == ParseResult::SUCCESS
+		|| queryResults == ParseResult::SUCCESS))
+			return ParseResult::SUCCESS;
+
+		queryResults = queryResult;		
 	}
-	return ParseResult::SUCCESS;
+
+	return ParseResult::FAILURE;
 }
 /******************************************************
  * Select Query Columns

@@ -61,8 +61,7 @@ int main()
 			loader->loadSqlClasses("dbDef.json","bike");
 			
 			cTable* qtable = loader->getTableByName((char*)"customer");
-			errText.append(" count of customer indexes =");
-			errText.append(std::to_string(qtable->indexes.size()));
+
 			if(qtable == nullptr)
 			{
 				returnResult.error.append("customer table not found");

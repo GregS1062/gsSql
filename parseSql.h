@@ -2,6 +2,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <algorithm>
 #include "sqlClassLoader.h"
 
 using namespace std;
@@ -43,11 +44,13 @@ enum class SQLACTION{
 class Condition
 {
     public:
+        char*   prefix          = nullptr; //  (
         char*   Condition       = nullptr;
         char*   ColumnName      = nullptr;  // described by user
         column* Column          = nullptr;  // actual column loaded by engine
         char*   Operator        = nullptr;
         char*   Value           = nullptr;
+        char*   suffix          = nullptr;  // )
 };
 
 class sqlParser
@@ -81,6 +84,7 @@ class sqlParser
     ParseResult     parseValueList();
     ParseResult     parseConditions();
     ParseResult     addCondition(char*);
+    ParseResult     validateSQLString();
     bool            ignoringCaseIsEqual(char*, const char*);
     bool            isNumeric(char*);
     bool            isDelimiter();
@@ -99,6 +103,9 @@ ParseResult sqlParser::parse(const char* _sqlString)
         errText.append(" first token is null ");
         return ParseResult::FAILURE;
     }
+
+    if(validateSQLString() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
 
     if(determineAction(token) == ParseResult::FAILURE)
     {
@@ -135,7 +142,31 @@ ParseResult sqlParser::parse(const char* _sqlString)
 
 }
 /******************************************************
- * Determine Actopm
+ * Validate SQL String
+ ******************************************************/
+ParseResult sqlParser::validateSQLString()
+{
+
+    string sql;
+    sql.append(sqlString);
+    if(std::count(sql.begin(), sql.end(), '(')
+    != std::count(sql.begin(), sql.end(), ')'))
+    {
+        errText.append(" open condition '(' does not match close condition ')'");
+        return ParseResult::FAILURE;
+    }
+
+    bool even = std::count(sql.begin(), sql.end(), '"') % 2 == 0;
+    if(!even)
+    {
+        errText.append(" extra or missing quote.");
+        return ParseResult::FAILURE;
+    }
+
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Determine Actionm
  ******************************************************/
 ParseResult sqlParser::determineAction(char* _token)
 {
@@ -262,8 +293,26 @@ ParseResult sqlParser::addCondition(char* _token)
 
     if(condition == nullptr)
         condition = new Condition();
+    
+    if(ignoringCaseIsEqual(_token,"("))
+    {
+        condition->prefix = _token;
+        return ParseResult::SUCCESS;
+    }
+
+    if(ignoringCaseIsEqual(_token,")"))
+    {
+        condition->suffix = _token;
+        return ParseResult::SUCCESS;
+    }
 
     if(ignoringCaseIsEqual(_token,"AND"))
+    {
+        condition->Condition = _token;
+        return ParseResult::SUCCESS;
+    }
+
+    if(ignoringCaseIsEqual(_token,"OR"))
     {
         condition->Condition = _token;
         return ParseResult::SUCCESS;
