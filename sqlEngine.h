@@ -152,7 +152,6 @@ ParseResult sqlEngine::compareLike(Condition* _condition)
 	
 	char buffRecord[60];
 	column* column = _condition->Column;
-
 	strncpy(buffRecord, line+column->position, strlen(_condition->Value));
 	buffRecord[strlen(_condition->Value)] = '\0';
 		
@@ -198,7 +197,6 @@ ParseResult sqlEngine::queryContitionsMet()
 	for(Condition* condition : query->conditions)
 	{
 
-
 		if(query->ignoringCaseIsEqual(condition->Operator,"like"))
 		{
 			queryResult = compareLike(condition);
@@ -209,12 +207,17 @@ ParseResult sqlEngine::queryContitionsMet()
 			{
 				queryResult = compareEqual(condition);
 			}
-			else
-			{
-				// Neither = nor like
-				errText.append("condition neither like nor =");
-			}
 		}
+		/*errText.append(" ");
+		errText.append(std::to_string(queryResult));
+		errText.append(" ");
+		errText.append(std::to_string( query->conditions.size()));
+		errText.append(" ");
+		errText.append(condition->ColumnName);
+		errText.append(" ");
+		errText.append(condition->Operator);
+		errText.append(" ");
+		errText.append(condition->Value);*/
 
 		if(query->conditions.size() == 1)
 			return queryResult;

@@ -20,12 +20,18 @@ int main()
 
     sqlParser* parser = new sqlParser();
    // const char * sql = "SELECT top 5 * from customer where surname like ""sch""";
-    const char * sql = "INSERT INTO customer (deleted, custid, givenname, middleinitial, surname, phone, email, street1, street2, city, state, country, zipcode) VALUES ()"; 
+   // const char * sql = "INSERT INTO customer (deleted, custid, givenname, middleinitial, surname, phone, email, street1, street2, city, state, country, zipcode) VALUES ()"; 
 
+    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
+    
+     std::ifstream ifs(scriptFileName);
+    std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
+                       (std::istreambuf_iterator<char>()    ) );
 
-    if(parser->parse(sql) == ParseResult::FAILURE)
+    if(parser->parse(sql.c_str()) == ParseResult::FAILURE)
     {
-        printf("%s",errText.c_str());
+        printf("\n sql=%s",sql.c_str());
+        printf("\n %s",errText.c_str());
         return 0;
     }
     

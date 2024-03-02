@@ -100,7 +100,7 @@ ParseResult sqlParser::parse(const char* _sqlString)
     char* token     = getToken();
     if(token == nullptr)
     {
-        errText.append(" first token is null ");
+        errText.append("The first token is null ");
         return ParseResult::FAILURE;
     }
 
@@ -262,10 +262,17 @@ ParseResult sqlParser::parseInsert()
     if(queryColumn.size() > 1
     && queryColumn.size() != queryValue.size())
     {
-        errText.append(" columns =");
+        errText.append(" columns = ");
         errText.append(std::to_string(queryColumn.size())); 
-        errText.append(" values =");
+        errText.append(" ");
+        for (char* value : queryColumn)
+        {
+            errText.append(value);
+            errText.append("|");
+        }
+        errText.append(" values = ");
         errText.append(std::to_string(queryValue.size())); 
+        errText.append(" ");
         for (char* value : queryValue)
         {
             errText.append(value);
@@ -325,6 +332,13 @@ ParseResult sqlParser::addCondition(char* _token)
     }
     if(condition->Operator == nullptr)
     {
+        if(strcmp(_token,"=") != 0
+        && !ignoringCaseIsEqual(_token,"like"))
+        {
+            errText.append(_token);
+            errText.append(" condition operator missing or not = or like");
+            return ParseResult::FAILURE;
+        }
         condition->Operator = _token;
         return ParseResult::SUCCESS;
     }
@@ -363,7 +377,6 @@ ParseResult sqlParser::addCondition(char* _token)
 ParseResult sqlParser::parseConditions()
 {
     char* token;
-    int count = 0;
     
     //No conditions test
     if(pos >= sqlStringLength)
@@ -372,11 +385,11 @@ ParseResult sqlParser::parseConditions()
     while(pos < sqlStringLength)
     {
         token = getToken();
+
         if(addCondition(token) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-        count++;
     }
-    if(count == 0)
+    if(conditions.size() == 0)
     {
         errText.append(" expecting at least one condition column");
         return ParseResult::FAILURE;
@@ -405,7 +418,8 @@ ParseResult sqlParser::parseColumnList()
         {
             if(ignoringCaseIsEqual(token,sqlTokenFrom))
                 return ParseResult::SUCCESS;
-        }else
+        }
+        else
         {
             if(sqlAction == SQLACTION::INSERT)
             {
@@ -414,14 +428,18 @@ ParseResult sqlParser::parseColumnList()
                 {
                     // if no columns specified then all columns are assumed
                     //      an asterisk signifies all columns
-                    //if(count == 0)
-                     queryColumn.push_back((char*)sqlTokenAsterisk); 
+                    if(queryColumn.size() == 0)
+                      queryColumn.push_back((char*)sqlTokenAsterisk); 
 
                     return ParseResult::SUCCESS;
                 }
             }
         }
         
+        if(strcmp(token,")") == 0
+        || strcmp(token,"(") == 0)
+            continue;
+
         queryColumn.push_back(token);
         count++;
     }
@@ -442,7 +460,6 @@ ParseResult sqlParser::parseColumnList()
 ParseResult sqlParser::parseValueList()
 {
     char* token;
-    int count = 0;
     int stop = 0;
     while(pos < sqlStringLength)
     {
@@ -457,6 +474,9 @@ ParseResult sqlParser::parseValueList()
         if(ignoringCaseIsEqual(token,sqlTokenOpenParen))
             continue;
         
+        if(ignoringCaseIsEqual(token,sqlTokenCloseParen))
+            continue;
+        
         if(ignoringCaseIsEqual(token,sqlTokenValues))
             continue;
 
@@ -464,7 +484,7 @@ ParseResult sqlParser::parseValueList()
         {
             if(ignoringCaseIsEqual(token,sqlTokenCloseParen))
             {
-                if(count < 1)
+                if(queryValue.size() == 0)
                 {
                     errText.append("<p> expecting at least one value");
                     return ParseResult::FAILURE;
@@ -474,13 +494,9 @@ ParseResult sqlParser::parseValueList()
         }
         
         queryValue.push_back(token);
-        count++;
     }
-    if(count == 0)
+    if(queryValue.size() == 0)
         errText.append(" expecting value list");
-
-    if(sqlAction == SQLACTION::INSERT)
-        errText.append(" expecting closing parenthesis after value list");
 
     return ParseResult::FAILURE;
 }
@@ -497,10 +513,6 @@ ParseResult sqlParser::parseTableList()
     {
         token = getToken();
 
-        if(strlen(token) == 1
-        && strcmp(token,sqlTokenOpenParen) != 0)
-            continue;
-
         stop++;
         if(stop > 20)
         { 
@@ -508,16 +520,18 @@ ParseResult sqlParser::parseTableList()
             return ParseResult::FAILURE;
         }
 
-        if(sqlAction == SQLACTION::SELECT)
-            if(ignoringCaseIsEqual(token,sqlTokenWhere))
-                return ParseResult::SUCCESS;
+        if(sqlAction == SQLACTION::SELECT
+        && ignoringCaseIsEqual(token,sqlTokenWhere))
+        {
+            return ParseResult::SUCCESS;
+        }
 
         if(sqlAction == SQLACTION::INSERT)
         {
             if(ignoringCaseIsEqual(token,sqlTokenValues)
             || strcmp(token,sqlTokenOpenParen) == 0)
             {
-                if(count>1)
+                if(queryTable.size() > 1)
                 {
                     errText.append("<p> insert table count > 1 count=");
                     errText.append(std::to_string(count));

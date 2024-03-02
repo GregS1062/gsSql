@@ -46,4 +46,5 @@ class ReturnResult{
 ReturnResult returnResult;
 
 bool debug = false;
+string debugText;
 string errText;

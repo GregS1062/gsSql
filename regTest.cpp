@@ -42,7 +42,7 @@ bool runScript(string script)
 
     if(parser->parse(sql.c_str()) == ParseResult::FAILURE)
     {
-        printf("%s",errText.c_str());
+        printf("\n Parse failure %s  script = %s",errText.c_str(),scriptFileName.c_str());
         return 0;
     }
     
@@ -61,12 +61,24 @@ bool runScript(string script)
             string resultFileName = resultPath + "/" + script;
             ofstream resultFile;
             resultFile.open (resultFileName);
-            resultFile << engine->fetchData();
+            if(parser->sqlAction == SQLACTION::SELECT)
+            {
+                resultFile << engine->fetchData();
+            }
+            else
+            { 
+                resultFile << returnResult.message;
+            }
             resultFile.close();
+            errText.clear();
+            returnResult.error.clear();
+            returnResult.message.clear();
+            returnResult.resultTable.clear();
             return true;
         }
     }
     printf("\n %s", errText.c_str());
+
     return false;
 }
 
@@ -87,12 +99,12 @@ int main()
  
     for (string name : scripts)
     {
-        runScript(scriptPath + "/" + name);
+        runScript(name);
     }
 
     for (string name : scripts)
     {
-
+        debugText = name;
         ifstream inStream;
         inStream.open (resultPath + "/" + name);
         inStream >> result;
