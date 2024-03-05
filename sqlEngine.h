@@ -32,13 +32,14 @@ class sqlEngine
 		ParseResult ValidateQueryValues();
 		ParseResult	getConditionColumns();
 		ParseResult queryContitionsMet();
+		ParseResult updateRecord();
 		ParseResult compareLike(Condition*);
 		ParseResult compareEqual(Condition*);
 		ParseResult storeData();
 		string 		fetchData();
-		char*		getValue(char*);
 		char* 		getRecord(long, fstream*, int);
 		long		appendRecord(void*, fstream*, int);
+		bool 		writeRecord(void*, long, fstream*, int);
 
 
 };
@@ -82,17 +83,17 @@ ParseResult sqlEngine::ValidateQueryColumns()
 {
 	bool syntaxError = false;
 	bool match = false;
-	for(char* token : query->queryColumn)
+	for(char* value : query->queryColumn)
 	{
 		match = false; 
         for(column* qColumn : queryTable->columns)
         {
-			if(query->ignoringCaseIsEqual(token,sqlTokenAsterisk))
+			if(query->compareCaseInsensitive(value,sqlTokenAsterisk))
 			{
 				match = true;
 				queryColumn.push_back(qColumn);
 			}
-			if (query->ignoringCaseIsEqual(token,qColumn->name.c_str()))
+			if (query->compareCaseInsensitive(value,qColumn->name.c_str()))
 			{
 				match = true;
 				queryColumn.push_back(qColumn);
@@ -102,7 +103,7 @@ ParseResult sqlEngine::ValidateQueryColumns()
 		if(!match)
 		{
 			errText.append(" ");
-			errText.append(token);
+			errText.append(value);
 			errText.append(" not found ");
 			syntaxError = true;
 		}
@@ -125,7 +126,7 @@ ParseResult sqlEngine::getConditionColumns()
 		
 		for(column* col : queryTable->columns)
 		{
-			if(query->ignoringCaseIsEqual(condition->ColumnName,col->name.c_str()))
+			if(query->compareCaseInsensitive(condition->ColumnName,col->name.c_str()))
 			{
 				condition->Column = col;
 				break;
@@ -155,7 +156,7 @@ ParseResult sqlEngine::compareLike(Condition* _condition)
 	strncpy(buffRecord, line+column->position, strlen(_condition->Value));
 	buffRecord[strlen(_condition->Value)] = '\0';
 		
-	if(query->ignoringCaseIsEqual(_condition->Value,buffRecord))
+	if(query->compareCaseInsensitive(_condition->Value,buffRecord))
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -175,7 +176,7 @@ ParseResult sqlEngine::compareEqual(Condition* _condition)
 	strncpy(buffRecord, line+column->position, column->length);
 			buffRecord[column->length] = '\0';
 		
-	if(query->ignoringCaseIsEqual(_condition->Value,buffRecord))
+	if(query->compareCaseInsensitive(_condition->Value,buffRecord))
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -197,13 +198,13 @@ ParseResult sqlEngine::queryContitionsMet()
 	for(Condition* condition : query->conditions)
 	{
 
-		if(query->ignoringCaseIsEqual(condition->Operator,"like"))
+		if(query->compareCaseInsensitive(condition->Operator,"like"))
 		{
 			queryResult = compareLike(condition);
 		}
 		else
 		{
-			if(query->ignoringCaseIsEqual(condition->Operator,"="))
+			if(query->compareCaseInsensitive(condition->Operator,"="))
 			{
 				queryResult = compareEqual(condition);
 			}
@@ -222,22 +223,22 @@ ParseResult sqlEngine::queryContitionsMet()
 		if(query->conditions.size() == 1)
 			return queryResult;
 
-		if(!query->ignoringCaseIsEqual(condition->Condition,"AND")
-		&& !query->ignoringCaseIsEqual(condition->Condition,"OR")
+		if(!query->compareCaseInsensitive(condition->Condition,"AND")
+		&& !query->compareCaseInsensitive(condition->Condition,"OR")
 		&& query->conditions.size() == 1
 		&& queryResult == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 
-		if(query->ignoringCaseIsEqual(condition->Condition,"AND")
+		if(query->compareCaseInsensitive(condition->Condition,"AND")
 		&& queryResult == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 		
-		if(query->ignoringCaseIsEqual(condition->Condition,"AND")
+		if(query->compareCaseInsensitive(condition->Condition,"AND")
 		&& queryResult  == ParseResult::SUCCESS
 		&& queryResults == ParseResult::SUCCESS)
 			return ParseResult::SUCCESS;
 
-		if(query->ignoringCaseIsEqual(condition->Condition,"OR")
+		if(query->compareCaseInsensitive(condition->Condition,"OR")
 		&& (queryResult == ParseResult::SUCCESS
 		|| queryResults == ParseResult::SUCCESS))
 			return ParseResult::SUCCESS;
@@ -248,7 +249,7 @@ ParseResult sqlEngine::queryContitionsMet()
 	return ParseResult::FAILURE;
 }
 /******************************************************
- * Select Query Columns
+ * Validate Query Values
  ******************************************************/
 ParseResult sqlEngine::ValidateQueryValues()
 {
@@ -261,17 +262,17 @@ ParseResult sqlEngine::ValidateQueryValues()
 		return ParseResult::FAILURE;
 	}
 
-	for(char* token : query->queryValue)
+	for(char* value : query->queryValue)
 	{
 		valid = false; 
         for(column* qColumn : queryTable->columns)
         {
-			if(query->ignoringCaseIsEqual(token,sqlTokenAsterisk))
+			if(query->compareCaseInsensitive(value,sqlTokenAsterisk))
 			{
 				valid = true;
 				queryColumn.push_back(qColumn);
 			}
-			if (query->ignoringCaseIsEqual(token,qColumn->name.c_str()))
+			if (query->compareCaseInsensitive(value,qColumn->name.c_str()))
 			{
 				valid = true;
 				queryColumn.push_back(qColumn);
@@ -281,7 +282,7 @@ ParseResult sqlEngine::ValidateQueryValues()
 		if(!valid)
 		{
 			errText.append(" ");
-			errText.append(token);
+			errText.append(value);
 			errText.append(" not found ");
 			syntaxError = true;
 		}
@@ -289,6 +290,65 @@ ParseResult sqlEngine::ValidateQueryValues()
 	if(syntaxError)
 		return ParseResult::FAILURE;
 
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Update Record
+ ******************************************************/
+ParseResult sqlEngine::updateRecord()
+{
+	int recordPosition 	= 0;
+	int rowCount 		= 0;
+	bool syntaxError	= false;
+
+	for(column* col : queryTable->columns)
+	{
+		if(syntaxError)
+			break;
+
+		for(ColumnValue* colVal : query->columnValue)
+		{
+			if(query->compareCaseInsensitive((char*)col->name.c_str(),(const char*)colVal->ColumnName))
+			{
+			  colVal->Column = col;
+			  if(strlen(colVal->ColumnValue) > col->length)
+			  {
+				syntaxError	= true;
+				errText.append(colVal->ColumnName);
+				errText.append(" value length > column edit size.");
+				break;
+			  }
+			}
+		}
+	}
+	
+	if(syntaxError)
+		return ParseResult::FAILURE;
+
+	//table scan for now
+	while(true)
+	{
+		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
+		if(line == nullptr)
+			break;
+
+		if(queryContitionsMet() == ParseResult::SUCCESS)
+		{
+			for(ColumnValue* colVal : query->columnValue)
+			{
+				memmove(&line[colVal->Column->position], colVal->ColumnValue, colVal->Column->length);	
+			}
+			if(!writeRecord(line,recordPosition,tableStream,queryTable->recordLength))
+			{
+				errText.append(" Failed to update record");
+				return ParseResult::FAILURE;
+			}
+			rowCount++;
+		}
+		recordPosition = recordPosition + queryTable->recordLength;
+	}
+	returnResult.message.append(std::to_string(rowCount));
+	returnResult.message.append(" rows updated");
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -381,8 +441,13 @@ ParseResult sqlEngine::storeData()
 		memmove(&buff[col->position], value, col->length);
 		count++;
 	}
-	appendRecord(buff, tableStream, queryTable->recordLength);
-	return ParseResult::SUCCESS;
+	if(appendRecord(buff, tableStream, queryTable->recordLength) > 0)
+	{
+		returnResult.message.append(" 1 record inserted");
+		return ParseResult::SUCCESS;
+	};
+	errText.append(" location 0 - insert failed");
+	return ParseResult::FAILURE;
 }
 
 /******************************************************
@@ -447,4 +512,28 @@ long sqlEngine::appendRecord(void* _ptr, fstream* _file, int _size)
         errText.append( e.what());
         return 0;
     } 
+}
+/*-----------------------------------------------------------
+	Write record
+-------------------------------------------------------------*/
+bool sqlEngine::writeRecord(void* _ptr, long _address, fstream* _file, int _size)
+{
+	try
+	{ 
+		_file->clear();
+		if (!_file->seekp(_address))
+			return false;
+
+		if (!_file->write((char*)_ptr, _size))
+			return false;
+
+		_file->flush();
+		return true;
+	}
+	catch(const std::exception& e)
+    {
+        errText.append( e.what());
+        return 0;
+    } 
+	
 }

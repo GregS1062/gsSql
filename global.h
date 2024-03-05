@@ -9,10 +9,12 @@ using namespace std;
 #define SPACE  			' '
 #define NEWLINE 		'\n'
 #define TAB 			  '\t'
+#define RETURN      '\r'
 #define COLON 			':'
 #define COMMA 			','
 #define OPENPAREN   '('   //Note difference between OPENPAREN and sqlTokenOpenParen
 #define CLOSEPAREN  ')'
+#define EQUAL       '='
 
 #define MAXSQLTOKENSIZE	50
 

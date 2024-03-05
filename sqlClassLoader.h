@@ -72,8 +72,8 @@ class cTable : public baseData
 {  
     public:
         list<cIndex*>    indexes;
-        int             recordLength = 0;
-        cTable*         next = nullptr;
+        int              recordLength = 0;
+        cTable*          next = nullptr;
 };
 
 

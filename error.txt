@@ -1,0 +1,17 @@
+In file included from gsSqlCGI.cpp:11:
+parseSql.h:57:13: error: declaration of ‘column* ColumnValue::column’ changes meaning of ‘column’ [-fpermissive]
+   57 |     column* column;
+      |             ^~~~~~
+In file included from parseSql.h:6:
+sqlClassLoader.h:31:7: note: ‘column’ declared here as ‘class column’
+   31 | class column
+      |       ^~~~~~
+In file included from gsSqlCGI.cpp:13:
+sqlEngine.h: In member function ‘ParseResult sqlEngine::updateRecord()’:
+sqlEngine.h:301:14: error: unused variable ‘buff’ [-Werror=unused-variable]
+  301 |         char buff[60];
+      |              ^~~~
+sqlEngine.h:330:1: error: no return statement in function returning non-void [-Werror=return-type]
+  330 | }
+      | ^
+cc1plus: all warnings being treated as errors
