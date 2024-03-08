@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdio>
 #include <list>
+#include <map>
 #include "keyValue.h"
 #include "parseJason.h"
 #include "global.h"
@@ -42,11 +43,12 @@ class baseData
     protected:
         fstream* fileStream = new fstream{};
     public:
-        string          name;
-        string          fileName;
-        list<column*>   columns;
-        fstream*        open();
-        void            close();
+        string              name;
+        string              fileName;
+        map<char*,column*>  columns;
+        map<char*,column*>::iterator columnItr;
+        fstream*            open();
+        void                close();
 };
 fstream* baseData::open()
 {
@@ -71,11 +73,20 @@ class cIndex : public baseData
 class cTable : public baseData
 {  
     public:
-        list<cIndex*>    indexes;
-        int              recordLength = 0;
-        cTable*          next = nullptr;
+        list<cIndex*>   indexes;
+        int             recordLength = 0;
+        cTable*         next = nullptr;
+        column*         getColumn(char* _name);
 };
+column* cTable::getColumn(char* _name)
+{
 
+    for (columnItr = columns.begin(); columnItr != columns.end(); ++columnItr) {
+        if(strcmp(columnItr->first,_name) == 0)
+            return (column*)columnItr->second;
+    }
+    return nullptr;
+}
 
 class sqlClassLoader
 {
@@ -137,10 +148,12 @@ ParseResult sqlClassLoader::calculateTableColumnValues(cTable* _table)
 {
     try
     {
-        int recordLength        = 0;
-        int position            = 0;
-        for(column* c : _table->columns)
+        int     recordLength        = 0;
+        int     position            = 0;
+        column* c;
+        for (_table->columnItr = _table->columns.begin(); _table->columnItr != _table->columns.end(); ++_table->columnItr) 
         {
+            c               = (column*)_table->columnItr->second;
             c->position     = position;
             position        = position + c->length;
             recordLength    = recordLength + c->length;
@@ -213,7 +226,7 @@ ParseResult sqlClassLoader::loadTableColumns(keyValue* _tableKV, cTable* _table)
                         if(debug)
                             printf("\n column %s", c->name.c_str());
                         loadColumnValues(kv,c);
-                        _table->columns.push_back(c);
+                        _table->columns[(char*)c->name.c_str()] = c;
                     }
                 }
 
@@ -257,7 +270,7 @@ ParseResult sqlClassLoader::loadIndexColumns(keyValue* _indexKV, cIndex* _index)
                             printf("\n column %s", c->name.c_str());
 
                         loadColumnValues(kv,c);
-                        _index->columns.push_back(c);
+                        _index->columns[(char*)c->name.c_str()] = c;
                     }
                 }
 

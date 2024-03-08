@@ -16,3 +16,5 @@ UPDATE customer
 SET surname = "Schmidt", City = "Frankfurt"
 WHERE custid = "000000002";
 
+update customer set street1 = "324 4th Street SW" where custid = "000000011"
+

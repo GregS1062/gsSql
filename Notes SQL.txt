@@ -19,3 +19,16 @@ if open or close paren are encounted while a token is being populated
 *****************************************************************************
 condition
 
+select:
+    delimiter: from, where
+    * or column list
+        conditions column value pair separated by operator
+Update:
+    delimiter: where
+    column value pair separated by operator
+        conditions column value pair separated by operator
+
+Insert
+    delimiter into
+    column list and value list
+    value list

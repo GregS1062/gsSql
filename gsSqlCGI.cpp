@@ -39,6 +39,7 @@ int main()
 
 	try
 	{
+
 		Cgicc cgi = formData;
 		const_form_iterator iter;
 		for (iter = cgi.getElements().begin();
@@ -51,38 +52,56 @@ int main()
 				break;			
 			}
 		}
-		
-		sqlParser* parser = new sqlParser();
-		sqlClassLoader* loader = new sqlClassLoader();
 
-		if(parser->parse(htmlRequest.c_str()) == ParseResult::SUCCESS)
+		sqlClassLoader* loader = new sqlClassLoader();
+		sqlParser* parser = new sqlParser();
+		loader->loadSqlClasses("dbDef.json","bike");
+
+		if(parser->parse(htmlRequest.c_str(),loader) == ParseResult::SUCCESS)
 		{
-		
-			loader->loadSqlClasses("dbDef.json","bike");
-			
+				
 			cTable* qtable = loader->getTableByName((char*)"customer");
 
 			if(qtable == nullptr)
 			{
 				returnResult.error.append("customer table not found");
 			}
-			else{
+			else
+			{
 			
+						traceFile.open ("gsSqlTrace.txt");
+		traceFile << " prior to engine ";
+		traceFile.flush();
+		traceFile.close();
 				sqlEngine* engine = new sqlEngine(parser,qtable);
 				if(engine->open() == ParseResult::SUCCESS)
 				{
-					if(engine->ValidateQueryColumns() == ParseResult::SUCCESS)
+					
+					if(engine->query->sqlAction == SQLACTION::SELECT)
 					{
-						if(engine->query->sqlAction == SQLACTION::SELECT)
-							returnResult.resultTable = engine->fetchData();
-						if(engine->query->sqlAction == SQLACTION::INSERT)
+						returnResult.resultTable = engine->select();					
+					}
+					if(engine->query->sqlAction == SQLACTION::INSERT)
+					{
+						 if(engine->insert() == ParseResult::FAILURE)
 						{
-							if(engine->storeData() == ParseResult::SUCCESS)
-								returnResult.message.append(" Record Stored");
+							returnResult.resultTable.append(" ");
+							returnResult.message.append(" Insert failed");
+							returnResult.error.append(" ");
 						}
 					}
+					if(engine->query->sqlAction == SQLACTION::UPDATE)
+					{
+						engine->update();
+					} 
 				}
 			}
+		}
+		else
+		{
+			returnResult.resultTable.append(" ");
+			returnResult.message.append(" Parse error ");
+			returnResult.error.append(" ");
 		}
 
 		returnResult.error.append(errText);
@@ -135,7 +154,9 @@ int main()
 
 		traceFile.open ("gsSqlTrace.txt");
 		traceFile << htmlResponse;
+		traceFile.flush();
 		traceFile.close();
+
 
 		//Send Response
 		cout << htmlResponse;
@@ -144,6 +165,12 @@ int main()
     catch(const std::exception& e)
     {
         errText.append( e.what());
+		traceFile.open ("gsSqlTrace.txt");
+		traceFile <<  errText;
+		traceFile.close();
+		cout << "<html>";
+		cout << errText;
+		cout << "</html>";
         return 0;
     } 
 }

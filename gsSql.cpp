@@ -19,21 +19,28 @@ int main()
     loader->loadSqlClasses("dbDef.json","bike");
 
     sqlParser* parser = new sqlParser();
-   // const char * sql = "SELECT top 5 * from customer where surname like ""sch""";
+    std::string sql = "SELECT top 10 * from customer";
+    
+    //std::string sql = "SELECT top 10 * from customer where surname = ""schiller""";
+   
    // const char * sql = "INSERT INTO customer (deleted, custid, givenname, middleinitial, surname, phone, email, street1, street2, city, state, country, zipcode) VALUES ()"; 
 
-    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
+   /* std::string scriptFileName = "/home/greg/projects/regTest/scripts/t70-Update";
     
      std::ifstream ifs(scriptFileName);
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
+    */
+    printf("\n sql=%s \n",sql.c_str());
 
-    if(parser->parse(sql.c_str()) == ParseResult::FAILURE)
+    if(parser->parse(sql.c_str(),loader) == ParseResult::FAILURE)
     {
         printf("\n sql=%s",sql.c_str());
         printf("\n %s",errText.c_str());
         return 0;
     }
+
+    printf("\n parse success");
     
     cTable* table = loader->getTableByName((char*)"customer");
     if(table == nullptr)
@@ -45,9 +52,21 @@ int main()
     sqlEngine* engine = new sqlEngine(parser,table);
     if(engine->open() == ParseResult::SUCCESS)
     {
-        engine->ValidateQueryColumns();
-        string output = engine->fetchData();
-        printf("\n %s", output.c_str());
+        printf("\n engine opened");
+        if(parser->sqlAction == SQLACTION::SELECT)
+        {
+            string output = engine->select();
+            printf("\n %s", output.c_str());
+            return 0;
+        }
+        if(parser->sqlAction == SQLACTION::UPDATE)
+        {
+            engine->update();
+            printf("\n %s", errText.c_str());
+            printf("\n %s", returnResult.message.c_str());
+            return 0;
+        }
+
     }
     
     printf("\n\n");

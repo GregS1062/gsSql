@@ -63,7 +63,7 @@ bool runScript(string script)
             resultFile.open (resultFileName);
             if(parser->sqlAction == SQLACTION::SELECT)
             {
-                resultFile << engine->fetchData();
+                resultFile << engine->select();
             }
             else
             { 
