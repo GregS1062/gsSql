@@ -19,18 +19,18 @@ int main()
     loader->loadSqlClasses("dbDef.json","bike");
 
     sqlParser* parser = new sqlParser();
-    std::string sql = "SELECT top 10 * from customer";
+    //std::string sql = "SELECT top 10 * from customer";
     
     //std::string sql = "SELECT top 10 * from customer where surname = ""schiller""";
    
    // const char * sql = "INSERT INTO customer (deleted, custid, givenname, middleinitial, surname, phone, email, street1, street2, city, state, country, zipcode) VALUES ()"; 
 
-   /* std::string scriptFileName = "/home/greg/projects/regTest/scripts/t70-Update";
+    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t50-insert-into-values";
     
      std::ifstream ifs(scriptFileName);
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
-    */
+    
     printf("\n sql=%s \n",sql.c_str());
 
     if(parser->parse(sql.c_str(),loader) == ParseResult::FAILURE)
@@ -62,6 +62,13 @@ int main()
         if(parser->sqlAction == SQLACTION::UPDATE)
         {
             engine->update();
+            printf("\n %s", errText.c_str());
+            printf("\n %s", returnResult.message.c_str());
+            return 0;
+        }
+        if(parser->sqlAction == SQLACTION::INSERT)
+        {
+            engine->insert();
             printf("\n %s", errText.c_str());
             printf("\n %s", returnResult.message.c_str());
             return 0;

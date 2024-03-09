@@ -32,10 +32,11 @@ enum t_edit{
 class column
 {
     public:
-    string name;
-    t_edit edit;
-    int length = 0;
-    int position = 0;
+    string  name;
+    t_edit  edit;
+    int     length = 0;
+    int     position = 0;
+    char*   value;
 };
 
 class baseData

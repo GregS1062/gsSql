@@ -28,7 +28,6 @@ class sqlEngine
 		sqlEngine(sqlParser*, cTable*);
 		ParseResult open();
 		ParseResult close();
-		ParseResult ValidateQueryColumns();
 		ParseResult	getConditionColumns();
 		ParseResult queryContitionsMet();
 		ParseResult update();
@@ -76,43 +75,6 @@ ParseResult sqlEngine::close()
 	return ParseResult::SUCCESS;
 }
 /******************************************************
- * Select Query Columns
- ******************************************************/
-ParseResult sqlEngine::ValidateQueryColumns()
-{
-	if(query->queryColumn.size() == 0)
-	{
-		errText.append(" No columns detected ");
-		return ParseResult::FAILURE;
-	}
-
-	column* col;
-	 if(strcmp(query->queryColumn[0],sqlTokenAsterisk) == 0)
-	{
-		for (queryTable->columnItr = queryTable->columns.begin(); queryTable->columnItr != queryTable->columns.end(); ++queryTable->columnItr) 
-		{
-        	col = (column*)queryTable->columnItr->second;
-            queryColumn.push_back(col);
-    	}
-		return ParseResult::SUCCESS;
-	}
-
-	for(char* value : query->queryColumn)
-	{
-		col = queryTable->getColumn( value);
-		if(col == nullptr)
-		{
-			errText.append(" ");
-			errText.append(value);
-			errText.append(" not found ");
-			return ParseResult::FAILURE;
-		}
-		queryColumn.push_back(col);
-	}
-        
-	return ParseResult::SUCCESS;
-}
-/******************************************************
  * Get Condition Columns
  ******************************************************/
 ParseResult sqlEngine::getConditionColumns()
@@ -123,19 +85,19 @@ ParseResult sqlEngine::getConditionColumns()
 		if(condition == nullptr)
 			return ParseResult::FAILURE;
 		
-		col = queryTable->getColumn(condition->ColumnName);
+		col = queryTable->getColumn(condition->name);
 
 		if(col == nullptr)
 		{
 			errText.append(" condition column ");
-			errText.append(condition->ColumnName);
+			errText.append(condition->name);
 			errText.append(" not found ");
 			query->rowsToReturn = 1;
 			return ParseResult::FAILURE;
 
 		}
 
-		condition->Column = col;
+		condition->col = col;
 	}
 	return ParseResult::SUCCESS;
 }
@@ -148,11 +110,11 @@ ParseResult sqlEngine::compareLike(Condition* _condition)
 	// so "sch" = "schiller" because only three characters are being compared
 	
 	char buffRecord[60];
-	column* column = _condition->Column;
-	strncpy(buffRecord, line+column->position, strlen(_condition->Value));
-	buffRecord[strlen(_condition->Value)] = '\0';
+	column* column = _condition->col;
+	strncpy(buffRecord, line+column->position, strlen(_condition->value));
+	buffRecord[strlen(_condition->value)] = '\0';
 		
-	if(query->compareCaseInsensitive(_condition->Value,buffRecord))
+	if(query->compareCaseInsensitive(_condition->value,buffRecord))
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -168,11 +130,11 @@ ParseResult sqlEngine::compareEqual(Condition* _condition)
 	// so "sch" != "schiller" 
 
 	char buffRecord[60];
-	column* column = _condition->Column;
+	column* column = _condition->col;
 	strncpy(buffRecord, line+column->position, column->length);
 			buffRecord[column->length] = '\0';
 		
-	if(query->compareCaseInsensitive(_condition->Value,buffRecord))
+	if(query->compareCaseInsensitive(_condition->value,buffRecord))
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -194,13 +156,13 @@ ParseResult sqlEngine::queryContitionsMet()
 	for(Condition* condition : query->conditions)
 	{
 
-		if(query->compareCaseInsensitive(condition->Operator,"like"))
+		if(query->compareCaseInsensitive(condition->op,"like"))
 		{
 			queryResult = compareLike(condition);
 		}
 		else
 		{
-			if(query->compareCaseInsensitive(condition->Operator,"="))
+			if(query->compareCaseInsensitive(condition->op,"="))
 			{
 				queryResult = compareEqual(condition);
 			}
@@ -210,31 +172,31 @@ ParseResult sqlEngine::queryContitionsMet()
 		errText.append(" ");
 		errText.append(std::to_string( query->conditions.size()));
 		errText.append(" ");
-		errText.append(condition->ColumnName);
+		errText.append(condition->colName);
 		errText.append(" ");
-		errText.append(condition->Operator);
+		errText.append(condition->op);
 		errText.append(" ");
-		errText.append(condition->Value);*/
+		errText.append(condition->value);*/
 
 		if(query->conditions.size() == 1)
 			return queryResult;
 
-		if(!query->compareCaseInsensitive(condition->Condition,"AND")
-		&& !query->compareCaseInsensitive(condition->Condition,"OR")
+		if(!query->compareCaseInsensitive(condition->condition,"AND")
+		&& !query->compareCaseInsensitive(condition->condition,"OR")
 		&& query->conditions.size() == 1
 		&& queryResult == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 
-		if(query->compareCaseInsensitive(condition->Condition,"AND")
+		if(query->compareCaseInsensitive(condition->condition,"AND")
 		&& queryResult == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 		
-		if(query->compareCaseInsensitive(condition->Condition,"AND")
+		if(query->compareCaseInsensitive(condition->condition,"AND")
 		&& queryResult  == ParseResult::SUCCESS
 		&& queryResults == ParseResult::SUCCESS)
 			return ParseResult::SUCCESS;
 
-		if(query->compareCaseInsensitive(condition->Condition,"OR")
+		if(query->compareCaseInsensitive(condition->condition,"OR")
 		&& (queryResult == ParseResult::SUCCESS
 		|| queryResults == ParseResult::SUCCESS))
 			return ParseResult::SUCCESS;
@@ -260,25 +222,8 @@ ParseResult sqlEngine::update()
 		return ParseResult::FAILURE;
 	};
 
-	for(ColumnValue* colVal : query->columnValue)
-	{
-		col = queryTable->getColumn(colVal->ColumnName);
-		if(col == nullptr)
-		{
-			errText.append(colVal->ColumnName);
-			errText.append(" not found in table.");
-			return ParseResult::FAILURE;
-		}
-
-		colVal->Column = col;
-		if(strlen(colVal->ColumnValue) > (size_t)col->length)
-		{
-			errText.append(colVal->ColumnName);
-			errText.append(" value length > column edit size.");
-			return ParseResult::FAILURE;
-		}
-
-	}
+	map<char*,column*>::iterator itr;
+	map<char*,column*>columns = query->queryTable->columns;
 
 	//table scan for now
 	while(true)
@@ -289,9 +234,10 @@ ParseResult sqlEngine::update()
 
 		if(queryContitionsMet() == ParseResult::SUCCESS)
 		{
-			for(ColumnValue* colVal : query->columnValue)
+			for (itr = columns.begin(); itr != columns.end(); ++itr) 
 			{
-				memmove(&line[colVal->Column->position], colVal->ColumnValue, colVal->Column->length);	
+				col = (column*)itr->second;
+				memmove(&line[col->position], col->value, col->length);	
 			}
 			if(!writeRecord(line,recordPosition,tableStream,queryTable->recordLength))
 			{
@@ -326,10 +272,7 @@ string sqlEngine::select()
 
 	column* col;
 	map<char*,column*>::iterator itr;
-	auto it = query->queryTables.begin();
-    std::advance(it, 0);
-    cTable* table = (cTable*)it->second;
-	map<char*,column*>columns = table->columns;
+	map<char*,column*>columns = query->queryTable->columns;
 	for (itr = columns.begin(); itr != columns.end(); ++itr) {
             col = (column*)itr->second;
 			sumOfColumnSize = sumOfColumnSize + col->length;
@@ -396,37 +339,21 @@ ParseResult sqlEngine::insert()
 {
 	char* buff = (char*)malloc(queryTable->recordLength);
 	size_t count = 0;
-	char* value;
 	
-	if(queryColumn.size() == 1)
-	{
-		if(query->queryValue.size() != queryTable->columns.size())
-		{
-			errText.append(" value count != column count - insert failed");
-			return ParseResult::FAILURE;
-		}
+	column* col;
+	map<char*,column*>::iterator itr;
+	map<char*,column*>columns = query->queryTable->columns;
+	for (itr = columns.begin(); itr != columns.end(); ++itr) {
+        col = (column*)itr->second;
+		memmove(&buff[col->position], col->value, col->length);
+		count++;
+	}
 
-		for (queryTable->columnItr = queryTable->columns.begin(); 
-			queryTable->columnItr != queryTable->columns.end(); ++queryTable->columnItr) 
-		{
-            column* col = (column*)queryTable->columnItr->second;
-			value = query->queryValue[count];
-			memmove(&buff[col->position], value, col->length);
-			count++;
-    	}
-	}
-	else
+	long recordNumber = appendRecord(buff, tableStream, queryTable->recordLength);
+	if(recordNumber > 0)
 	{
-		for (column* col : queryColumn)
-		{
-			value = query->queryValue[count];
-			memmove(&buff[col->position], value, col->length);
-			count++;
-		}
-	}
-	if(appendRecord(buff, tableStream, queryTable->recordLength) > 0)
-	{
-		returnResult.message.append(" 1 record inserted");
+		returnResult.message.append(" 1 record inserted at location ");
+		returnResult.message.append(std::to_string(recordNumber));
 		return ParseResult::SUCCESS;
 	};
 	errText.append(" location 0 - insert failed");

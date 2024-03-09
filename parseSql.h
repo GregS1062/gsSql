@@ -29,11 +29,11 @@ class Condition
 {
     public:
         char*   prefix          = nullptr; //  (
-        char*   Condition       = nullptr;
-        char*   ColumnName      = nullptr;  // described by user
-        column* Column          = nullptr;  // actual column loaded by engine
-        char*   Operator        = nullptr;
-        char*   Value           = nullptr;
+        char*   condition       = nullptr;
+        char*   name            = nullptr;  // described by user
+        column* col             = nullptr;  // actual column loaded by engine
+        char*   op              = nullptr;  // operator is a reserved word
+        char*   value           = nullptr;
         char*   suffix          = nullptr;  // )
 };
 
@@ -52,9 +52,8 @@ class ColumnValue
     //Note: all that is needed for update parsing is the column name
     //      the column and all of its edits are added in the sqlEngine
     public:
-    char*   ColumnName;
-    char*   ColumnValue;
-    column* Column;
+    char*   name;
+    char*   value;
 };
 
 /******************************************************
@@ -68,48 +67,45 @@ class ColumnValue
 class sqlParser
 {
     const char*         sqlString;
-    size_t              sqlStringLength = 0;
-    size_t              pos             = 0; //pointer to position in string being parsed
+    signed long         sqlStringLength = 0;
+    signed long         pos             = 0; //pointer to position in string being parsed
     
     sqlClassLoader*     loader;
 
     public:
 
-    const char*         tableString;
-    const char*         columnString;
-    const char*         valueString;
+    std::map<char*,cTable*> queryTables;
+    list<Condition*>        conditions;
+    list<ColumnValue*>      columnValue;
 
-    std::map<char*,cTable*>  queryTables;
-    std::vector<char*>  queryColumn;
-    std::vector<char*>  queryValue;
-    list<Condition*>    conditions;
-    list<ColumnValue*>  columnValue;
+    cTable* queryTable;
 
     Condition*          condition       = nullptr;
 
     int                 rowsToReturn    = 0;
     bool                isColumn        = false;
-    bool                isTable         = false;
-    bool                isTop           = false;
     bool                isCondition     = false;
     SQLACTION           sqlAction       = SQLACTION::NOACTION;
 
-    char*               getToken();
     ParseResult         parse(const char*,sqlClassLoader*);
     ParseResult         parseSelect();
     ParseResult         parseInsert();
     ParseResult         parseUpdate();
     ParseResult         determineAction(char*);
-    ParseResult         parseTableList(size_t, size_t);
-    ParseResult         parseColumnValue(size_t, size_t);
-    ParseResult         parseColumnList(size_t, size_t);
-    ParseResult         parseValueList(size_t, size_t);
-    ParseResult         parseConditions(size_t, size_t);
+    ParseResult         parseTableList(signed long, signed long);
+    ParseResult         parseColumnValue(signed long, signed long);
+    ParseResult         parseColumnList(signed long, signed long);
+    ParseResult         parseValueList(signed long, signed long);
+    ParseResult         parseConditions(signed long, signed long);
     ParseResult         addCondition(char*);
     ParseResult         validateSQLString();
+    ParseResult         populateQueryTable(cTable* table);
+    char*               getToken();
+    cTable*             getQueryTable(short);
+    column*             getQueryTableColumn(short);
     bool                compareCaseInsensitive(char*, const char*);
     bool                isNumeric(char*);
-    long int            findDelimiter(char*, char*);
+    signed long         findDelimiter(char*, char*);
 };
 /******************************************************
  * Parse
@@ -172,6 +168,8 @@ ParseResult sqlParser::validateSQLString()
 
     string sql;
     sql.append(sqlString);
+
+    // Do open and close parenthesis match?
     if(std::count(sql.begin(), sql.end(), '(')
     != std::count(sql.begin(), sql.end(), ')'))
     {
@@ -179,6 +177,7 @@ ParseResult sqlParser::validateSQLString()
         return ParseResult::FAILURE;
     }
 
+    //Do quotes match?
     bool even = std::count(sql.begin(), sql.end(), '"') % 2 == 0;
     if(!even)
     {
@@ -249,16 +248,13 @@ ParseResult sqlParser::parseSelect()
         pos = pos - (strlen(token) + 1);
     }
 
-    size_t posColumn = pos;
-    size_t posFrom = (int)findDelimiter((char*)sqlString, (char*)sqlTokenFrom);
-    size_t posWhere = (int)findDelimiter((char*)sqlString, (char*)sqlTokenWhere);
-    if(posWhere == 0)
+    signed long posColumn   = pos;
+    signed long posFrom     = findDelimiter((char*)sqlString, (char*)sqlTokenFrom);
+    signed long posWhere    = findDelimiter((char*)sqlString, (char*)sqlTokenWhere);
+    if(posWhere == NEGATIVE)
         posWhere = sqlStringLength;
 
     if(parseTableList(posFrom+strlen(sqlTokenFrom),posWhere) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    if(parseColumnList(posColumn,posFrom) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     if(queryTables.size() == 0)
@@ -267,41 +263,20 @@ ParseResult sqlParser::parseSelect()
         return ParseResult::FAILURE;
     }
 
-    auto it = queryTables.begin();
-    std::advance(it, 0);
-    cTable* table = (cTable*)it->second;
-    if(table == nullptr)
+    /* Populate the query table with the columns that 
+        will be used by the engine
+    */
+
+    queryTable = getQueryTable(0);
+    if(queryTable == nullptr)
     {
         errText.append(" cannot find selected table ");
         return ParseResult::FAILURE;
     }
-    cTable* loadTable = loader->getTableByName((char*)table->name.c_str());
-    column* col;
 
-    if(strcmp(queryColumn[0],sqlTokenAsterisk) == 0 )
-    {
-        map<char*,column*>::iterator itr;
-        map<char*,column*>columns = loadTable->columns;
-        for (itr = columns.begin(); itr != columns.end(); ++itr) 
-        {
-            col = (column*)itr->second;
-            table->columns.insert({(char*)col->name.c_str(), col});
-        }
-    }
-    else
-    {
-        for(char* colName : queryColumn)
-        {
-            col = loadTable->getColumn(colName);
-            if(col == nullptr)
-            {
-                errText.append(" column not found ");
-                errText.append(colName);
-                return ParseResult::FAILURE;
-            }
-            table->columns.insert({colName, col});
-        }
-    }
+    if(parseColumnList(posColumn,posFrom) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+    
 
     if(posWhere < sqlStringLength)
     {
@@ -317,43 +292,51 @@ ParseResult sqlParser::parseSelect()
 ParseResult sqlParser::parseInsert()
 {
     
-    char* token     = getToken();
-    if(!compareCaseInsensitive(token,sqlTokenInto))
+    signed long posInto = findDelimiter((char*)sqlString, (char*)sqlTokenInto);
+    if(posInto == NEGATIVE)
     {
         errText.append(" <p> expecting the literal 'into'");
         return ParseResult::FAILURE;
     }
 
-    if(parseTableList(pos,sqlStringLength) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    if(parseColumnList(pos,sqlStringLength) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    if(parseValueList(pos,sqlStringLength) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    if(queryColumn.size() > 1
-    && queryColumn.size() != queryValue.size())
+    // pos = abbreviation for position
+    signed long posValues       = findDelimiter((char*)sqlString, (char*)sqlTokenValues);
+    signed long posOpenParen    = findDelimiter((char*)sqlString, (char*)sqlTokenOpenParen);
+    signed long posCloseParen   = findDelimiter((char*)sqlString, (char*)sqlTokenCloseParen);
+    signed long posCloseTable;
+    
+    if(posValues < posOpenParen)
     {
-        errText.append(" columns = ");
-        errText.append(std::to_string(queryColumn.size())); 
-        errText.append(" ");
-        for (char* value : queryColumn)
-        {
-            errText.append(value);
-            errText.append("|");
-        }
-        errText.append(" values = ");
-        errText.append(std::to_string(queryValue.size())); 
-        errText.append(" ");
-        for (char* value : queryValue)
-        {
-            errText.append(value);
-            errText.append("|");
-        }
+        posCloseTable = posValues;
+    }
+    else
+    {
+        posCloseTable = posOpenParen;
+    }
+    
+    if(parseTableList(posInto + strlen(sqlTokenInto),posCloseTable) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    queryTable = sqlParser::getQueryTable(0);
+    if(queryTable == nullptr)
+    {
+        errText.append(" cannot identify query table ");
         return ParseResult::FAILURE;
     }
+
+    if(posValues > posOpenParen)
+    {
+        // Signature (col,col,col) Values
+        if(parseColumnList(posOpenParen,posCloseParen) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+    }
+    else{
+        cTable* loadTable = loader->getTableByName((char*)queryTable->name.c_str());
+        populateQueryTable(loadTable);
+    }
+
+    if(parseValueList(posValues+strlen(sqlTokenValues),sqlStringLength) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
 }
@@ -362,22 +345,54 @@ ParseResult sqlParser::parseInsert()
  ******************************************************/
 ParseResult sqlParser::parseUpdate()
 {
-
-    if(parseTableList(pos,sqlStringLength) == ParseResult::FAILURE)
+    pos = strlen(sqlTokenUpdate);
+    signed long posSet = findDelimiter((char*)sqlString, (char*)sqlTokenSet);
+    if(parseTableList(pos,posSet) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    if(parseColumnValue(pos,sqlStringLength) == ParseResult::FAILURE)
+    signed long posWhere = findDelimiter((char*)sqlString, (char*)sqlTokenWhere);
+    if(parseColumnValue(posSet+strlen(sqlTokenSet),posWhere) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
+
+    posWhere = posWhere + strlen(sqlTokenWhere);
+    if(parseConditions(posWhere,sqlStringLength) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    queryTable = getQueryTable(0);
+    if(queryTable == nullptr)
+    {
+        errText.append(" cannot find selected table ");
+        return ParseResult::FAILURE;
+    }
     
-    if(parseConditions(pos,sqlStringLength) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+    // The template table defined by the CREATE syntax (jason for now)
+    cTable* loadTable = loader->getTableByName((char*)queryTable->name.c_str());
+    column* col;
+    for(ColumnValue* colVal : columnValue)
+    {
+        col = loadTable->getColumn(colVal->name);
+        if(col == nullptr)
+        {
+            errText.append(" column not found ");
+            errText.append(colVal->name);
+            return ParseResult::FAILURE;
+        }
+        if(strlen(colVal->value) > (size_t)col->length)
+        {
+            errText.append(colVal->name);
+            errText.append(" value > edit length ");
+            return ParseResult::FAILURE;
+        }
+        col->value = colVal->value;
+        queryTable->columns.insert({colVal->name, col});
+    }
 
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse Column List (for Update)
  ******************************************************/
-ParseResult sqlParser::parseColumnValue(size_t _begin, size_t _end)
+ParseResult sqlParser::parseColumnValue(signed long _begin, signed long _end)
 {
     char* token;
     bool  isColumnFlag = true;
@@ -386,8 +401,6 @@ ParseResult sqlParser::parseColumnValue(size_t _begin, size_t _end)
     while(pos < _end)
     {
         token = getToken();
-        if(compareCaseInsensitive(token,sqlTokenWhere))
-            return ParseResult::SUCCESS;
 
         if(strcmp(token,sqlTokenEqual) == 0)
         {
@@ -397,15 +410,15 @@ ParseResult sqlParser::parseColumnValue(size_t _begin, size_t _end)
         {
             isColumnFlag = false;
             colVal = new ColumnValue();
-            colVal->ColumnName = token;
+            colVal->name = token;
             continue;
         }
         isColumnFlag = true;
-        colVal->ColumnValue = token;
+        colVal->value = token;
         columnValue.push_back(colVal);
     }
-    errText.append("Expecting a 'where' clause");
-    return ParseResult::FAILURE;
+
+    return ParseResult::SUCCESS;
 }
 
 /******************************************************
@@ -439,22 +452,22 @@ ParseResult sqlParser::addCondition(char* _token)
 
     if(compareCaseInsensitive(_token,"AND"))
     {
-        condition->Condition = _token;
+        condition->condition = _token;
         return ParseResult::SUCCESS;
     }
 
     if(compareCaseInsensitive(_token,"OR"))
     {
-        condition->Condition = _token;
+        condition->condition = _token;
         return ParseResult::SUCCESS;
     }
 
-    if(condition->ColumnName == nullptr)
+    if(condition->name == nullptr)
     {
-        condition->ColumnName = _token;
+        condition->name = _token;
         return ParseResult::SUCCESS;
     }
-    if(condition->Operator == nullptr)
+    if(condition->op == nullptr)
     {
         if(strcmp(_token,"=") != 0
         && !compareCaseInsensitive(_token,"like"))
@@ -463,10 +476,10 @@ ParseResult sqlParser::addCondition(char* _token)
             errText.append(" condition operator missing or not = or like");
             return ParseResult::FAILURE;
         }
-        condition->Operator = _token;
+        condition->op = _token;
         return ParseResult::SUCCESS;
     }
-    if(condition->Value == nullptr)
+    if(condition->value == nullptr)
     {
         //strip quotes from value
         size_t s = 0;
@@ -486,7 +499,7 @@ ParseResult sqlParser::addCondition(char* _token)
             s++;  
         }
 
-        condition->Value = _token;
+        condition->value = _token;
         conditions.push_back(condition);
 
         condition = new Condition();
@@ -498,7 +511,7 @@ ParseResult sqlParser::addCondition(char* _token)
 /******************************************************
  * Parse Conditions
  ******************************************************/
-ParseResult sqlParser::parseConditions(size_t _begin, size_t _end)
+ParseResult sqlParser::parseConditions(signed long _begin, signed long _end)
 {
     char* token;
     
@@ -524,34 +537,48 @@ ParseResult sqlParser::parseConditions(size_t _begin, size_t _end)
 /******************************************************
  * Parse Column List
  ******************************************************/
-ParseResult sqlParser::parseColumnList(size_t _begin,size_t _end)
+ParseResult sqlParser::parseColumnList(signed long _begin,signed long _end)
 {
-    char* token;
-    int count = 0;
+    char*       token;
+
     pos = _begin;
+
+        // The template table defined by the CREATE syntax (jason for now)
+    cTable* loadTable = loader->getTableByName((char*)queryTable->name.c_str());
+    column* col;
+
+    token = getToken();
+
+    if(strcmp(token,sqlTokenAsterisk) == 0 )
+        return populateQueryTable(loadTable);
+
     while(pos < _end)
     {
         token = getToken();  
-        queryColumn.push_back(token);
-        count++;
+        col = loadTable->getColumn(token);
+        if(col == nullptr)
+        {
+            errText.append(" column not found ");
+            errText.append(token);
+            return ParseResult::FAILURE;
+        }
+        queryTable->columns.insert({token, col});
     }
-    if(count > 0)
-    {
-        return ParseResult::SUCCESS;
-    }
-    else
+    if(queryTable->columns.size() == 0)
     {
         errText.append(" expecting column list");
+        return ParseResult::FAILURE;
     }
 
-    errText.append(" Column parsing error ");
-    return ParseResult::FAILURE;
+    return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse Value List
  ******************************************************/
-ParseResult sqlParser::parseValueList(size_t _begin,size_t _end)
+ParseResult sqlParser::parseValueList(signed long _begin,signed long _end)
 {
+    short int count = 0;
+    column* col;
     char* token;
     pos = _begin;
     while(pos < _end)
@@ -567,29 +594,38 @@ ParseResult sqlParser::parseValueList(size_t _begin,size_t _end)
 
         if(compareCaseInsensitive(token,sqlTokenCloseParen))
         {    
-            if(queryValue.size() == 0)
+            if(count == 0)
             {
                 errText.append("<p> expecting at least one value");
                 return ParseResult::FAILURE;
             }
             return ParseResult::SUCCESS;
         }
-        errText.append(" ");
-        errText.append(token);
-        errText.append(" ");
-        queryValue.push_back(token);
+        /*
+            DEBUG
+            errText.append(" ");
+            errText.append(token);
+            errText.append(" ");
+        */
+        col = getQueryTableColumn(count);
+        if((size_t)col->length < strlen(token))
+        {
+            errText.append(col->name);
+            errText.append(" value length ");
+            errText.append(std::to_string(strlen(token)));
+            errText.append(" > edit length ");
+            errText.append(std::to_string(col->length));
+            return ParseResult::FAILURE;
+        }
+        col->value = token;
+        count++;
     }
-
-    if(queryValue.size() == 0)
-        errText.append(" expecting value list");
-
-    errText.append(" column value parsing error");
-    return ParseResult::FAILURE;
+    return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse Table List
  ******************************************************/
-ParseResult sqlParser::parseTableList(size_t _begin, size_t _end)
+ParseResult sqlParser::parseTableList(signed long _begin, signed long _end)
 {
     char* token;
     pos = _begin;
@@ -741,9 +777,9 @@ bool sqlParser::isNumeric(char* _token)
  #include <string.h>
 
 /******************************************************
- * find delimiter
+ * Find Delimiter
  ******************************************************/
-long int sqlParser::findDelimiter(char* _string, char* _delimiter)
+signed long sqlParser::findDelimiter(char* _string, char* _delimiter)
 {
     char buff[2000];
     for(size_t i = 0;i<strlen(_string);i++)
@@ -758,7 +794,40 @@ long int sqlParser::findDelimiter(char* _string, char* _delimiter)
         return s - buff;
     }                                  
 
-    return 0;
+    return NEGATIVE;
+}
+/******************************************************
+ * Get Query Table
+ ******************************************************/
+cTable* sqlParser::getQueryTable(short index)
+{
+    auto it = queryTables.begin();
+    std::advance(it, index);
+    return (cTable*)it->second;
+}
+/******************************************************
+ * Get Query Table Column
+ ******************************************************/
+column* sqlParser::getQueryTableColumn(short index)
+{
+    auto it = queryTable->columns.begin();
+    std::advance(it, index);
+    return (column*)it->second;
+}
+/******************************************************
+ * Populate Query Table
+ ******************************************************/
+ParseResult sqlParser::populateQueryTable(cTable* table)
+{
+    column* col;
+    map<char*,column*>::iterator itr;
+    map<char*,column*>columns = table->columns;
+    for (itr = columns.begin(); itr != columns.end(); ++itr) 
+    {
+        col = (column*)itr->second;
+        queryTable->columns.insert({(char*)col->name.c_str(), col});
+    }
+    return ParseResult::SUCCESS;
 }
 
 
