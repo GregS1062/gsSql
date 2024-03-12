@@ -7,14 +7,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <syslog.h>
-#include "parseJason.h"
-#include "parseSql.h"
-#include "sqlClassLoader.h"
+#include "sqlParser.h"
+#include "queryParser.h"
 #include "sqlEngine.h"
 #include "global.h"
-#include "userException.h"
-//#include "pipes.h"
-#include "keyValue.h"
 
 #include <cgicc/CgiDefs.h> 
 #include <cgicc/Cgicc.h> 
@@ -24,6 +20,77 @@
 using namespace std;
 using namespace cgicc;
 
+ParseResult runQuery(string _htmlRequest)
+{
+
+	std::string sqlFileName = "bike.sql";
+	std::ifstream ifs(sqlFileName);
+	std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
+					(std::istreambuf_iterator<char>()    ) );
+
+	sqlParser* parser = new sqlParser((char*)sql.c_str());
+
+	if(parser->parse() == ParseResult::FAILURE)
+	{
+		errText.append("SQL CREATE syntax error");
+		return ParseResult::FAILURE;
+	}
+	queryParser* query = new queryParser();
+	if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
+	{
+		errText.append("query parse failed");
+		return ParseResult::FAILURE;
+	};
+
+	cTable* table = parser->getTableByName((char*)"customers");
+	if(table == nullptr)
+	{
+		errText.append(" table not found");
+		return ParseResult::FAILURE;
+	}
+
+	sqlEngine* engine = new sqlEngine(query,table);
+
+
+
+	if(engine->open() == ParseResult::SUCCESS)
+	{
+		if(engine->query->sqlAction == SQLACTION::SELECT)
+		{
+			returnResult.resultTable = engine->select();
+			return ParseResult::SUCCESS;					
+		}
+		if(engine->query->sqlAction == SQLACTION::INSERT)
+		{
+			if(engine->insert() == ParseResult::FAILURE)
+			{
+				returnResult.resultTable.append(" ");
+				returnResult.message.append(" Insert failed");
+				returnResult.error.append(" ");
+				return ParseResult::FAILURE;
+			}
+			return ParseResult::SUCCESS;
+		}
+		if(engine->query->sqlAction == SQLACTION::UPDATE)
+		{
+			if(engine->update() == ParseResult::FAILURE)
+			{
+				returnResult.resultTable.append(" ");
+				returnResult.message.append(" Insert failed");
+				returnResult.error.append(" ");
+				return ParseResult::FAILURE;
+			}
+			return ParseResult::SUCCESS;
+		} 
+	}
+	else
+	{
+		returnResult.resultTable.append(" ");
+		returnResult.message.append(" Parse error ");
+		returnResult.error.append(" ");
+	}
+	return ParseResult::SUCCESS;
+}
 /*---------------------------------------
    Main
 -----------------------------------------*/
@@ -31,7 +98,7 @@ int main()
 {
     Cgicc formData;
 
-	string htmlRequest = "select top 5 * from customer";
+	string htmlRequest = "select top 5 * from customers";
 
 	string htmlResponse;
 
@@ -39,6 +106,9 @@ int main()
 
 	try
 	{
+		returnResult.resultTable.append(" ");
+		returnResult.message.append(" ");
+		returnResult.error.append(" ");
 
 		Cgicc cgi = formData;
 		const_form_iterator iter;
@@ -53,56 +123,7 @@ int main()
 			}
 		}
 
-		sqlClassLoader* loader = new sqlClassLoader();
-		sqlParser* parser = new sqlParser();
-		loader->loadSqlClasses("dbDef.json","bike");
-
-		if(parser->parse(htmlRequest.c_str(),loader) == ParseResult::SUCCESS)
-		{
-				
-			cTable* qtable = loader->getTableByName((char*)"customer");
-
-			if(qtable == nullptr)
-			{
-				returnResult.error.append("customer table not found");
-			}
-			else
-			{
-			
-						traceFile.open ("gsSqlTrace.txt");
-		traceFile << " prior to engine ";
-		traceFile.flush();
-		traceFile.close();
-				sqlEngine* engine = new sqlEngine(parser,qtable);
-				if(engine->open() == ParseResult::SUCCESS)
-				{
-					
-					if(engine->query->sqlAction == SQLACTION::SELECT)
-					{
-						returnResult.resultTable = engine->select();					
-					}
-					if(engine->query->sqlAction == SQLACTION::INSERT)
-					{
-						 if(engine->insert() == ParseResult::FAILURE)
-						{
-							returnResult.resultTable.append(" ");
-							returnResult.message.append(" Insert failed");
-							returnResult.error.append(" ");
-						}
-					}
-					if(engine->query->sqlAction == SQLACTION::UPDATE)
-					{
-						engine->update();
-					} 
-				}
-			}
-		}
-		else
-		{
-			returnResult.resultTable.append(" ");
-			returnResult.message.append(" Parse error ");
-			returnResult.error.append(" ");
-		}
+		runQuery(htmlRequest);
 
 		returnResult.error.append(errText);
 

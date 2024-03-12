@@ -7,8 +7,7 @@
 #include <filesystem>
 #include <list>
 #include "global.h"
-#include "sqlClassLoader.h"
-#include "parseSql.h"
+#include "queryParser.h"
 
 using namespace std;
 
@@ -23,9 +22,9 @@ class sqlEngine
 	char* line;
 
 	public:
-		sqlParser* 	query;
+		queryParser* 	query;
 
-		sqlEngine(sqlParser*, cTable*);
+		sqlEngine(queryParser*, cTable*);
 		ParseResult open();
 		ParseResult close();
 		ParseResult	getConditionColumns();
@@ -41,8 +40,7 @@ class sqlEngine
 
 
 };
-
-sqlEngine::sqlEngine(sqlParser* _query, cTable* _table)
+sqlEngine::sqlEngine(queryParser* _query, cTable* _table)
 {
     /***************************************
 	 * Assuming a single table for now
@@ -114,7 +112,7 @@ ParseResult sqlEngine::compareLike(Condition* _condition)
 	strncpy(buffRecord, line+column->position, strlen(_condition->value));
 	buffRecord[strlen(_condition->value)] = '\0';
 		
-	if(query->compareCaseInsensitive(_condition->value,buffRecord))
+	if(strcasecmp(_condition->value,buffRecord) == 0)
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -134,7 +132,7 @@ ParseResult sqlEngine::compareEqual(Condition* _condition)
 	strncpy(buffRecord, line+column->position, column->length);
 			buffRecord[column->length] = '\0';
 		
-	if(query->compareCaseInsensitive(_condition->value,buffRecord))
+	if(strcasecmp(_condition->value,buffRecord) == 0)
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -156,13 +154,13 @@ ParseResult sqlEngine::queryContitionsMet()
 	for(Condition* condition : query->conditions)
 	{
 
-		if(query->compareCaseInsensitive(condition->op,"like"))
+		if(strcasecmp(condition->op,"like") == 0)
 		{
 			queryResult = compareLike(condition);
 		}
 		else
 		{
-			if(query->compareCaseInsensitive(condition->op,"="))
+			if(strcasecmp(condition->op,"=") == 0)
 			{
 				queryResult = compareEqual(condition);
 			}
@@ -172,7 +170,7 @@ ParseResult sqlEngine::queryContitionsMet()
 		errText.append(" ");
 		errText.append(std::to_string( query->conditions.size()));
 		errText.append(" ");
-		errText.append(condition->colName);
+		errText.append(condition->name);
 		errText.append(" ");
 		errText.append(condition->op);
 		errText.append(" ");
@@ -181,26 +179,31 @@ ParseResult sqlEngine::queryContitionsMet()
 		if(query->conditions.size() == 1)
 			return queryResult;
 
-		if(!query->compareCaseInsensitive(condition->condition,"AND")
-		&& !query->compareCaseInsensitive(condition->condition,"OR")
-		&& query->conditions.size() == 1
-		&& queryResult == ParseResult::FAILURE)
-			return ParseResult::FAILURE;
+		if(condition->condition != nullptr)
+		{
 
-		if(query->compareCaseInsensitive(condition->condition,"AND")
-		&& queryResult == ParseResult::FAILURE)
-			return ParseResult::FAILURE;
+			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) != 0
+			&& strcasecmp(condition->condition,(char*)sqlTokenOr) != 0)
+			{
+				if (query->conditions.size() == 1
+				&& queryResult == ParseResult::FAILURE)
+					return ParseResult::FAILURE;
+			}
+
+			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) == 0
+			&& queryResult == ParseResult::FAILURE)
+				return ParseResult::FAILURE;
 		
-		if(query->compareCaseInsensitive(condition->condition,"AND")
-		&& queryResult  == ParseResult::SUCCESS
-		&& queryResults == ParseResult::SUCCESS)
-			return ParseResult::SUCCESS;
+			if(strcasecmp(condition->condition,(char*)sqlTokenAnd)  == 0
+			&& queryResult  == ParseResult::SUCCESS
+			&& queryResults == ParseResult::SUCCESS)
+				return ParseResult::SUCCESS;
 
-		if(query->compareCaseInsensitive(condition->condition,"OR")
-		&& (queryResult == ParseResult::SUCCESS
-		|| queryResults == ParseResult::SUCCESS))
-			return ParseResult::SUCCESS;
-
+			if(strcasecmp(condition->condition,(char*)sqlTokenOr)  == 0
+			&& (queryResult == ParseResult::SUCCESS
+			|| queryResults == ParseResult::SUCCESS))
+				return ParseResult::SUCCESS;
+		}
 		queryResults = queryResult;		
 	}
 
@@ -231,7 +234,7 @@ ParseResult sqlEngine::update()
 		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
 		if(line == nullptr)
 			break;
-
+		
 		if(queryContitionsMet() == ParseResult::SUCCESS)
 		{
 			for (itr = columns.begin(); itr != columns.end(); ++itr) 

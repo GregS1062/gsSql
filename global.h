@@ -7,9 +7,12 @@ using namespace std;
 #define NEGATIVE		-1
 #define QUOTE			  '"'
 #define SPACE  			' '
+#define CRLF        "\r\n"  
 #define NEWLINE 		'\n'
 #define TAB 			  '\t'
+#define VTAB 			  '\v'
 #define RETURN      '\r'
+#define FORMFEED    '\f'
 #define COLON 			':'
 #define COMMA 			','
 #define OPENPAREN   '('   //Note difference between OPENPAREN and sqlTokenOpenParen
@@ -29,6 +32,32 @@ using namespace std;
 #define hdrBegin    "<th"
 #define hdrEnd      "</th>"
 
+
+#define sqlTokenCreate      "CREATE"
+#define sqlTokenTable       "TABLE"
+#define sqlTokenIndex       "INDEX"
+#define sqlTokenSelect      "SELECT"
+#define sqlTokenInsert      "INSERT"
+#define sqlTokenDelete      "DELETE"
+#define sqlTokenUpdate      "UPDATE"
+#define sqlTokenTop         "TOP"
+#define sqlTokenAs          "AS"
+#define sqlTokenAsterisk    "*"
+#define sqlTokenOpenParen   "("     //Note difference between OPENPAREN and sqlTokenOpenParen
+#define sqlTokenCloseParen   ")"
+#define sqlTokenEqual       "="
+#define sqlTokenInto        "INTO"
+#define sqlTokenFrom        "FROM"
+#define sqlTokenWhere       "WHERE"
+#define sqlTokenSet         "SET"
+#define sqlTokenAnd         "AND"
+#define sqlTokenOr          "OR"
+#define sqlTokenValues      "VALUES"
+
+#define sqlTokenEditChar    "CHAR"
+#define sqlTokenEditInt     "INT"
+#define sqlTokenEditDate    "DATE"
+
 enum class DISPLAY
 	{ ERROR, INFO };
 
@@ -46,7 +75,7 @@ class ReturnResult{
 };
 
 ReturnResult returnResult;
-
-bool debug = false;
+signed long pos   = 0; //pointer to position in string being parsed
+bool debug        = false;
 string debugText;
 string errText;

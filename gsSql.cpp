@@ -2,11 +2,8 @@
 #include <stdlib.h>
 #include <fstream>
 #include <string.h>
-#include "keyValue.h"
-#include "print.h"
-#include "parseJason.h"
-#include "parseSql.h"
-#include "sqlClassLoader.h"
+#include "sqlParser.h"
+#include "queryParser.h"
 #include "sqlEngine.h"
 #include "global.h"
 
@@ -14,59 +11,61 @@ using namespace std;
 
 int main()
 {
-    //Reads jason database description and load sql classes for the sqlEngine
-    sqlClassLoader* loader = new sqlClassLoader();
-    loader->loadSqlClasses("dbDef.json","bike");
 
-    sqlParser* parser = new sqlParser();
-    //std::string sql = "SELECT top 10 * from customer";
-    
-    //std::string sql = "SELECT top 10 * from customer where surname = ""schiller""";
-   
-   // const char * sql = "INSERT INTO customer (deleted, custid, givenname, middleinitial, surname, phone, email, street1, street2, city, state, country, zipcode) VALUES ()"; 
-
-    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t50-insert-into-values";
-    
-     std::ifstream ifs(scriptFileName);
+    std::string sqlFileName = "bike.sql";
+    std::ifstream ifs(sqlFileName);
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
     
-    printf("\n sql=%s \n",sql.c_str());
+    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
+    std::ifstream ifq(scriptFileName);
+    std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
+                       (std::istreambuf_iterator<char>()    ) );
+    
+    printf("\n query=%s \n",queryStr.c_str());
 
-    if(parser->parse(sql.c_str(),loader) == ParseResult::FAILURE)
+    sqlParser* parser = new sqlParser((char*)sql.c_str());
+
+    if(parser->parse() == ParseResult::FAILURE)
     {
         printf("\n sql=%s",sql.c_str());
         printf("\n %s",errText.c_str());
         return 0;
     }
 
-    printf("\n parse success");
+    printf("\n sql parse success");
     
-    cTable* table = loader->getTableByName((char*)"customer");
+    cTable* table = parser->getTableByName((char*)"customers");
     if(table == nullptr)
     {
         printf("\n table not found");
         return 0;
     }
-    
-    sqlEngine* engine = new sqlEngine(parser,table);
+    queryParser* query = new queryParser();
+    if(query->parse((char*)queryStr.c_str(),parser) == ParseResult::FAILURE)
+    {
+        printf("\n query parse failed");
+        printf("\n error %s",errText.c_str());
+        return 0;
+    };
+    sqlEngine* engine = new sqlEngine(query,table);
     if(engine->open() == ParseResult::SUCCESS)
     {
         printf("\n engine opened");
-        if(parser->sqlAction == SQLACTION::SELECT)
+        if(query->sqlAction == SQLACTION::SELECT)
         {
             string output = engine->select();
-            printf("\n %s", output.c_str());
+            printf("\n select output = %s", output.c_str());
             return 0;
         }
-        if(parser->sqlAction == SQLACTION::UPDATE)
+        if(query->sqlAction == SQLACTION::UPDATE)
         {
             engine->update();
             printf("\n %s", errText.c_str());
             printf("\n %s", returnResult.message.c_str());
             return 0;
         }
-        if(parser->sqlAction == SQLACTION::INSERT)
+        if(query->sqlAction == SQLACTION::INSERT)
         {
             engine->insert();
             printf("\n %s", errText.c_str());

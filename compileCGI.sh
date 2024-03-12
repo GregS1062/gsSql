@@ -3,4 +3,4 @@ g++ gsSqlCGI.cpp -g -o /var/www/html/gsSql.cgi -I /etc/-pedantic /usr/lib/libcgi
 [ -s error.txt ] && cat error.txt 
 cp gsSql.css /var/www/html
 chmod +x /var/www/html/gsSql.cgi
-cp dbDef.json /var/www/html
+cp bike.sql /var/www/html

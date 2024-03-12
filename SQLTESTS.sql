@@ -9,7 +9,7 @@ INSERT INTO customer
 
 INSERT INTO customer 
 
-VALUES (false, "000009196","Tony","A","Schiller","230-555-0191","tony20@adventure-works.com","5415 San Gabriel Dr.","NULL","Bothell","WA ","US
+VALUES (0, "000009196","Tony","A","Schiller","230-555-0191","tony20@adventure-works.com","5415 San Gabriel Dr.","NULL","Bothell","WA ","US
 ","98011")
 
 UPDATE customer
