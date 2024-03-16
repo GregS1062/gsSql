@@ -1,2 +1,8 @@
 - On update "" results in "where" being replaced
 - parser is confused when a reserved word "where" is contained in data
+
+od -c -j 10 -N 10 sql.cpp
+
+
+insert into stores values (0,"000000022", "An Extremely Nice Store", "", " ",
+ "200 W Apache Trail ", "                              ", "Apache Junction", "AZ", "US", "" )

@@ -54,9 +54,11 @@ using namespace std;
 #define sqlTokenOr          "OR"
 #define sqlTokenValues      "VALUES"
 
+#define sqlTokenEditBool    "BOOL"
 #define sqlTokenEditChar    "CHAR"
-#define sqlTokenEditInt     "INT"
 #define sqlTokenEditDate    "DATE"
+#define sqlTokenEditDouble  "DOUBLE"
+#define sqlTokenEditInt     "INT"
 
 enum class DISPLAY
 	{ ERROR, INFO };
@@ -72,6 +74,14 @@ class ReturnResult{
   string resultTable;
   string message;
   string error;
+};
+
+// C++ tm is 58 characters long - this is 12
+struct t_tm
+{
+    int year;
+    int month;
+    int day;
 };
 
 ReturnResult returnResult;

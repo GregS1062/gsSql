@@ -35,13 +35,13 @@ int main()
 
     printf("\n sql parse success");
     
-    cTable* table = parser->getTableByName((char*)"customers");
+    queryParser* query = new queryParser();
+    cTable* table = parser->getTableByName((char*)query->queryTable->name.c_str());
     if(table == nullptr)
     {
         printf("\n table not found");
         return 0;
     }
-    queryParser* query = new queryParser();
     if(query->parse((char*)queryStr.c_str(),parser) == ParseResult::FAILURE)
     {
         printf("\n query parse failed");

@@ -42,16 +42,15 @@ ParseResult runQuery(string _htmlRequest)
 		return ParseResult::FAILURE;
 	};
 
-	cTable* table = parser->getTableByName((char*)"customers");
+	cTable* table = parser->getTableByName((char*)query->queryTable->name.c_str());
 	if(table == nullptr)
 	{
 		errText.append(" table not found");
 		return ParseResult::FAILURE;
 	}
 
-	sqlEngine* engine = new sqlEngine(query,table);
-
-
+	sqlEngine* engine = new sqlEngine();
+	engine->prepare(query,table);
 
 	if(engine->open() == ParseResult::SUCCESS)
 	{

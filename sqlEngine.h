@@ -4,13 +4,21 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
+#include <ctime>
+#include <cstring>
+#include <string.h>
+#include <cstdio>
 #include <filesystem>
 #include <list>
 #include "global.h"
 #include "queryParser.h"
+#include "utilities.h"
 
 using namespace std;
 
+/******************************************************
+ * SQL Engine
+ ******************************************************/
 class sqlEngine
 {
 	/***************************************
@@ -23,8 +31,7 @@ class sqlEngine
 
 	public:
 		queryParser* 	query;
-
-		sqlEngine(queryParser*, cTable*);
+		ParseResult prepare(queryParser*, cTable*);
 		ParseResult open();
 		ParseResult close();
 		ParseResult	getConditionColumns();
@@ -37,10 +44,14 @@ class sqlEngine
 		char* 		getRecord(long, fstream*, int);
 		long		appendRecord(void*, fstream*, int);
 		bool 		writeRecord(void*, long, fstream*, int);
-
+		string 		formatOutput(column*);
+		void 		formatInput(char*, column*);
 
 };
-sqlEngine::sqlEngine(queryParser* _query, cTable* _table)
+/******************************************************
+ * SQL Engine Constuctor
+ ******************************************************/
+ParseResult sqlEngine::prepare(queryParser* _query, cTable* _table)
 {
     /***************************************
 	 * Assuming a single table for now
@@ -48,6 +59,7 @@ sqlEngine::sqlEngine(queryParser* _query, cTable* _table)
 
 		query 		= _query;
 		queryTable  = _table;
+		return ParseResult::FAILURE;
 }
 /******************************************************
  * Open
@@ -55,17 +67,19 @@ sqlEngine::sqlEngine(queryParser* _query, cTable* _table)
 ParseResult sqlEngine::open()
 {
 		////Open data file
-		tableStream 	= queryTable->open();
-		if(tableStream == nullptr)
+        tableStream = new fstream{};
+		tableStream->open(queryTable->fileName, ios::in | ios::out | ios::binary);
+		if (!tableStream->is_open()) {
+            errText.append(queryTable->fileName);
+            errText.append(" not opened ");
 			return ParseResult::FAILURE;
+		}
+	
 		
-		if(tableStream->is_open())
-			return ParseResult::SUCCESS;
-		
-		return ParseResult::FAILURE;
+		return ParseResult::SUCCESS;
 }
 /******************************************************
- * Load Close
+ * Close
  ******************************************************/
 ParseResult sqlEngine::close()
 {
@@ -264,7 +278,6 @@ string sqlEngine::select()
 	string header;
 	int recordPosition 	= 0;
 	int resultCount 	= 0; 
-	char buff[60];
 
 	if(getConditionColumns() == ParseResult::FAILURE)
 	{
@@ -278,11 +291,17 @@ string sqlEngine::select()
 	map<char*,column*>columns = query->queryTable->columns;
 	for (itr = columns.begin(); itr != columns.end(); ++itr) {
             col = (column*)itr->second;
-			sumOfColumnSize = sumOfColumnSize + col->length;
+			if(col->edit == t_date)
+			{
+				sumOfColumnSize = sumOfColumnSize + 12;
+			}
+			else
+			{
+				sumOfColumnSize = sumOfColumnSize + col->length;
+			}
     }
 	
 	double percentage = 0;
-
 	header.append(rowBegin);
 	for (itr = columns.begin(); itr != columns.end(); ++itr) 
 	{
@@ -290,7 +309,12 @@ string sqlEngine::select()
 		header.append("\n\t");
 		header.append(hdrBegin);
 		header.append(" style="" width:");
-		percentage = (double)col->length / sumOfColumnSize * 100;
+		if(col->edit == t_date)
+		{
+			percentage = 12 / sumOfColumnSize * 100;
+		}
+		else
+			percentage = (double)col->length / sumOfColumnSize * 100;
 		header.append(to_string((int)percentage));
 		header.append("%"">");
 		header.append(col->name);
@@ -300,11 +324,13 @@ string sqlEngine::select()
 	header.append(rowEnd);
 
 	rowResponse.append(header);
+
 	int rowCount = 0;
 
 	while(true)
 	{
 		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
+		
 		if(line == nullptr)
 			break;
 
@@ -321,9 +347,7 @@ string sqlEngine::select()
 			{
 				col = (column*)itr->second;
 				rowResponse.append(cellBegin);
-				strncpy(buff, line+col->position, col->length);
-				buff[col->length] = '\0';
-				rowResponse.append(buff);
+				rowResponse.append(formatOutput(col));
 				rowResponse.append(cellEnd);
 			}
 			rowResponse.append(rowEnd);
@@ -336,24 +360,83 @@ string sqlEngine::select()
 	return rowResponse;
 }
 /******************************************************
+ * Format Ouput
+ ******************************************************/
+string sqlEngine::formatOutput(column* _col)
+{
+	char buff[60];
+	std::stringstream ss;
+	string formatString;
+
+
+	switch(_col->edit)
+	{
+		case t_char:
+		{
+			memcpy(&buff, line+_col->position, _col->length);
+			buff[_col->length] = '\0';
+			return formatString.append(buff);
+			break;
+		}
+		case t_bool:
+		{
+			memcpy(&buff, line+_col->position, _col->length);
+			//return formatString.append("error");
+			break;
+		}
+		case t_int:
+		{
+			int icopy;
+			memcpy(&icopy, line+_col->position, _col->length);
+			return formatString.append(std::to_string(icopy));
+			break;
+		}
+		case t_double:
+		{
+			double dbl;
+			memcpy(&dbl, line+_col->position, _col->length);
+			if(dbl < 0){
+				ss << "-$" << std::fixed << std::setprecision(2) << -dbl; 
+				} else {
+				ss << "$" << std::fixed << std::setprecision(2) << dbl; 
+			}
+			return ss.str();
+			break;
+		}
+		case t_date:
+		{
+			t_tm dt;
+			memcpy(&dt, line+_col->position, sizeof(t_tm));
+			formatString.append(std::to_string(dt.month));
+			formatString.append("/");
+			formatString.append(std::to_string(dt.day));
+			formatString.append("/");
+			formatString.append(std::to_string(dt.year));
+			return formatString;
+		}
+		
+	}
+	return "error";
+}
+/******************************************************
  * Store Record
  ******************************************************/
 ParseResult sqlEngine::insert()
 {
-	char* buff = (char*)malloc(queryTable->recordLength);
 	size_t count = 0;
-	
+	char* buff = (char*)malloc(queryTable->recordLength);
 	column* col;
 	map<char*,column*>::iterator itr;
 	map<char*,column*>columns = query->queryTable->columns;
 	for (itr = columns.begin(); itr != columns.end(); ++itr) {
         col = (column*)itr->second;
-		memmove(&buff[col->position], col->value, col->length);
+		formatInput(buff, col);
 		count++;
 	}
-
+	
 	long recordNumber = appendRecord(buff, tableStream, queryTable->recordLength);
-	if(recordNumber > 0)
+	free(buff);
+	if(recordNumber > NEGATIVE)
 	{
 		returnResult.message.append(" 1 record inserted at location ");
 		returnResult.message.append(std::to_string(recordNumber));
@@ -361,6 +444,47 @@ ParseResult sqlEngine::insert()
 	};
 	errText.append(" location 0 - insert failed");
 	return ParseResult::FAILURE;
+}
+void sqlEngine::formatInput(char* _buff, column* _col)
+{
+	if(((size_t)_col->position + strlen(_col->value)) > (size_t)queryTable->recordLength)
+	{
+		printf("\n buffer overflow");
+		return;
+	}
+	switch(_col->edit)
+	{
+		case t_edit::t_bool:
+		{
+			memmove(&_buff[_col->position], _col->value, _col->length);
+			break;
+		}
+		case t_edit::t_char:
+		{
+			//printf("\n %d %s %d",_col->position, _col->value, _col->length);
+			memmove(&_buff[_col->position], _col->value, _col->length);
+			return;
+		}
+		case t_edit::t_int:
+		{
+			int _i = atoi(_col->value);
+			memmove(&_buff[_col->position], &_i, _col->length);
+			break;
+		}
+		case t_edit::t_double:
+		{
+			double _d = atof(_col->value);
+			memmove(&_buff[_col->position], &_d, _col->length);
+			break;
+		}
+		case t_edit::t_date:
+		{
+			t_tm _d = utilities::parseDate(_col->value);
+			memmove(&_buff[_col->position], &_d, _col->length);
+			break;
+		}
+	}
+	
 }
 
 /******************************************************

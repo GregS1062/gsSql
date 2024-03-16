@@ -1,0 +1,10 @@
+rm Customers.dat
+touch Customers.dat
+rm Stores.dat
+touch Stores.dat
+rm Orders.dat
+touch Orders.dat
+rm Items.dat
+touch Items.dat
+rm Products.dat
+touch Products.dat

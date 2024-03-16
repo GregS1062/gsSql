@@ -11,13 +11,13 @@ using namespace std;
 class Condition
 {
     public:
-        char*   prefix          = nullptr; //  (
-        char*   condition       = nullptr;
         char*   name            = nullptr;  // described by user
-        column* col             = nullptr;  // actual column loaded by engine
         char*   op              = nullptr;  // operator is a reserved word
         char*   value           = nullptr;
+        char*   prefix          = nullptr; //  (
+        char*   condition       = nullptr;
         char*   suffix          = nullptr;  // )
+        column* col             = nullptr;  // actual column loaded by engine
 };
 
 enum class SQLACTION{
@@ -70,6 +70,7 @@ class queryParser
     bool                isCondition     = false;
     SQLACTION           sqlAction       = SQLACTION::NOACTION;
 
+    ParseResult         clear();
     ParseResult         parse(const char*,sqlParser*);
     ParseResult         parseSelect();
     ParseResult         parseInsert();
@@ -88,6 +89,24 @@ class queryParser
     signed long         findDelimiter(char*, char*);
     bool                valueSizeOutofBounds(char*, column*);
 };
+
+/******************************************************
+ * Clear
+ ******************************************************/
+ParseResult queryParser::clear()
+{
+    sqlAction       = SQLACTION::NOACTION;
+    rowsToReturn    = 0;
+    isColumn        = false;
+    isCondition     = false;
+    condition       = nullptr;
+    dbTable         = nullptr;
+    queryTable      = nullptr;
+    queryTables.clear();
+    conditions.clear();
+    columnValue.clear();
+    return ParseResult::SUCCESS;
+}
 /******************************************************
  * Parse
  ******************************************************/

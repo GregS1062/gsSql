@@ -83,9 +83,12 @@ char* tokenParser::getToken()
         {
             if(t > 0)
             {
+                
                 token[t] = '\0';
-                retToken = (char*)malloc(strlen(token));
+                //printf("\n %s %d", token,t);
+                retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
+                //printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
                 return retToken;
             }
 
@@ -100,16 +103,19 @@ char* tokenParser::getToken()
             {
                 pos = pos -1;
                 token[t] = '\0';
-                retToken = (char*)malloc(strlen(token));
+                retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
+                ////printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
                 return retToken;
             }
             else
             {
                 token[0] = c;
                 token[1] = '\0';
-                retToken = (char*)malloc(strlen(token));
+                t = 1;
+                retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
+                ////printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
                 return retToken;
             }
          }
@@ -120,8 +126,9 @@ char* tokenParser::getToken()
     if(t > 0)
     {
         token[t] = '\0';
-        retToken = (char*)malloc(strlen(token));
+        retToken = (char*)malloc(t+1);
         strcpy(retToken,token);
+        ////printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
         return retToken;
     }
     return nullptr;

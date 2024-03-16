@@ -18,3 +18,13 @@ WHERE custid = "000000002";
 
 update customer set street1 = "324 4th Street SW" where custid = "000000011"
 
+INSERT INTO orders 
+(deleted, status, ordernumber,custid,orderdate,duedate,shipdate,tax,freight,totaldue) Values
+(0,1,"S0003","000002","03/14/2024","03/15/2024","0/0/0",14.34,10.00,2001)
+
+INSERT INTO Products (deleted,product_number,description,color,size,safetystocklevel,reorderpoint,standardcost,listprice,sellstartdate,sellenddate) Values (0,"MXD-142","A big honken MXD","Red","large", 6,2,149.00,250.00,"03/14/2024","03/14/2025")
+
+Insert into items 
+(deleted,ordernumber,productnumber,quantity,price,discount,total)
+Values (0,"S0004","MDX145",1,140.99,0,140.99)
+

@@ -15,8 +15,10 @@
 using namespace std;
 
 enum t_edit{
+    t_bool,
     t_char,
     t_int,
+    t_double,
     t_date
 };
 
@@ -33,7 +35,7 @@ class column
 class baseData
 {
     protected:
-        fstream* fileStream = new fstream{};
+        fstream* fileStream;
     public:
         string              name;
         string              fileName;
@@ -45,6 +47,7 @@ class baseData
 fstream* baseData::open()
 {
 		////Open index file
+        fileStream = new fstream{};
 		fileStream->open(fileName, ios::in | ios::out | ios::binary);
 		if (!fileStream->is_open()) {
             errText.append(fileName);
@@ -115,11 +118,14 @@ ParseResult sqlParser::parse()
 {
 
     char* token;
-    
+    pos = 0;
     while(pos < sqlStringLength)
     {
-    
         token = tok->getToken();
+
+        if(strlen(token) == 0)
+            continue;
+
         if(strcasecmp(token,(char*)sqlTokenCreate) == 0)
         {
             continue;
@@ -129,17 +135,17 @@ ParseResult sqlParser::parse()
         {
             if(createTable() == ParseResult::FAILURE) 
                 return ParseResult::FAILURE;
-            return ParseResult::SUCCESS;
+            continue;
         }
 
         if(strcasecmp(token,(char*)sqlTokenIndex) == 0)
         {
             if(createIndex() == ParseResult::FAILURE) 
                 return ParseResult::FAILURE;
-            return ParseResult::SUCCESS;
+            continue;
         }
-
-        errText.append("sql parser expecting a CREATE statement");
+        errText.append("sql parser expecting a CREATE statement instead we got ");
+        errText.append(token);
         return ParseResult::FAILURE;
     }
     
@@ -225,15 +231,31 @@ ParseResult sqlParser::parseColumnEdit(column* _col)
     char* token;
     token   = tok->getToken();
 
+    if(strcasecmp(token,(char*)sqlTokenEditBool) == 0)
+    {
+        _col->edit = t_edit::t_bool;
+        _col->length = 1;
+        return ParseResult::SUCCESS;
+    }
+
     if(strcasecmp(token,(char*)sqlTokenEditInt) == 0)
     {
         _col->edit = t_edit::t_int;
+        _col->length = sizeof(int);
+        return ParseResult::SUCCESS;
+    }
+
+    if(strcasecmp(token,(char*)sqlTokenEditDouble) == 0)
+    {
+        _col->edit = t_edit::t_double;
+        _col->length = sizeof(double);
         return ParseResult::SUCCESS;
     }
 
     if(strcasecmp(token,(char*)sqlTokenEditDate) == 0)
     {
         _col->edit = t_edit::t_date;
+        _col->length = sizeof(t_tm);
         return ParseResult::SUCCESS;
     }
 
@@ -331,7 +353,8 @@ cTable* sqlParser::getTableByName(char* _tableName)
 {
     for(cTable* tbl : tables)
     {
-        if(strcmp(table->name.c_str(), _tableName) == 0)
+       // printf("\n looking for %s found %s",_tableName,tbl->name.c_str());
+        if(strcasecmp(tbl->name.c_str(), _tableName) == 0)
             return tbl;
     }
     return nullptr;
