@@ -96,33 +96,38 @@ string notNull(char* _str)
         rString.append(" ");
     return rString;
 }
-string parseDate(tm dt)
+string parseDate(tm _date)
 {
-    string out;
-    if(dt.tm_mon < 1)
+    string strOut;
+    if(_date.tm_year < 1
+    || _date.tm_year > 2024)
     {
-        out.append("01");
+        strOut.append("01/01/1900");
+        return strOut;
     }
-    else{
-        out.append(std::to_string(dt.tm_mon));
-    }
-    out.append("/");
-    if(dt.tm_mday < 1)
-    {
-        out.append("01");
-    }
-    else{
-        out.append(std::to_string(dt.tm_mday));
-    }
-    out.append("/");
-        if(dt.tm_year < 1)
-    {
-        out.append("1900");
-    }
-    else{
-        out.append(std::to_string(dt.tm_year));
-    }
-    return out;
+	//Note the tm structure does some weird things to dates.
+	// Month is zero based
+	// Year is the years after 1900
+	char str[11] = "";
+    char s[11];
+	sprintf(str,"%d", _date.tm_mon + 1);
+
+	strcpy(s, utilities::padLeft(str, 2));
+
+	strcat(s, "/");
+
+	sprintf(str,"%d", _date.tm_mday);
+
+	strcat(s, utilities::padLeft(str, 2));
+
+	strcat(s, "/");
+
+	sprintf(str, "%d", _date.tm_year + 1900);
+
+	strcat(s, str);
+
+    strOut.append(s);
+    return strOut;
 }
 string parseDouble(double dbl)
 {
@@ -146,6 +151,57 @@ string parseInt(int i)
         out.append(std::to_string(i));
     }
     return out;
+}
+string getItemQueryString()
+{
+    string queryString;
+    Items* c = (Items*)getRecord(filePosition,fileStream,sizeof(Items));
+    if (c == nullptr)
+        return "";
+    queryString.append("insert into items values (0,");
+    queryString.append(" \"");
+    queryString.append(notNull(c->Order_Number));
+    queryString.append("\", \"");
+    queryString.append(notNull(c->Product_Number));
+    queryString.append("\", ");
+    queryString.append(parseInt(c->Quantity));
+    queryString.append(", ");
+    queryString.append(parseDouble(c->Price));
+    queryString.append(", ");
+    queryString.append(parseDouble(c->Discount));
+    queryString.append(", ");
+    queryString.append(parseDouble(c->Total));
+    queryString.append(")");
+
+    return queryString;
+}
+string getOrderQueryString()
+{
+    string queryString;
+    Orders* c = (Orders*)getRecord(filePosition,fileStream,sizeof(Orders));
+    if (c == nullptr)
+        return "";
+    queryString.append("insert into orders values (0,");
+    queryString.append(parseInt(c->Status));
+    queryString.append(", \"");
+    queryString.append(notNull(c->Order_Number));
+    queryString.append("\", \"");
+    queryString.append(notNull(c->Customer_ID));
+    queryString.append("\", \"");
+    queryString.append(parseDate(c->OrderDate));
+    queryString.append("\", \"");
+    queryString.append(parseDate(c->DueDate));
+    queryString.append("\", \"");
+    queryString.append(parseDate(c->ShipDate));
+    queryString.append("\", ");
+    queryString.append(parseDouble(c->Tax));
+    queryString.append(", ");
+    queryString.append(parseDouble(c->Freight));
+    queryString.append(", ");
+    queryString.append(parseDouble(c->TotalDue));
+    queryString.append(")");
+
+    return queryString;
 }
 string getProductQueryString()
 {
@@ -254,14 +310,14 @@ int main()
     fileStream->open(fileName, ios::in | ios::out | ios::binary);
 	if (!fileStream->is_open()) 
     {
-        printf("\n open failed");
+        printf("\n %s open failed",fileName);
         return 0;
     }
 
     recordLength = sizeof(Products);
     line = (char*)malloc(recordLength);
 
-    std::string sqlFileName = "bike.sql";
+    std::string sqlFileName = "convert.sql";
     std::ifstream ifs(sqlFileName);
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
@@ -296,7 +352,7 @@ int main()
         queryStr = getProductQueryString();
         if(queryStr.length() == 0)
             break;
-        //printf("\n\n %s",queryStr.c_str());
+        printf("\n\n %s",queryStr.c_str());
 
         engine = new sqlEngine();
         query = new queryParser();
@@ -315,6 +371,7 @@ int main()
         if(engine->open() == ParseResult::FAILURE)
         {
             printf("\n engine open failed");
+            printf("\n %s",errText.c_str());
             return 0;
         }
         engine->insert();
