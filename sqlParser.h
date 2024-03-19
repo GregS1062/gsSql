@@ -26,6 +26,7 @@ class column
 {
     public:
     string  name;
+    bool    primary = false;
     t_edit  edit;
     int     length = 0;
     int     position = 0;
@@ -62,8 +63,7 @@ void baseData::close()
 }
 class cIndex : public baseData
 {
-    public:
-        cIndex*         next = nullptr;
+    //All the relevant variable are in baseData
 };
 class cTable : public baseData
 {  
@@ -96,6 +96,7 @@ class sqlParser
     ParseResult createTable();
     ParseResult createIndex();
     ParseResult parseColumns();
+    ParseResult parsePrimaryKey();
     ParseResult parseColumnEdit(column*);
     ParseResult calculateTableColumnValues(cTable*);
     bool        isNumeric(char*);
@@ -207,6 +208,14 @@ ParseResult sqlParser::parseColumns()
     {
         token = tok->getToken();
 
+        if(strcasecmp(token,(char*)sqlTokenPrimary) == 0)
+        {
+            if(parsePrimaryKey() == ParseResult::FAILURE)
+                return ParseResult::FAILURE;
+
+            token = tok->getToken();
+        }
+
         //End of column list?
         if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)
             return ParseResult::SUCCESS;
@@ -223,6 +232,50 @@ ParseResult sqlParser::parseColumns()
     }
     return ParseResult::SUCCESS;
 };
+/******************************************************
+ * Parse Primary Key
+ ******************************************************/
+ParseResult sqlParser::parsePrimaryKey()
+{
+    //Get first token
+    char* token = tok->getToken();
+    column* col;
+    
+    if(strcasecmp(token,(char*)sqlTokenKey) != 0)
+    {
+        errText.append("sql parser expecting 'Key', found ");
+        errText.append(token);
+        return ParseResult::FAILURE;
+    }
+                        
+    token = tok->getToken();
+    if(strcasecmp(token,(char*)sqlTokenOpenParen) != 0)
+    {
+        errText.append("sql parser expecting '(', found ");
+        errText.append(token);
+        return ParseResult::FAILURE;
+    }
+
+    token = tok->getToken();
+
+    col = table->getColumn(token);
+    if(col == nullptr)
+    {
+        errText.append("sql parser:primary column name not found. see ");
+        errText.append(token);
+        return ParseResult::FAILURE;
+    }
+    col->primary = true;
+
+    token = tok->getToken();
+    if(strcasecmp(token,(char*)sqlTokenCloseParen) != 0)
+    {
+        errText.append("sql parser expecting ')', found ");
+        errText.append(token);
+        return ParseResult::FAILURE;
+    }
+    return ParseResult::SUCCESS;
+}
 /******************************************************
  * Parse Column Edit
  ******************************************************/
@@ -305,6 +358,80 @@ ParseResult sqlParser::parseColumnEdit(column* _col)
  ******************************************************/
 ParseResult sqlParser::createIndex()
 {
+    //The first token must be the index name
+    char* token = tok->getToken();
+
+    cIndex* index = new cIndex();
+    index->name = token;
+
+    token = tok->getToken();
+    
+    //The next token must be the literal as
+    if(strcasecmp(token,(char*)sqlTokenAs) != 0)
+    {
+        errText.append(" Expecting the token 'as' received ");
+        errText.append(token);
+        errText.append(" instead");
+        return ParseResult::FAILURE;
+    }
+    //The next token must be file name
+    token = tok->getToken();
+
+    index->fileName = token;
+
+     token = tok->getToken();
+
+    //The next token must be the literal on
+    if(strcasecmp(token,(char*)sqlTokenOn) != 0)
+    {
+        errText.append(" Expecting the token 'ON' received ");
+        errText.append(token);
+        errText.append(" instead");
+        return ParseResult::FAILURE;
+    }
+
+    //This must be table name
+    token = tok->getToken();
+
+    table = getTableByName(token); 
+    if(table == nullptr)
+    {
+        errText.append(" Index table ");
+        errText.append(token);
+        errText.append(" not found");
+        return ParseResult::FAILURE;
+    }
+
+    table->indexes.push_back(index);
+
+    token = tok->getToken();
+
+    //The next token must be (
+    if(strcasecmp(token,(char*)sqlTokenOpenParen) != 0)
+    {
+        errText.append(" Expecting '(' to open column list");
+        return ParseResult::FAILURE;
+    }
+    column* col;
+    while(pos < sqlStringLength)
+    {
+        token = tok->getToken();
+        if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)
+        {
+            break;
+        }
+        col = table->getColumn(token);
+        if(col == nullptr)
+        {
+            errText.append(" Index column ");
+            errText.append(token);
+            errText.append(" not found");
+            return ParseResult::FAILURE;
+        }
+        index->columns.insert({token, col});
+
+    }   
+
     return ParseResult::SUCCESS;
 };
 /******************************************************

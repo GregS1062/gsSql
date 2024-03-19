@@ -333,6 +333,13 @@ ParseResult queryParser::parseInsert()
     }
     else{
         dbTable = sqlDB->getTableByName((char*)queryTable->name.c_str());
+        if(dbTable == nullptr)
+        {
+            errText.append(" Check your table name. Cannot find ");
+            errText.append(queryTable->name.c_str());
+            errText.append(" in SQL def. ");
+            return ParseResult::FAILURE;
+        }
         populateQueryTable(dbTable);
     }
 
@@ -671,7 +678,7 @@ ParseResult queryParser::parseTableList(signed long _begin, signed long _end)
     cTable* table;
     char* token;
     pos = _begin;
-
+    //printf("\n looking for table declaration between %ld and %ld",_begin,_end);
     while(pos < _end)
     {
         token = tok->getToken();       

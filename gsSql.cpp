@@ -17,7 +17,7 @@ int main()
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
     
-    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
+    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t50-insert-into-values";
     std::ifstream ifq(scriptFileName);
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
@@ -36,6 +36,7 @@ int main()
     printf("\n sql parse success");
     
     queryParser* query = new queryParser();
+    query->parse(queryStr.c_str(),parser);
     cTable* table = parser->getTableByName((char*)query->queryTable->name.c_str());
     if(table == nullptr)
     {
@@ -48,7 +49,8 @@ int main()
         printf("\n error %s",errText.c_str());
         return 0;
     };
-    sqlEngine* engine = new sqlEngine(query,table);
+    sqlEngine* engine = new sqlEngine();
+    engine->prepare(query,table);
     if(engine->open() == ParseResult::SUCCESS)
     {
         printf("\n engine opened");

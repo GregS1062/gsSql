@@ -1,0 +1,21 @@
+Build 27
+X    add date int to date structure
+X    Index parsing
+    primary index constraint
+X    automate conversion
+    solve "empty" problem
+    restart regression testing
+    add single index (custid) on single table (customer)
+
+Build 28
+    numeric conditions
+    solves reserved word within quotes problem
+    select using index
+    fix deleted column
+    add delete function
+    index primary on all tables
+
+Build 29
+    all secondary indexes
+    indexes updated on updates and deletes
+    simple join on primary key condition

@@ -5,11 +5,8 @@
 #include <iostream>
 #include <filesystem>
 #include <list>
-#include "keyValue.h"
-#include "print.h"
-#include "parseJason.h"
-#include "parseSql.h"
-#include "sqlClassLoader.h"
+#include "sqlParser.h"
+#include "queryParser.h"
 #include "sqlEngine.h"
 #include "global.h"
 
@@ -19,7 +16,7 @@ namespace fs = std::filesystem;
     std::string resultPath = "/home/greg/projects/regTest/results";
     std::string proofPath = "/home/greg/projects/regTest/proofs";
 
-        /*const int result = remove( "no-file" );
+    /*const int result = remove( "no-file" );
     if( result == 0 ){
         printf( "success\n" );  
     } else {

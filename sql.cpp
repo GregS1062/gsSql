@@ -28,17 +28,34 @@ int main()
     column* col;
     for(cTable* table : parser->tables)
     {
+        printf("\n----------------------------------------");
         printf("\n table name %s",table->name.c_str());
-       // printf(" at ");
-       // printf(table->fileName.c_str());
+        printf(" at ");
+        printf(table->fileName.c_str());
         printf("  %d",table->recordLength);
         map<char*,column*>columns = table->columns;
         for (itr = columns.begin(); itr != columns.end(); ++itr) 
         {
             col = (column*)itr->second;
-            printf("\n\t\tname %s",col->name.c_str());
+            printf("\n\t\t\tname %s",col->name.c_str());
             printf(" length %d",col->length);
+            if(col->primary)
+                printf("\t PRIMARY");
         }
+        for(cIndex* index : table->indexes)
+        {
+            printf("\n\t index name %s",index->name.c_str());
+            printf(" at ");
+            printf(index->fileName.c_str());
+            map<char*,column*>columns = index->columns;
+            for (itr = columns.begin(); itr != columns.end(); ++itr) 
+            {
+                col = (column*)itr->second;
+                printf("\n\t\t\tname %s",col->name.c_str());
+                printf(" length %d",col->length);
+            }
+        }
+
         
     }
     printf("\n\n");

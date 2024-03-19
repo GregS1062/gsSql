@@ -205,6 +205,9 @@ t_tm utilities::parseDate(char _date[])
 	subString(str, 4, 8);
 	_d.year = atoi(str);
 
+	_d.yearMonthDay = _d.year * 10000;
+	_d.yearMonthDay = _d.yearMonthDay + (_d.month * 100);
+	_d.yearMonthDay = _d.yearMonthDay + _d.day;
 	return _d;
 }
 
