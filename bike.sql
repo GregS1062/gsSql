@@ -1,4 +1,4 @@
-CREATE TABLE customers as "/var/www/html/bikeData/Customers.dat"
+CREATE TABLE customers as "testData/Customers.dat"
 (
     deleted         bool,
     custid          char(11),
@@ -16,13 +16,11 @@ CREATE TABLE customers as "/var/www/html/bikeData/Customers.dat"
 	PRIMARY KEY (custid)
 )  
 
-CREATE INDEX customerid as "/var/www/html/bikeData/CustID.idx"
+CREATE INDEX customerid as "testIndex/custid.idx"
 ON customers (custid)
 
-CREATE INDEX customername as "/var/www/html/bikeData/CustName.idx"
-ON customers (surname,givenname)
 
-CREATE TABLE stores as "/var/www/html/bikeData/Stores.dat"
+CREATE TABLE stores as "testData/Stores.dat"
 (
     deleted         bool,
     custid          char(11),
@@ -38,13 +36,13 @@ CREATE TABLE stores as "/var/www/html/bikeData/Stores.dat"
 	PRIMARY KEY (custid)
 )
 
-CREATE INDEX storeid as "/var/www/html/bikeData/StoreID.idx"
+CREATE INDEX storeid as "testIndex/storeid.idx"
 ON stores (custid)
 
-CREATE INDEX storename as "/var/www/html/bikeData/StoreName.idx"
+CREATE INDEX storename as "testIndex/storename.idx"
 ON stores (name)
 
-CREATE TABLE products as "/var/www/html/bikeData/Products.dat"
+CREATE TABLE products as "testData/Products.dat"
 (
     deleted             bool,
 	productid       	char(11),
@@ -60,10 +58,10 @@ CREATE TABLE products as "/var/www/html/bikeData/Products.dat"
 	PRIMARY KEY (productid)
 )
 
-CREATE INDEX productid as "/var/www/html/bikeData/ProductID.idx"
+CREATE INDEX productid as "testIndex/productid.idx"
 ON products (productid)
 
-CREATE TABLE orders as "/var/www/html/bikeData/Orders.dat"
+CREATE TABLE orders as "testData/Orders.dat"
 (
     deleted             bool,
 	status              int,
@@ -78,25 +76,20 @@ CREATE TABLE orders as "/var/www/html/bikeData/Orders.dat"
 	PRIMARY KEY (orderid)
 )
 
-CREATE INDEX orderid as "/var/www/html/bikeData/OrderID.idx"
+CREATE INDEX orderid as "testIndex/OrderID.idx"
 ON orders (orderid)
 
-CREATE INDEX customerorder as "/var/www/html/bikeData/CustomerOrder.idx"
-ON orders (custid,orderid)
 
-CREATE TABLE items as "/var/www/html/bikeData/Items.dat"
+CREATE TABLE items as "testData/Items.dat"
 (
     deleted             bool,
 	orderid         	char(11),
 	productid       	char(11),
 	quantity            int,
-	price               double
+	price               double,
 	discount            double,
-	total               double
+	total               double,
+	PRIMARY KEY (orderid,productid)
 )
-CREATE INDEX orderproduct as "/var/www/html/bikeData/OrderProduct.idx"
-ON items (orderid, productid)
 
-CREATE INDEX productorder as "/var/www/html/bikeData/ProductOrder.idx"
-ON items (productid,orderid)
 

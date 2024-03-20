@@ -12,7 +12,9 @@
 #include <list>
 #include "global.h"
 #include "queryParser.h"
+#include "conditions.h"
 #include "utilities.h"
+
 
 using namespace std;
 
@@ -35,10 +37,7 @@ class sqlEngine
 		ParseResult open();
 		ParseResult close();
 		ParseResult	getConditionColumns();
-		ParseResult queryContitionsMet();
 		ParseResult update();
-		ParseResult compareLike(Condition*);
-		ParseResult compareEqual(Condition*);
 		ParseResult insert();
 		string 		select();
 		char* 		getRecord(long, fstream*, int);
@@ -113,116 +112,8 @@ ParseResult sqlEngine::getConditionColumns()
 	}
 	return ParseResult::SUCCESS;
 }
-/******************************************************
- * Compare like
- ******************************************************/
-ParseResult sqlEngine::compareLike(Condition* _condition)
-{
-	//Like condition compares the condition value length to the record
-	// so "sch" = "schiller" because only three characters are being compared
-	
-	char buffRecord[60];
-	column* column = _condition->col;
-	strncpy(buffRecord, line+column->position, strlen(_condition->value));
-	buffRecord[strlen(_condition->value)] = '\0';
-		
-	if(strcasecmp(_condition->value,buffRecord) == 0)
-	{
-		return ParseResult::SUCCESS;
-	}
 
-	return ParseResult::FAILURE;
-}
-/******************************************************
- * Compare Equal
- ******************************************************/
-ParseResult sqlEngine::compareEqual(Condition* _condition)
-{
-	//Equal condition compares the full column length to the record
-	// so "sch" != "schiller" 
 
-	char buffRecord[60];
-	column* column = _condition->col;
-	strncpy(buffRecord, line+column->position, column->length);
-			buffRecord[column->length] = '\0';
-		
-	if(strcasecmp(_condition->value,buffRecord) == 0)
-	{
-		return ParseResult::SUCCESS;
-	}
-
-	return ParseResult::FAILURE;
-}
-/******************************************************
- * Query Conditions Met
- ******************************************************/
-ParseResult sqlEngine::queryContitionsMet()
-{
-	//Nothing to see, move along
-	if(query->conditions.size() == 0)
-		return ParseResult::SUCCESS;
-
-	ParseResult queryResult = ParseResult::FAILURE;
-	ParseResult queryResults = ParseResult::FAILURE;
-
-	for(Condition* condition : query->conditions)
-	{
-
-		if(strcasecmp(condition->op,"like") == 0)
-		{
-			queryResult = compareLike(condition);
-		}
-		else
-		{
-			if(strcasecmp(condition->op,"=") == 0)
-			{
-				queryResult = compareEqual(condition);
-			}
-		}
-		/*errText.append(" ");
-		errText.append(std::to_string(queryResult));
-		errText.append(" ");
-		errText.append(std::to_string( query->conditions.size()));
-		errText.append(" ");
-		errText.append(condition->name);
-		errText.append(" ");
-		errText.append(condition->op);
-		errText.append(" ");
-		errText.append(condition->value);*/
-
-		if(query->conditions.size() == 1)
-			return queryResult;
-
-		if(condition->condition != nullptr)
-		{
-
-			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) != 0
-			&& strcasecmp(condition->condition,(char*)sqlTokenOr) != 0)
-			{
-				if (query->conditions.size() == 1
-				&& queryResult == ParseResult::FAILURE)
-					return ParseResult::FAILURE;
-			}
-
-			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) == 0
-			&& queryResult == ParseResult::FAILURE)
-				return ParseResult::FAILURE;
-		
-			if(strcasecmp(condition->condition,(char*)sqlTokenAnd)  == 0
-			&& queryResult  == ParseResult::SUCCESS
-			&& queryResults == ParseResult::SUCCESS)
-				return ParseResult::SUCCESS;
-
-			if(strcasecmp(condition->condition,(char*)sqlTokenOr)  == 0
-			&& (queryResult == ParseResult::SUCCESS
-			|| queryResults == ParseResult::SUCCESS))
-				return ParseResult::SUCCESS;
-		}
-		queryResults = queryResult;		
-	}
-
-	return ParseResult::FAILURE;
-}
 
 /******************************************************
  * Update Record
@@ -249,12 +140,12 @@ ParseResult sqlEngine::update()
 		if(line == nullptr)
 			break;
 		
-		if(queryContitionsMet() == ParseResult::SUCCESS)
+		if(compareToCondition::queryContitionsMet(query->conditions, line) == ParseResult::SUCCESS)
 		{
 			for (itr = columns.begin(); itr != columns.end(); ++itr) 
 			{
 				col = (column*)itr->second;
-				memmove(&line[col->position], col->value, col->length);	
+				formatInput(line,col);
 			}
 			if(!writeRecord(line,recordPosition,tableStream,queryTable->recordLength))
 			{
@@ -291,9 +182,9 @@ string sqlEngine::select()
 	map<char*,column*>columns = query->queryTable->columns;
 	for (itr = columns.begin(); itr != columns.end(); ++itr) {
             col = (column*)itr->second;
-			if(col->edit == t_date)
+			if(col->edit == t_edit::t_date)
 			{
-				sumOfColumnSize = sumOfColumnSize + 12;
+				sumOfColumnSize = sumOfColumnSize + 16;
 			}
 			else
 			{
@@ -309,7 +200,7 @@ string sqlEngine::select()
 		header.append("\n\t");
 		header.append(hdrBegin);
 		header.append(" style="" width:");
-		if(col->edit == t_date)
+		if(col->edit == t_edit::t_date)
 		{
 			percentage = 12 / sumOfColumnSize * 100;
 		}
@@ -338,7 +229,7 @@ string sqlEngine::select()
 		&& rowCount >= query->rowsToReturn)
 			break;
 
-		if(queryContitionsMet() == ParseResult::SUCCESS)
+		if(compareToCondition::queryContitionsMet(query->conditions,line) == ParseResult::SUCCESS)
 		{
 			resultCount++;
 			rowResponse.append("\n\t\t");
@@ -371,27 +262,27 @@ string sqlEngine::formatOutput(column* _col)
 
 	switch(_col->edit)
 	{
-		case t_char:
+		case t_edit::t_char:
 		{
 			memcpy(&buff, line+_col->position, _col->length);
 			buff[_col->length] = '\0';
 			return formatString.append(buff);
 			break;
 		}
-		case t_bool:
+		case t_edit::t_bool:
 		{
 			memcpy(&buff, line+_col->position, _col->length);
 			//return formatString.append("error");
 			break;
 		}
-		case t_int:
+		case t_edit::t_int:
 		{
 			int icopy;
 			memcpy(&icopy, line+_col->position, _col->length);
 			return formatString.append(std::to_string(icopy));
 			break;
 		}
-		case t_double:
+		case t_edit::t_double:
 		{
 			double dbl;
 			memcpy(&dbl, line+_col->position, _col->length);
@@ -403,7 +294,7 @@ string sqlEngine::formatOutput(column* _col)
 			return ss.str();
 			break;
 		}
-		case t_date:
+		case t_edit::t_date:
 		{
 			t_tm dt;
 			memcpy(&dt, line+_col->position, sizeof(t_tm));

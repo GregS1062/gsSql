@@ -1,0 +1,165 @@
+#pragma once
+#include <string>
+#include <fstream>
+
+using namespace std;
+
+#define NEGATIVE	-1
+#define QUOTE		'"'
+#define SPACE  		' '
+#define CRLF        "\r\n"  
+#define NEWLINE 	'\n'
+#define TAB 		'\t'
+#define VTAB 		'\v'
+#define RETURN      '\r'
+#define FORMFEED    '\f'
+#define COLON 		':'
+#define COMMA 		','
+#define OPENPAREN   '('   //Note difference between OPENPAREN and sqlTokenOpenParen
+#define CLOSEPAREN  ')'
+#define EQUAL       '='
+
+#define MAXSQLTOKENSIZE	50
+#define HEAPSIZE		1000
+#define MAXKEYS			1000
+#define MAXKEYSIZE		255
+#define POINTERSIZE		11
+#define MAXDEADSTACK	20
+
+#define errorColor  "#ef7f7d"
+#define infoColor   "#f9f1b2"
+
+#define gtr         ">"
+#define cellBegin   "<td>"
+#define cellEnd     "</td>"
+#define rowBegin    "<tr>"
+#define rowEnd      "</tr>"
+#define hdrBegin    "<th"
+#define hdrEnd      "</th>"
+
+
+#define sqlTokenCreate      "CREATE"
+#define sqlTokenTable       "TABLE"
+#define sqlTokenIndex       "INDEX"
+#define sqlTokenSelect      "SELECT"
+#define sqlTokenInsert      "INSERT"
+#define sqlTokenDelete      "DELETE"
+#define sqlTokenUpdate      "UPDATE"
+#define sqlTokenTop         "TOP"
+#define sqlTokenAs          "AS"
+#define sqlTokenOn          "ON"
+#define sqlTokenAsterisk    "*"
+#define sqlTokenOpenParen   "("     //Note difference between OPENPAREN and sqlTokenOpenParen
+#define sqlTokenCloseParen   ")"
+#define sqlTokenEqual       "="
+#define sqlTokenNotEqual    "!="
+#define sqlTokenGreater     ">"
+#define sqlTokenLessThan    "<"
+#define sqlTokenLike		"LIKE"
+#define sqlTokenInto        "INTO"
+#define sqlTokenFrom        "FROM"
+#define sqlTokenWhere       "WHERE"
+#define sqlTokenSet         "SET"
+#define sqlTokenAnd         "AND"
+#define sqlTokenOr          "OR"
+#define sqlTokenValues      "VALUES"
+#define sqlTokenPrimary     "PRIMARY"
+#define sqlTokenKey         "KEY"
+
+#define sqlTokenEditBool    "BOOL"
+#define sqlTokenEditChar    "CHAR"
+#define sqlTokenEditDate    "DATE"
+#define sqlTokenEditDouble  "DOUBLE"
+#define sqlTokenEditInt     "INT"
+
+enum class DISPLAY
+	{ ERROR, INFO };
+
+enum class t_edit{
+    t_bool,
+    t_char,
+    t_double,
+    t_date,
+    t_int
+};
+
+enum class t_op{
+	t_equal,
+	t_notEqual,
+	t_greater,
+	t_lessThan
+};
+
+enum class ParseResult
+{
+    SUCCESS,
+    FAILURE
+};
+
+enum class SEARCH
+	{EXACT, LIKE, SCROLL};
+
+class ReturnResult{
+  public:
+  string resultTable;
+  string message;
+  string error;
+};
+
+// C++ tm is 58 characters long - this is 16
+struct t_tm
+{
+	int yearMonthDay;	//used for comparison
+    int year;
+    int month;
+    int day;
+};
+
+ReturnResult returnResult;
+signed long pos   = 0; //pointer to position in string being parsed
+bool debug        = false;
+string debugText;
+string errText;
+
+/*-------------------------------------------------------------------------
+		Defines a node.
+
+		A node is thebuilding block of the B-Tree.  It defines both
+		root/branch structures as well as leaves.  Starting with the root
+		each node points to its children nodes and all but the root point
+		to their parents.  Leaves will point to the prior and next siblings.
+
+  --------------------------------------------------------------------------*/
+class Node
+{
+public:
+	Node();
+	~Node() {};
+	int num_keys;			//number of keys presently in heap
+	int differ;
+	bool is_Leaf;			//Is this a leaf or branch node
+	long self;				//The relative file offest address of this node
+	long parent;			//Address of parent node
+	long next;				//Address of node to right
+	long prior;				//Address of node to left
+	char heap[HEAPSIZE];	//Contains keys and pointers
+};
+
+Node::Node()
+{
+	is_Leaf = true;
+	num_keys = 0;
+	parent = NEGATIVE;
+	next = NEGATIVE;
+	prior = NEGATIVE;
+	self = NEGATIVE;
+	memset(&heap, ' ', HEAPSIZE - 1);
+}
+
+//Return type for scrolling through leaves
+class ScrollNode {
+public:
+	Node* leaf;
+	int position;
+};
+

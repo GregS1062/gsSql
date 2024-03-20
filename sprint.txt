@@ -1,14 +1,18 @@
 Build 27
 X    add date int to date structure
 X    Index parsing
-    primary index constraint
 X    automate conversion
-    solve "empty" problem
-    restart regression testing
-    add single index (custid) on single table (customer)
+X    restart regression testing
 
 Build 28
-    numeric conditions
+X   primary index constraint
+X   solve update problem
+X   solve "empty" problem
+X   validate dates
+X   numeric conditions
+    add single index (custid) on single table (customer)
+
+Build 29
     solves reserved word within quotes problem
     select using index
     fix deleted column

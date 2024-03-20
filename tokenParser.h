@@ -13,6 +13,7 @@ class tokenParser
     tokenParser(const char*);
 
     char*       getToken();
+    bool        delimiterAhead();
     const char* parseString;
     signed long parseStringLength;
 };
@@ -22,6 +23,29 @@ tokenParser::tokenParser(const char* _parseString)
     parseStringLength   = (signed long)strlen(parseString);
     pos = 0;
 }
+bool tokenParser::delimiterAhead()
+{
+    signed long lookAhead   = pos; // Look ahead position
+    char c = ' ';
+    while(lookAhead < parseStringLength)
+    {
+        c = parseString[lookAhead];
+        lookAhead++;
+        
+        if(c == NEWLINE
+        || c == RETURN
+        || c == FORMFEED
+        || c == TAB
+        || c == VTAB)
+            continue;
+
+        if(c == COMMA)
+            return true;
+
+        return false;
+    }
+    return false;
+};
 /******************************************************
  * Get Token
  ******************************************************/
@@ -46,6 +70,18 @@ char* tokenParser::getToken()
             if(betweenQuotes)
             {
                 betweenQuotes = false;
+
+                // Looking for end of value list without a comma
+                // example Update tablename set column = "" where....
+                if(!delimiterAhead())
+                {
+                    token[t] = '\0';
+                    retToken = (char*)malloc(t+1);
+                    strcpy(retToken,token);
+                    if(debug)
+                        printf("\n token = %s",retToken);
+                    return retToken;
+                }
             }
             else
             {
@@ -85,13 +121,12 @@ char* tokenParser::getToken()
             {
                 
                 token[t] = '\0';
-                //printf("\n %s %d", token,t);
                 retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
-                //printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
+                if(debug)
+                    printf("\n token = %s",retToken);
                 return retToken;
             }
-
             continue;
         }
 
@@ -105,7 +140,8 @@ char* tokenParser::getToken()
                 token[t] = '\0';
                 retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
-                ////printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
+                if(debug)
+                   printf("\n token = %s",retToken);
                 return retToken;
             }
             else
@@ -115,7 +151,8 @@ char* tokenParser::getToken()
                 t = 1;
                 retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
-                ////printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
+                if(debug)
+                   printf("\n token = %s",retToken);
                 return retToken;
             }
          }
@@ -128,7 +165,8 @@ char* tokenParser::getToken()
         token[t] = '\0';
         retToken = (char*)malloc(t+1);
         strcpy(retToken,token);
-        ////printf("\n token = %s t = %d, len = %d",retToken, t, strlen(token));
+        if(debug)
+            printf("\n token = %s",retToken);
         return retToken;
     }
     return nullptr;

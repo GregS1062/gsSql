@@ -14,13 +14,6 @@
 
 using namespace std;
 
-enum t_edit{
-    t_bool,
-    t_char,
-    t_int,
-    t_double,
-    t_date
-};
 
 class column
 {
@@ -256,23 +249,28 @@ ParseResult sqlParser::parsePrimaryKey()
         return ParseResult::FAILURE;
     }
 
-    token = tok->getToken();
-
-    col = table->getColumn(token);
-    if(col == nullptr)
+    while(pos < sqlStringLength)
     {
-        errText.append("sql parser:primary column name not found. see ");
-        errText.append(token);
-        return ParseResult::FAILURE;
-    }
-    col->primary = true;
+        token = tok->getToken();
 
-    token = tok->getToken();
-    if(strcasecmp(token,(char*)sqlTokenCloseParen) != 0)
-    {
-        errText.append("sql parser expecting ')', found ");
-        errText.append(token);
-        return ParseResult::FAILURE;
+        if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)
+            return ParseResult::SUCCESS;
+
+        if(strcasecmp(token,(char*)sqlTokenCreate) == 0)
+        {
+            errText.append("sql parser expecting ')', found ");
+            errText.append(token);
+            return ParseResult::FAILURE;
+        }
+
+        col = table->getColumn(token);
+        if(col == nullptr)
+        {
+            errText.append("sql parser:primary column name not found. see ");
+            errText.append(token);
+            return ParseResult::FAILURE;
+        }
+        col->primary = true;
     }
     return ParseResult::SUCCESS;
 }
@@ -466,8 +464,14 @@ ParseResult sqlParser::calculateTableColumnValues(cTable* _table)
  ******************************************************/
 bool sqlParser::isNumeric(char* _token)
 {
+
+    if(_token == nullptr)
+        return false;
+
     for(size_t i=0;i<strlen(_token);i++)
     {
+        if(_token[i] == '.')
+            continue;
         if(!isdigit(_token[i]))
             return false;
     }

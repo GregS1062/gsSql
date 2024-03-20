@@ -5,20 +5,13 @@
 #include <algorithm>
 #include "tokenParser.h"
 #include "sqlParser.h"
+#include "conditions.h"
+#include "utilities.h"
+
 
 using namespace std;
 
-class Condition
-{
-    public:
-        char*   name            = nullptr;  // described by user
-        char*   op              = nullptr;  // operator is a reserved word
-        char*   value           = nullptr;
-        char*   prefix          = nullptr; //  (
-        char*   condition       = nullptr;
-        char*   suffix          = nullptr;  // )
-        column* col             = nullptr;  // actual column loaded by engine
-};
+
 
 enum class SQLACTION{
     NOACTION,
@@ -112,6 +105,7 @@ ParseResult queryParser::clear()
  ******************************************************/
 ParseResult queryParser::parse(const char* _queryString,sqlParser* _sqlDB)
 {
+    debug = false;
     queryString       = _queryString;
     queryStringLength = strlen(_queryString);
     sqlDB             = _sqlDB;
@@ -353,6 +347,7 @@ ParseResult queryParser::parseInsert()
  ******************************************************/
 ParseResult queryParser::parseUpdate()
 {
+
     pos = strlen(sqlTokenUpdate);
 
     signed long posSet = findDelimiter((char*)queryString, (char*)sqlTokenSet);
@@ -364,7 +359,8 @@ ParseResult queryParser::parseUpdate()
     if(parseColumnValue(posSet+strlen(sqlTokenSet),posWhere) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
  
-    queryTable = getQueryTable(0);
+    //Update will only have one query table, though conditions may have more
+    queryTable = getQueryTable(0); 
     if(queryTable == nullptr)
     {
         errText.append(" cannot find selected table ");
@@ -379,11 +375,17 @@ ParseResult queryParser::parseUpdate()
     if(parseConditions(posWhere,queryStringLength) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
     
-    
     column* col;
     for(ColumnValue* colVal : columnValue)
     {
         col = dbTable->getColumn(colVal->name);
+        if(col->primary)
+        {
+            errText.append(" ");
+            errText.append(colVal->name);
+            errText.append(" is a primary key, cannot update ");
+            return ParseResult::FAILURE;
+        }
         if(col == nullptr)
         {
             errText.append(" column not found ");
@@ -485,11 +487,14 @@ ParseResult queryParser::addCondition(char* _token)
     }
     if(condition->op == nullptr)
     {
-        if(strcmp(_token,"=") != 0
-        && strcasecmp(_token,"like") != 0)
+        if(strcasecmp(_token,sqlTokenLike) != 0
+        && strcasecmp(_token,sqlTokenGreater) != 0
+        && strcasecmp(_token,sqlTokenLessThan) != 0
+        && strcasecmp(_token,sqlTokenEqual) != 0
+        && strcasecmp(_token,sqlTokenNotEqual) != 0)
         {
             errText.append(_token);
-            errText.append(" condition operator missing or not = or like");
+            errText.append(" condition operator missing or not =, !=, >, > or like");
             return ParseResult::FAILURE;
         }
         condition->op = _token;
@@ -514,7 +519,6 @@ ParseResult queryParser::addCondition(char* _token)
             }
             s++;  
         }
-
         condition->value = _token;
         conditions.push_back(condition);
 
@@ -547,7 +551,6 @@ ParseResult queryParser::parseConditions(signed long _begin, signed long _end)
     while(pos < _end)
     {
         token = tok->getToken();
-
         if(addCondition(token) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
     }
@@ -571,6 +574,53 @@ ParseResult queryParser::parseConditions(signed long _begin, signed long _end)
 
         if(valueSizeOutofBounds(con->value,col))
             return ParseResult::FAILURE;
+
+        switch(col->edit)
+        {
+            case t_edit::t_bool:    //do nothing
+            {
+                break; 
+            }  
+            case t_edit::t_char:    //do nothing
+            {
+                break; 
+            }  
+            case t_edit::t_date:    //do nothing
+            {
+                if(!utilities::isDateValid(con->value))
+                    return ParseResult::FAILURE;
+                con->dateValue = utilities::parseDate(con->value);
+                break; 
+            } 
+            case t_edit::t_double:
+            {
+                if(!sqlDB->isNumeric(con->value))
+                {
+                    errText.append(" condition column ");
+                    errText.append(con->name); 
+                    errText.append("  value not numeric |");
+                    errText.append(con->value);
+                    errText.append("| ");
+                    return ParseResult::FAILURE;
+                }
+                con->doubleValue = atof(con->value);
+                break;
+            }
+            case t_edit::t_int:
+            {
+                if(!sqlDB->isNumeric(con->value))
+                {
+                    errText.append(" condition column ");
+                    errText.append(con->name); 
+                    errText.append("  value not numeric |");
+                    errText.append(con->value);
+                    errText.append("| ");
+                    return ParseResult::FAILURE;
+                }
+                con->intValue = atoi(con->value);
+                break;
+            }
+        }
     }
     return ParseResult::SUCCESS;
 }
@@ -601,9 +651,11 @@ ParseResult queryParser::parseColumnList(signed long _begin,signed long _end)
             continue;
 
         //populate all columns
-        if(strcmp(token,sqlTokenAsterisk) == 0 
-        && queryTable->columns.size() == 0)
-        return populateQueryTable(dbTable);
+        if(strcmp(token,sqlTokenAsterisk) == 0)
+        { 
+           // if (queryTable->columns.size() == 0)
+            return populateQueryTable(dbTable);
+        }
         
 
         col = dbTable->getColumn(token);

@@ -18,6 +18,7 @@ public:
 	static void 	terminateString(char[], int, int);
 	static t_tm 	parseDate(char[]);
 	static string   findAndReplace(string s,string _target, string _text);
+	static bool		isDateValid(char* _date);
 };
 
 /*---------------------------------------
@@ -222,4 +223,64 @@ string utilities::findAndReplace(string s,string _target, string _text)
 	}
 	return s;
 };
+/*---------------------------------------
+   Is Date Valid
+-----------------------------------------*/
+bool utilities::isDateValid(char* _cdate)
+{
+
+	string _date;
+	_date.append(_cdate);
+	//if blank, return without error
+
+    //Blank date is valid
+	if (_date.length() == 0)
+		return true;
+
+	if (_date.length() != 10)
+	{
+		errText.append("Invalid date, format must be MM/DD/YYYY");
+		return false;
+	}
+	char digits[10];
+	int i2 = 0;
+	for (int i = 0; i < 10; i++)
+	{
+		if (isdigit(_date[i]))
+		{
+			digits[i2] = _date[i];
+			i2++;
+		}
+	}
+	digits[i2] = '\0';
+
+	if (strlen(digits) != 8)
+	{
+		errText.append("Invalid date, format must be MM/DD/YYYY");
+		return false;
+	}
+
+	int month = atoi(_date.substr(0,2).c_str());
+	int day = atoi(_date.substr(3,2).c_str());
+    int year = atoi(_date.substr(6,4).c_str());
+
+    const int lookup_table[12] = {31,29,31,30,31,30,31,31,30,31,30,31};
+    if ((month < 1 || month > 12))
+    {
+        errText.append("Invalid date, format must be MM/DD/YYYY: Month is invalid ");
+        return false;
+    }
+    if (!(day >= 1 && day <= lookup_table[month-1]))
+    {
+        errText.append("Invalid date, format must be MM/DD/YYYY: Day is invalid ");
+        return false;
+    }
+    if (year < 2000 || year > 2033)
+    {
+        errText.append("Invalid date, format must be MM/DD/YYYY: Year is invalid ");
+        return false;
+    }
+
+	return true;
+}
 		
