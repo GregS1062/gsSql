@@ -4,7 +4,7 @@
 #include <cstring>
 #include <string.h>
 #include <cstdio>
-#include "global.h"
+#include "sqlCommon.h"
 
 class utilities {
 public:

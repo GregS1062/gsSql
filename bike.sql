@@ -1,4 +1,4 @@
-CREATE TABLE customers as "testData/Customers.dat"
+CREATE TABLE customers as "/home/greg/projects/test/testData/Customers.dat"
 (
     deleted         bool,
     custid          char(11),
@@ -16,11 +16,11 @@ CREATE TABLE customers as "testData/Customers.dat"
 	PRIMARY KEY (custid)
 )  
 
-CREATE INDEX customerid as "testIndex/custid.idx"
+CREATE INDEX customerid as "/home/greg/projects/test/testIndex/custid.idx"
 ON customers (custid)
 
 
-CREATE TABLE stores as "testData/Stores.dat"
+CREATE TABLE stores as "/home/greg/projects/test/testData/Stores.dat"
 (
     deleted         bool,
     custid          char(11),
@@ -36,13 +36,13 @@ CREATE TABLE stores as "testData/Stores.dat"
 	PRIMARY KEY (custid)
 )
 
-CREATE INDEX storeid as "testIndex/storeid.idx"
+CREATE INDEX storeid as "/home/greg/projects/test/testIndex/storeid.idx"
 ON stores (custid)
 
-CREATE INDEX storename as "testIndex/storename.idx"
+CREATE INDEX storename as "/home/greg/projects/test/testIndex/storename.idx"
 ON stores (name)
 
-CREATE TABLE products as "testData/Products.dat"
+CREATE TABLE products as "/home/greg/projects/test/testData/Products.dat"
 (
     deleted             bool,
 	productid       	char(11),
@@ -58,10 +58,10 @@ CREATE TABLE products as "testData/Products.dat"
 	PRIMARY KEY (productid)
 )
 
-CREATE INDEX productid as "testIndex/productid.idx"
+CREATE INDEX productid as "/home/greg/projects/test/testIndex/productid.idx"
 ON products (productid)
 
-CREATE TABLE orders as "testData/Orders.dat"
+CREATE TABLE orders as "/home/greg/projects/test/testData/Orders.dat"
 (
     deleted             bool,
 	status              int,
@@ -76,11 +76,11 @@ CREATE TABLE orders as "testData/Orders.dat"
 	PRIMARY KEY (orderid)
 )
 
-CREATE INDEX orderid as "testIndex/OrderID.idx"
+CREATE INDEX orderid as "/home/greg/projects/test/testIndex/OrderID.idx"
 ON orders (orderid)
 
 
-CREATE TABLE items as "testData/Items.dat"
+CREATE TABLE items as "/home/greg/projects/test/testData/Items.dat"
 (
     deleted             bool,
 	orderid         	char(11),

@@ -1,28 +1,23 @@
 #pragma once
 #include <string>
-#include <fstream>
+#include "universal.h"
 
 using namespace std;
 
-#define NEGATIVE		-1
-#define QUOTE			  '"'
 #define SPACE  			' '
-#define CRLF        "\r\n"  
+#define CRLF            "\r\n"  
 #define NEWLINE 		'\n'
-#define TAB 			  '\t'
-#define VTAB 			  '\v'
-#define RETURN      '\r'
-#define FORMFEED    '\f'
+#define TAB 			'\t'
+#define VTAB 			'\v'
+#define RETURN          '\r'
+#define FORMFEED        '\f'
 #define COLON 			':'
 #define COMMA 			','
-#define OPENPAREN   '('   //Note difference between OPENPAREN and sqlTokenOpenParen
-#define CLOSEPAREN  ')'
-#define EQUAL       '='
+#define OPENPAREN       '('   //Note difference between OPENPAREN and sqlTokenOpenParen
+#define CLOSEPAREN      ')'
+#define EQUAL           '='
 
-#define MAXSQLTOKENSIZE	50
-
-#define errorColor  "#ef7f7d"
-#define infoColor   "#f9f1b2"
+#define MAXSQLTOKENSIZE	100
 
 #define gtr         ">"
 #define cellBegin   "<td>"
@@ -60,15 +55,11 @@ using namespace std;
 #define sqlTokenOr          "OR"
 #define sqlTokenOn          "ON"
 #define sqlTokenValues      "VALUES"
-
 #define sqlTokenEditBool    "BOOL"
 #define sqlTokenEditChar    "CHAR"
 #define sqlTokenEditDate    "DATE"
 #define sqlTokenEditDouble  "DOUBLE"
 #define sqlTokenEditInt     "INT"
-
-enum class DISPLAY
-	{ ERROR, INFO };
 
 enum ParseResult
 {
@@ -83,7 +74,7 @@ class ReturnResult{
   string error;
 };
 
-// C++ tm is 58 characters long - this is 12
+// C++ tm is 58 characters long - this is 16
 struct t_tm
 {
     int year;
@@ -103,6 +94,5 @@ enum class t_edit
 
 ReturnResult returnResult;
 signed long pos   = 0; //pointer to position in string being parsed
-bool debug        = false;
 string debugText;
 string errText;

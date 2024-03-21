@@ -5,7 +5,8 @@
 #include "sqlParser.h"
 #include "queryParser.h"
 #include "sqlEngine.h"
-#include "global.h"
+#include "indexBase.h"
+#include "debug.h"
 
 using namespace std;
 
@@ -17,14 +18,14 @@ int main()
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
     
-    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t22-greater-than";
+    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
     std::ifstream ifq(scriptFileName);
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
-    queryStr.clear();
+    //queryStr.clear();
     
-    queryStr.append("Update customers set street2 = \"\" where street2 = \"NULL\"");
-    
+    //queryStr.append("Update customers set street2 = \"\" where street2 = \"NULL\"");
+    //queryStr.append("Select top 5 * from customers");
     printf("\n query=%s \n",queryStr.c_str());
 
     sqlParser* parser = new sqlParser((char*)sql.c_str());
@@ -61,6 +62,7 @@ int main()
     if(engine->open() == ParseResult::FAILURE)
     {
         printf("\n engine open failed");
+        printf("\n error %s",errText.c_str());
         return 0;
     }
         
@@ -83,10 +85,14 @@ int main()
         engine->insert();
         printf("\n %s", errText.c_str());
         printf("\n %s", returnResult.message.c_str());
-        return 0;
     }
-
-    
     printf("\n\n");
- 
+        string indexFileName;
+        indexFileName.append("~/projects/test/testIndex/custid.idx");
+        fstream* indexStream = new fstream{};
+		indexStream->open(indexFileName, ios::in | ios::out | ios::binary);
+        Debug::dumpAll(false,indexStream);
+        indexStream->close();
+    printf("\n\n");
+    return 0;
 }

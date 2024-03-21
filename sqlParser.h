@@ -9,7 +9,8 @@
 #include <map>
 #include <cstdio>
 #include <fstream>
-#include "global.h"
+#include "sqlCommon.h"
+#include "index.h"
 #include "tokenParser.h"
 
 using namespace std;
@@ -28,9 +29,9 @@ class column
 
 class baseData
 {
-    protected:
-        fstream* fileStream;
+ 
     public:
+        fstream* fileStream;
         string              name;
         string              fileName;
         map<char*,column*>  columns;
@@ -57,6 +58,8 @@ void baseData::close()
 class cIndex : public baseData
 {
     //All the relevant variable are in baseData
+    public:
+    Index* index;
 };
 class cTable : public baseData
 {  

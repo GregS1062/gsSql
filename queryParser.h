@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "tokenParser.h"
 #include "sqlParser.h"
+#include "sqlCommon.h"
 #include "conditions.h"
 #include "utilities.h"
 
@@ -78,7 +79,9 @@ class queryParser
     ParseResult         validateSQLString();
     ParseResult         populateQueryTable(cTable* table);
     cTable*             getQueryTable(short);
+    column*             scrollColumns(map<char*,column*>,short);
     column*             getQueryTableColumn(short);
+    column*             getQueryTableColumnByName(char*);
     signed long         findDelimiter(char*, char*);
     bool                valueSizeOutofBounds(char*, column*);
 };
@@ -777,13 +780,34 @@ cTable* queryParser::getQueryTable(short index)
     return (cTable*)it->second;
 }
 /******************************************************
+ * ScrollColumns
+ ******************************************************/
+column* queryParser::scrollColumns(map<char*,column*> _columns, short _index)
+{
+    auto it = _columns.begin();
+    std::advance(it, _index);
+    return (column*)it->second;
+}
+/******************************************************
  * Get Query Table Column
  ******************************************************/
-column* queryParser::getQueryTableColumn(short index)
+column* queryParser::getQueryTableColumn(short _index)
 {
-    auto it = queryTable->columns.begin();
-    std::advance(it, index);
-    return (column*)it->second;
+    return scrollColumns(queryTable->columns,_index);
+}
+/******************************************************
+ * Get Query Table Column By Name
+ ******************************************************/
+column* queryParser::getQueryTableColumnByName(char* _name)
+{
+    column* col;
+    for(size_t i = 0;i < queryTable->columns.size();i++)
+    {
+        col = getQueryTableColumn((short)i);
+        if(strcasecmp((char*)col->name.c_str(), _name) == 0)
+        return col;
+    }
+    return nullptr;
 }
 /******************************************************
  * Populate Query Table

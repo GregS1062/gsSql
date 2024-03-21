@@ -1,5 +1,5 @@
 #pragma once
-#include "global.h"
+#include "sqlCommon.h"
 #include "sqlParser.h"
 
 class Condition

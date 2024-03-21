@@ -2,7 +2,7 @@
 #include <string>
 #include <string.h>
 #include <stdio.h>
-#include "global.h"
+#include "sqlCommon.h"
 
 using namespace std;
 

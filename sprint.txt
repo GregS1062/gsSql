@@ -10,10 +10,11 @@ X   solve update problem
 X   solve "empty" problem
 X   validate dates
 X   numeric conditions
-    add single index (custid) on single table (customer)
+X   add single index (custid) on single table (customer)
 
 Build 29
     solves reserved word within quotes problem
+    check to make sure sql query is well-formed - all reserved words must be present
     select using index
     fix deleted column
     add delete function

@@ -7,13 +7,17 @@
 #include <ctime>
 #include <cstring>
 #include <string.h>
+#include <string>
 #include <cstdio>
-#include <filesystem>
 #include <list>
-#include "global.h"
+#include <vector>
+#include <algorithm>
+#include <filesystem>
+#include "sqlCommon.h"
 #include "queryParser.h"
 #include "conditions.h"
 #include "utilities.h"
+#include "insert.h"
 
 
 using namespace std;
@@ -27,24 +31,27 @@ class sqlEngine
 	 * Assuming a single table for now
 	*******************************************/
 	cTable* 		queryTable;
+	cIndex* cindex;
 	fstream* 		tableStream;
+	fstream* 		indexStream;
 	list<column*>	queryColumn;
 	char* line;
 
 	public:
 		queryParser* 	query;
-		ParseResult prepare(queryParser*, cTable*);
-		ParseResult open();
-		ParseResult close();
-		ParseResult	getConditionColumns();
-		ParseResult update();
-		ParseResult insert();
-		string 		select();
-		char* 		getRecord(long, fstream*, int);
-		long		appendRecord(void*, fstream*, int);
-		bool 		writeRecord(void*, long, fstream*, int);
-		string 		formatOutput(column*);
-		void 		formatInput(char*, column*);
+		ParseResult 	prepare(queryParser*, cTable*);
+		ParseResult 	open();
+		ParseResult 	close();
+		ParseResult		getConditionColumns();
+		ParseResult 	update();
+		ParseResult 	insert();
+		string 			select();
+		char* 			getRecord(long, fstream*, int);
+		long			appendRecord(void*, fstream*, int);
+		bool 			writeRecord(void*, long, fstream*, int);
+		string 			formatOutput(column*);
+		ParseResult 	formatInput(char*, column*);
+		ParseResult 	updateIndexes(long);
 
 };
 /******************************************************
@@ -73,8 +80,12 @@ ParseResult sqlEngine::open()
             errText.append(" not opened ");
 			return ParseResult::FAILURE;
 		}
-	
-		
+
+		indexStream = new fstream{};
+		cindex = queryTable->indexes.front();
+		cindex->open();
+		cindex->index = new Index(cindex->fileStream);
+
 		return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -83,6 +94,7 @@ ParseResult sqlEngine::open()
 ParseResult sqlEngine::close()
 {
 	tableStream->close();
+	cindex->close();
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -145,7 +157,8 @@ ParseResult sqlEngine::update()
 			for (itr = columns.begin(); itr != columns.end(); ++itr) 
 			{
 				col = (column*)itr->second;
-				formatInput(line,col);
+				if(formatInput(line,col) == ParseResult::FAILURE)
+					return ParseResult::FAILURE;
 			}
 			if(!writeRecord(line,recordPosition,tableStream,queryTable->recordLength))
 			{
@@ -328,7 +341,12 @@ ParseResult sqlEngine::insert()
 	long recordNumber = appendRecord(buff, tableStream, queryTable->recordLength);
 	free(buff);
 	if(recordNumber > NEGATIVE)
-	{
+	{	
+		if(updateIndexes(recordNumber) == ParseResult::FAILURE)
+		{
+			returnResult.message.append("update index failed");
+			return ParseResult::FAILURE;
+		};
 		returnResult.message.append(" 1 record inserted at location ");
 		returnResult.message.append(std::to_string(recordNumber));
 		return ParseResult::SUCCESS;
@@ -336,12 +354,16 @@ ParseResult sqlEngine::insert()
 	errText.append(" location 0 - insert failed");
 	return ParseResult::FAILURE;
 }
-void sqlEngine::formatInput(char* _buff, column* _col)
+/******************************************************
+ * Format Input
+ ******************************************************/
+ParseResult sqlEngine::formatInput(char* _buff, column* _col)
 {
 	if(((size_t)_col->position + strlen(_col->value)) > (size_t)queryTable->recordLength)
 	{
-		printf("\n buffer overflow");
-		return;
+		errText.append("buffer overflow on ");
+		errText.append(_col->name.c_str());
+		return ParseResult::FAILURE;
 	}
 	switch(_col->edit)
 	{
@@ -354,7 +376,7 @@ void sqlEngine::formatInput(char* _buff, column* _col)
 		{
 			//printf("\n %d %s %d",_col->position, _col->value, _col->length);
 			memmove(&_buff[_col->position], _col->value, _col->length);
-			return;
+			break;
 		}
 		case t_edit::t_int:
 		{
@@ -375,9 +397,30 @@ void sqlEngine::formatInput(char* _buff, column* _col)
 			break;
 		}
 	}
-	
+	return ParseResult::SUCCESS;
 }
-
+/******************************************************
+ * Update Indexes
+ ******************************************************/
+ParseResult sqlEngine::updateIndexes(long _location)
+{	
+	column* iColumn;
+	column* qColumn;
+	for(size_t i = 0;i < cindex->columns.size();i++)
+	{
+		iColumn = query->scrollColumns(cindex->columns,(short)i);
+		qColumn = query->getQueryTableColumnByName((char*)iColumn->name.c_str());
+		if(!cindex->index->insertIndex->insert(qColumn->value,_location))
+		{
+			errText.append(" insert on ");
+			errText.append(iColumn->name);
+			errText.append(" failed ");
+			return ParseResult::FAILURE;
+		};
+	}
+	
+	return ParseResult::SUCCESS;
+}
 /******************************************************
  * Get Record
  ******************************************************/
