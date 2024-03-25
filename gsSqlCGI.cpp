@@ -10,7 +10,7 @@
 #include "sqlParser.h"
 #include "queryParser.h"
 #include "sqlEngine.h"
-#include "global.h"
+#include "sqlCommon.h"
 
 #include <cgicc/CgiDefs.h> 
 #include <cgicc/Cgicc.h> 
@@ -42,7 +42,7 @@ ParseResult runQuery(string _htmlRequest)
 		return ParseResult::FAILURE;
 	};
 
-	cTable* table = parser->getTableByName((char*)query->queryTable->name.c_str());
+	sTable* table = parser->getTableByName((char*)query->queryTable->name);
 	if(table == nullptr)
 	{
 		errText.append(" table not found");
@@ -52,43 +52,44 @@ ParseResult runQuery(string _htmlRequest)
 	sqlEngine* engine = new sqlEngine();
 	engine->prepare(query,table);
 
-	if(engine->open() == ParseResult::SUCCESS)
-	{
-		if(engine->query->sqlAction == SQLACTION::SELECT)
-		{
-			returnResult.resultTable = engine->select();
-			return ParseResult::SUCCESS;					
-		}
-		if(engine->query->sqlAction == SQLACTION::INSERT)
-		{
-			if(engine->insert() == ParseResult::FAILURE)
-			{
-				returnResult.resultTable.append(" ");
-				returnResult.message.append(" Insert failed");
-				returnResult.error.append(" ");
-				return ParseResult::FAILURE;
-			}
-			return ParseResult::SUCCESS;
-		}
-		if(engine->query->sqlAction == SQLACTION::UPDATE)
-		{
-			if(engine->update() == ParseResult::FAILURE)
-			{
-				returnResult.resultTable.append(" ");
-				returnResult.message.append(" Insert failed");
-				returnResult.error.append(" ");
-				return ParseResult::FAILURE;
-			}
-			return ParseResult::SUCCESS;
-		} 
-	}
-	else
+	if(engine->open() == ParseResult::FAILURE)
 	{
 		returnResult.resultTable.append(" ");
 		returnResult.message.append(" Parse error ");
 		returnResult.error.append(" ");
+		return ParseResult::FAILURE;
 	}
-	return ParseResult::SUCCESS;
+	if(engine->query->sqlAction == SQLACTION::SELECT)
+	{
+		returnResult.resultTable = engine->select();
+		return ParseResult::SUCCESS;					
+	}
+
+	if(engine->query->sqlAction == SQLACTION::INSERT)
+	{
+		if(engine->insert() == ParseResult::FAILURE)
+		{
+			returnResult.resultTable.append(" ");
+			returnResult.message.append(" Insert failed");
+			returnResult.error.append(" ");
+			return ParseResult::FAILURE;
+		}
+		return ParseResult::SUCCESS;
+	}
+	
+	if(engine->query->sqlAction == SQLACTION::UPDATE)
+	{
+		if(engine->update() == ParseResult::FAILURE)
+		{
+			returnResult.resultTable.append(" ");
+			returnResult.message.append(" Insert failed");
+			returnResult.error.append(" ");
+			return ParseResult::FAILURE;
+		}
+		return ParseResult::SUCCESS;
+	} 
+
+	return ParseResult::FAILURE;
 }
 /*---------------------------------------
    Main

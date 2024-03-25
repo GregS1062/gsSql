@@ -18,7 +18,7 @@ Build 29
     select using index
     fix deleted column
     add delete function
-    index primary on all tables
+    index primary on all tables, including concatenated columns
 
 Build 29
     all secondary indexes

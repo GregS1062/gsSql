@@ -26,10 +26,10 @@ int main()
     printf("\n\n");
     map<char*,column*>::iterator itr;
     column* col;
-    for(cTable* table : parser->tables)
+    for(sTable* table : parser->tables)
     {
         printf("\n----------------------------------------");
-        printf("\n table name %s",table->name.c_str());
+        printf("\n table name %s",table->name);
         printf(" at ");
         printf(table->fileName.c_str());
         printf("  %d",table->recordLength);
@@ -37,21 +37,21 @@ int main()
         for (itr = columns.begin(); itr != columns.end(); ++itr) 
         {
             col = (column*)itr->second;
-            printf("\n\t\t\tname %s",col->name.c_str());
+            printf("\n\t\t\tname %s",col->name);
             printf(" length %d",col->length);
             if(col->primary)
                 printf("\t PRIMARY");
         }
-        for(cIndex* index : table->indexes)
+        for(sIndex* index : table->indexes)
         {
-            printf("\n\t index name %s",index->name.c_str());
+            printf("\n\t index name %s",index->name);
             printf(" at ");
             printf(index->fileName.c_str());
             map<char*,column*>columns = index->columns;
             for (itr = columns.begin(); itr != columns.end(); ++itr) 
             {
                 col = (column*)itr->second;
-                printf("\n\t\t\tname %s",col->name.c_str());
+                printf("\n\t\t\tname %s",col->name);
                 printf(" length %d",col->length);
             }
         }

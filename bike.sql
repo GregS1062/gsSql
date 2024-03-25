@@ -76,7 +76,7 @@ CREATE TABLE orders as "/home/greg/projects/test/testData/Orders.dat"
 	PRIMARY KEY (orderid)
 )
 
-CREATE INDEX orderid as "/home/greg/projects/test/testIndex/OrderID.idx"
+CREATE INDEX orderid as "/home/greg/projects/test/testIndex/orderid.idx"
 ON orders (orderid)
 
 

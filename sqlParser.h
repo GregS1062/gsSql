@@ -12,71 +12,11 @@
 #include "sqlCommon.h"
 #include "index.h"
 #include "tokenParser.h"
+#include "utilities.h"
+#include "lookup.h"
 
 using namespace std;
 
-
-class column
-{
-    public:
-    string  name;
-    bool    primary = false;
-    t_edit  edit;
-    int     length = 0;
-    int     position = 0;
-    char*   value;
-};
-
-class baseData
-{
- 
-    public:
-        fstream* fileStream;
-        string              name;
-        string              fileName;
-        map<char*,column*>  columns;
-        map<char*,column*>::iterator columnItr;
-        fstream*            open();
-        void                close();
-};
-fstream* baseData::open()
-{
-		////Open index file
-        fileStream = new fstream{};
-		fileStream->open(fileName, ios::in | ios::out | ios::binary);
-		if (!fileStream->is_open()) {
-            errText.append(fileName);
-            errText.append(" not opened ");
-			return nullptr;
-		}
-        return fileStream;
-}
-void baseData::close()
-{
-    fileStream->close();
-}
-class cIndex : public baseData
-{
-    //All the relevant variable are in baseData
-    public:
-    Index* index;
-};
-class cTable : public baseData
-{  
-    public:
-        list<cIndex*>   indexes;
-        int             recordLength = 0;
-        column*         getColumn(char* _name);
-};
-column* cTable::getColumn(char* _name)
-{
-
-    for (columnItr = columns.begin(); columnItr != columns.end(); ++columnItr) {
-        if(strcasecmp(columnItr->first,_name) == 0)
-            return (column*)columnItr->second;
-    }
-    return nullptr;
-}
 
 class sqlParser
 {
@@ -84,8 +24,8 @@ class sqlParser
     char*           sqlString;
     signed long     sqlStringLength;
     tokenParser*    tok;
-    cTable*         table;
-    list<cTable*>   tables;
+    sTable*         table;
+    list<sTable*>   tables;
 
     sqlParser(char*);
     ParseResult parse();
@@ -94,9 +34,7 @@ class sqlParser
     ParseResult parseColumns();
     ParseResult parsePrimaryKey();
     ParseResult parseColumnEdit(column*);
-    ParseResult calculateTableColumnValues(cTable*);
-    bool        isNumeric(char*);
-    cTable*     getTableByName(char*);
+    ParseResult calculateTableColumnValues(sTable*);
 
 };
 /******************************************************
@@ -155,7 +93,7 @@ ParseResult sqlParser::createTable()
 {
 
     char* token;
-    table = new cTable();
+    table = new sTable();
 
     //Get table name
     token           = tok->getToken();
@@ -224,7 +162,7 @@ ParseResult sqlParser::parseColumns()
         if(parseColumnEdit(col) == ParseResult::FAILURE)
             return ParseResult::FAILURE;    
         
-        table->columns.insert({token, col});
+        table->columns.push_back(col);
     }
     return ParseResult::SUCCESS;
 };
@@ -332,7 +270,7 @@ ParseResult sqlParser::parseColumnEdit(column* _col)
         }
 
         token = tok->getToken();
-        if(!isNumeric(token))
+        if(!utilities::isNumeric(token))
         {
             errText.append("sql parser expecting a number for column length. See ");
             errText.append(_col->name);
@@ -362,7 +300,7 @@ ParseResult sqlParser::createIndex()
     //The first token must be the index name
     char* token = tok->getToken();
 
-    cIndex* index = new cIndex();
+    sIndex* index = new sIndex();
     index->name = token;
 
     token = tok->getToken();
@@ -394,7 +332,7 @@ ParseResult sqlParser::createIndex()
     //This must be table name
     token = tok->getToken();
 
-    table = getTableByName(token); 
+    table = lookup::getTableByName(tables,token); 
     if(table == nullptr)
     {
         errText.append(" Index table ");
@@ -429,7 +367,7 @@ ParseResult sqlParser::createIndex()
             errText.append(" not found");
             return ParseResult::FAILURE;
         }
-        index->columns.insert({token, col});
+        index->columns.push_back(col);
 
     }   
 
@@ -438,19 +376,17 @@ ParseResult sqlParser::createIndex()
 /******************************************************
  * Calculate Table Column Values
  ******************************************************/
-ParseResult sqlParser::calculateTableColumnValues(cTable* _table)
+ParseResult sqlParser::calculateTableColumnValues(sTable* _table)
 {
     try
     {
         int     recordLength        = 0;
         int     position            = 0;
-        column* c;
-        for (_table->columnItr = _table->columns.begin(); _table->columnItr != _table->columns.end(); ++_table->columnItr) 
+        for (column* col : _table->columns)
         {
-            c               = (column*)_table->columnItr->second;
-            c->position     = position;
-            position        = position + c->length;
-            recordLength    = recordLength + c->length;
+            col->position   = position;
+            position        = position + col->length;
+            recordLength    = recordLength + col->length;
         }
         _table->recordLength = recordLength;
         return ParseResult::SUCCESS;
@@ -462,35 +398,5 @@ ParseResult sqlParser::calculateTableColumnValues(cTable* _table)
     }
 }
 
-/******************************************************
- * Is Numeric
- ******************************************************/
-bool sqlParser::isNumeric(char* _token)
-{
 
-    if(_token == nullptr)
-        return false;
-
-    for(size_t i=0;i<strlen(_token);i++)
-    {
-        if(_token[i] == '.')
-            continue;
-        if(!isdigit(_token[i]))
-            return false;
-    }
-    return true;
-}
-/******************************************************
- * Get Table By Name
- ******************************************************/
-cTable* sqlParser::getTableByName(char* _tableName)
-{
-    for(cTable* tbl : tables)
-    {
-       // printf("\n looking for %s found %s",_tableName,tbl->name.c_str());
-        if(strcasecmp(tbl->name.c_str(), _tableName) == 0)
-            return tbl;
-    }
-    return nullptr;
-}
 

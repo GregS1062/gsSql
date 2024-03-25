@@ -43,7 +43,7 @@ bool runScript(string script)
         return 0;
     }
     
-    cTable* table = loader->getTableByName((char*)"customer");
+    sTable* table = loader->getTableByName((char*)"customer");
     if(table == nullptr)
     {
         printf("\n table not found");

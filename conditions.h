@@ -12,10 +12,12 @@ class Condition
         double  doubleValue     = 0;
         bool    boolValue       = false;
         t_tm    dateValue;
-        char*   prefix          = nullptr; //  (
-        char*   condition       = nullptr;
+        char*   prefix          = nullptr;  // (
+        char*   condition       = nullptr;	// and/or
         char*   suffix          = nullptr;  // )
         column* col             = nullptr;  // actual column loaded by engine
+		sTable*	table			= nullptr;	// table containing condition columns
+		sIndex* index			= nullptr;  // index candidate for search
 };
 
 class compareToCondition

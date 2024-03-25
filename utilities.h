@@ -13,7 +13,7 @@ public:
 	static void 	lTrim(char[], char);
 	static void 	rTrim(char[]);
 	static void 	subString(char target[], int start, int end);
-	static bool		isNumeric(std::string);
+	static bool		isNumeric(char*);
 	static void 	upperCase(char[]);
 	static void 	terminateString(char[], int, int);
 	static t_tm 	parseDate(char[]);
@@ -21,9 +21,9 @@ public:
 	static bool		isDateValid(char* _date);
 };
 
-/*---------------------------------------
+/*******************************************************
    Formate Date
------------------------------------------*/
+*******************************************************/
 void utilities::formatDate(char s[], t_tm _date)
 {
 	//Has time structure been initialized (conversion issue)
@@ -52,9 +52,9 @@ void utilities::formatDate(char s[], t_tm _date)
 }
 
 
-/*---------------------------------------
+/*******************************************************
    upperCase  Convert lower to upper case
------------------------------------------*/
+*******************************************************/
 void utilities::upperCase(char s[])
 {
 	for (int i = 0; s[i] != '\0'; i++) {
@@ -63,9 +63,9 @@ void utilities::upperCase(char s[])
 		}
 	}
 }
-/*---------------------------------------
+/*******************************************************
    SubString
------------------------------------------*/
+*******************************************************/
 void utilities::terminateString(char target[], int start, int end)
 {
 	for (int i = 0; i < end - start; i++)
@@ -75,9 +75,9 @@ void utilities::terminateString(char target[], int start, int end)
 	target[end - start] = '\0';
 }
 
-/*---------------------------------------
+/*******************************************************
    Pad Left
------------------------------------------*/
+*******************************************************/
 char* utilities::padLeft(char target[], int max)
 {
     char buffer[60];
@@ -107,9 +107,9 @@ char* utilities::padLeft(char target[], int max)
 }
 
 
-/*---------------------------------------
+/*******************************************************
    Left Trim
------------------------------------------*/
+*******************************************************/
 void utilities::lTrim(char _target[], char _ch)
 {
 	int len = (int)strlen(_target);
@@ -129,9 +129,9 @@ void utilities::lTrim(char _target[], char _ch)
 		_target[i2] = '\0';
 }
 
-/*---------------------------------------
+/*******************************************************
    SubString
------------------------------------------*/
+*******************************************************/
 void utilities::subString(char target[], int start, int end)
 {
 	for (int i = 0; i < end - start; i++)
@@ -139,9 +139,10 @@ void utilities::subString(char target[], int start, int end)
 		target[i] = target[i + start];
 	}
 	target[end - start] = '\0';
-}/*---------------------------------------
+}
+/*******************************************************
    Right Trim
------------------------------------------*/
+-*******************************************************/
 void utilities::rTrim(char _target[])
 {
 	int len = (int)strlen(_target)-1;
@@ -161,9 +162,9 @@ void utilities::rTrim(char _target[])
 
 }
 
-/*---------------------------------------
+/*******************************************************
    Parse Date
------------------------------------------*/
+*******************************************************/
 t_tm utilities::parseDate(char _date[])
 {
 	// pre-condition:	date has been validated
@@ -212,9 +213,9 @@ t_tm utilities::parseDate(char _date[])
 	return _d;
 }
 
-/*---------------------------------------------*
+/********************************************************
 	Find and replace
- ----------------------------------------------*/
+ ******************************************************/
 string utilities::findAndReplace(string s,string _target, string _text)
 {
 	if(s.find(_target) < s.length())
@@ -223,9 +224,9 @@ string utilities::findAndReplace(string s,string _target, string _text)
 	}
 	return s;
 };
-/*---------------------------------------
+/*******************************************************
    Is Date Valid
------------------------------------------*/
+*******************************************************/
 bool utilities::isDateValid(char* _cdate)
 {
 
@@ -282,5 +283,23 @@ bool utilities::isDateValid(char* _cdate)
     }
 
 	return true;
+}
+/******************************************************
+ * Is Numeric
+ ******************************************************/
+bool utilities::isNumeric(char* _token)
+{
+
+    if(_token == nullptr)
+        return false;
+
+    for(size_t i=0;i<strlen(_token);i++)
+    {
+        if(_token[i] == '.')
+            continue;
+        if(!isdigit(_token[i]))
+            return false;
+    }
+    return true;
 }
 		

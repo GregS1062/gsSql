@@ -9,15 +9,26 @@ using namespace std;
 class tokenParser
 {
     public:
-
+    tokenParser();
     tokenParser(const char*);
-
+    
+    void        parse(const char*);
     char*       getToken();
     bool        delimiterAhead();
     const char* parseString;
     signed long parseStringLength;
 };
+tokenParser::tokenParser()
+{
+    
+}
 tokenParser::tokenParser(const char* _parseString)
+{
+    parseString         = _parseString;
+    parseStringLength   = (signed long)strlen(parseString);
+    pos = 0;
+}
+void tokenParser::parse(const char* _parseString)
 {
     parseString         = _parseString;
     parseStringLength   = (signed long)strlen(parseString);

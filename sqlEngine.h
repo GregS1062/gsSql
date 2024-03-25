@@ -18,9 +18,19 @@
 #include "conditions.h"
 #include "utilities.h"
 #include "insert.h"
+#include "search.h"
+#include "lookup.h"
 
 
 using namespace std;
+
+class searchIndexes
+{
+	public:
+	sIndex* index;
+	map<char*,column*>  columns;
+	list<column*> col;
+};
 
 /******************************************************
  * SQL Engine
@@ -30,16 +40,17 @@ class sqlEngine
 	/***************************************
 	 * Assuming a single table for now
 	*******************************************/
-	cTable* 		queryTable;
-	cIndex* cindex;
+	sTable* 		queryTable;
+	sIndex* 		eIndex;
 	fstream* 		tableStream;
 	fstream* 		indexStream;
+	list<sIndex*>	sIndexes;
 	list<column*>	queryColumn;
 	char* line;
 
 	public:
 		queryParser* 	query;
-		ParseResult 	prepare(queryParser*, cTable*);
+		ParseResult 	prepare(queryParser*, sTable*);
 		ParseResult 	open();
 		ParseResult 	close();
 		ParseResult		getConditionColumns();
@@ -49,15 +60,19 @@ class sqlEngine
 		char* 			getRecord(long, fstream*, int);
 		long			appendRecord(void*, fstream*, int);
 		bool 			writeRecord(void*, long, fstream*, int);
+		string			outputLine(list<column*>);
 		string 			formatOutput(column*);
 		ParseResult 	formatInput(char*, column*);
 		ParseResult 	updateIndexes(long);
+		string 			tableScan(list<column*>);
+		searchIndexes* 	gatherIndexesForSelect();
+		string 			indexReadResults(searchIndexes*);
 
 };
 /******************************************************
  * SQL Engine Constuctor
  ******************************************************/
-ParseResult sqlEngine::prepare(queryParser* _query, cTable* _table)
+ParseResult sqlEngine::prepare(queryParser* _query, sTable* _table)
 {
     /***************************************
 	 * Assuming a single table for now
@@ -78,13 +93,19 @@ ParseResult sqlEngine::open()
 		if (!tableStream->is_open()) {
             errText.append(queryTable->fileName);
             errText.append(" not opened ");
+			errText.append(strerror(errno));
 			return ParseResult::FAILURE;
 		}
 
-		indexStream = new fstream{};
-		cindex = queryTable->indexes.front();
-		cindex->open();
-		cindex->index = new Index(cindex->fileStream);
+		if(queryTable->indexes.size() > 0)
+		{
+			for(sIndex* idx : queryTable->indexes)
+			{
+				idx->open();
+				idx->open();
+				idx->index = new Index(idx->fileStream);
+			}
+		}
 
 		return ParseResult::SUCCESS;
 }
@@ -93,8 +114,10 @@ ParseResult sqlEngine::open()
  ******************************************************/
 ParseResult sqlEngine::close()
 {
-	tableStream->close();
-	cindex->close();
+	if(tableStream != nullptr)
+		tableStream->close();
+	if(eIndex != nullptr)
+		eIndex->close();
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -134,16 +157,12 @@ ParseResult sqlEngine::update()
 {
 	int recordPosition 	= 0;
 	int rowCount 		= 0;
-	column* col;
 
 	if(getConditionColumns() == ParseResult::FAILURE)
 	{
 		errText.append( " Query condition failure");
 		return ParseResult::FAILURE;
 	};
-
-	map<char*,column*>::iterator itr;
-	map<char*,column*>columns = query->queryTable->columns;
 
 	//table scan for now
 	while(true)
@@ -154,9 +173,8 @@ ParseResult sqlEngine::update()
 		
 		if(compareToCondition::queryContitionsMet(query->conditions, line) == ParseResult::SUCCESS)
 		{
-			for (itr = columns.begin(); itr != columns.end(); ++itr) 
+			for (column* col :query->queryTable->columns) 
 			{
-				col = (column*)itr->second;
 				if(formatInput(line,col) == ParseResult::FAILURE)
 					return ParseResult::FAILURE;
 			}
@@ -180,8 +198,6 @@ string sqlEngine::select()
 {
 	string rowResponse;
 	string header;
-	int recordPosition 	= 0;
-	int resultCount 	= 0; 
 
 	if(getConditionColumns() == ParseResult::FAILURE)
 	{
@@ -190,26 +206,23 @@ string sqlEngine::select()
 	};
 	int sumOfColumnSize = 0;
 
-	column* col;
-	map<char*,column*>::iterator itr;
-	map<char*,column*>columns = query->queryTable->columns;
-	for (itr = columns.begin(); itr != columns.end(); ++itr) {
-            col = (column*)itr->second;
-			if(col->edit == t_edit::t_date)
-			{
-				sumOfColumnSize = sumOfColumnSize + 16;
-			}
-			else
-			{
-				sumOfColumnSize = sumOfColumnSize + col->length;
-			}
+	list<column*> columns = queryTable->columns;
+	for( column* col: columns)
+	{
+		if(col->edit == t_edit::t_date)
+		{
+			sumOfColumnSize = sumOfColumnSize + 16;
+		}
+		else
+		{
+			sumOfColumnSize = sumOfColumnSize + col->length;
+		}
     }
 	
 	double percentage = 0;
 	header.append(rowBegin);
-	for (itr = columns.begin(); itr != columns.end(); ++itr) 
+	for (column* col : query->queryTable->columns) 
 	{
-		col = (column*)itr->second;
 		header.append("\n\t");
 		header.append(hdrBegin);
 		header.append(" style="" width:");
@@ -223,45 +236,166 @@ string sqlEngine::select()
 		header.append("%"">");
 		header.append(col->name);
 		header.append(hdrEnd);
-
 	}
 	header.append(rowEnd);
 
 	rowResponse.append(header);
 
+	//No conditions
+	if(query->conditions.size() == 0)
+	{
+		rowResponse.append(tableScan(columns));
+		return rowResponse;
+	}
+
+	//checks the index columns against the queryColumns
+	searchIndexes* searchOn = gatherIndexesForSelect();
+	//query condition but not on an indexed column
+	if(searchOn == nullptr)
+	{
+		rowResponse.append(tableScan(columns));
+		return rowResponse;
+	}
+	
+	rowResponse.append(indexReadResults(searchOn));
+	return rowResponse;
+
+}
+/******************************************************
+ * Table Scan
+ ******************************************************/
+string sqlEngine::tableScan(list<column*> _columns)
+{
+	string rowResponse;
 	int rowCount = 0;
+	int recordPosition 	= 0;
+	int resultCount 	= 0; 
+
+	string lineResult;
 
 	while(true)
 	{
 		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
 		
+		//End of File
 		if(line == nullptr)
 			break;
 
+		//select top n
 		if(query->rowsToReturn > 0
 		&& rowCount >= query->rowsToReturn)
 			break;
 
-		if(compareToCondition::queryContitionsMet(query->conditions,line) == ParseResult::SUCCESS)
+		resultCount++;
+
+		lineResult = outputLine(_columns);
+		if(lineResult.length() > 0)
 		{
-			resultCount++;
-			rowResponse.append("\n\t\t");
-			rowResponse.append(rowBegin);
-			for (itr = columns.begin(); itr != columns.end(); ++itr) 
-			{
-				col = (column*)itr->second;
-				rowResponse.append(cellBegin);
-				rowResponse.append(formatOutput(col));
-				rowResponse.append(cellEnd);
-			}
-			rowResponse.append(rowEnd);
+			rowResponse.append(lineResult);
 			rowCount++;
 		}
 		recordPosition = recordPosition + queryTable->recordLength;
 	}
+	returnResult.message.append(" table scan: rows scanned ");
 	returnResult.message.append(std::to_string(resultCount));
+	returnResult.message.append("<p>");
 	returnResult.message.append(" rows returned ");
+	returnResult.message.append(std::to_string(rowCount));
 	return rowResponse;
+}
+/******************************************************
+ * Index read
+ ******************************************************/
+searchIndexes* sqlEngine::gatherIndexesForSelect()
+{
+	searchIndexes* searchOn = nullptr;
+	for(sIndex* idx : query->dbTable->indexes)
+	{
+		for(column* col : idx->columns)
+		{
+			for(Condition* condition : query->conditions)
+			{
+				if(strcasecmp(col->name,condition->col->name) == 0 )
+				{
+					//TODO  only affects char* indexes
+					if(searchOn == nullptr)
+						searchOn = new searchIndexes();
+					searchOn->index = idx;
+					condition->col->value = condition->value;
+					searchOn->col.push_back(condition->col);
+					return searchOn;
+				}
+			}
+		}
+	}
+
+	return nullptr;
+}
+/******************************************************
+ * Index read
+ ******************************************************/
+string sqlEngine::indexReadResults(searchIndexes* _searchOn)
+{
+	string rowResponse;
+	string lineResult;
+	int rowCount = 0;
+	int recordPosition 	= 0;
+	int resultCount 	= 0; 
+	ResultList* results = new ResultList();
+	Search* search = new Search(_searchOn->index->fileStream);
+	column* col = _searchOn->col.front();
+	//TODO using one column
+	results = search->findRange(col->value, MAXRESULTS, SEARCH::EXACT);
+	while(results != nullptr)
+	{
+		line = getRecord(recordPosition,tableStream, queryTable->recordLength);
+		
+		//End of File
+		if(line == nullptr)
+			break;
+
+		//select top n
+		if(query->rowsToReturn > 0
+		&& rowCount >= query->rowsToReturn)
+			break;
+
+		resultCount++;
+
+		//TODO BEFORE RUN lineResult = outputLine(columns);
+		if(lineResult.length() > 0)
+		{
+			rowResponse.append(lineResult);
+			rowCount++;
+		}
+		recordPosition = recordPosition + queryTable->recordLength;
+		results = results->next;
+	}
+	returnResult.message.append(" indexed read on ");
+	returnResult.message.append(eIndex->name);
+	returnResult.message.append("<p>");
+	returnResult.message.append(" rows returned ");
+	returnResult.message.append(std::to_string(rowCount));
+	return rowResponse;
+}
+/******************************************************
+ * Format Ouput
+ ******************************************************/
+string sqlEngine::outputLine(list<column*> columns)
+{
+	string result;
+	if(compareToCondition::queryContitionsMet(query->conditions,line) == ParseResult::SUCCESS)
+	{
+		result.append("\n\t\t");
+		result.append(rowBegin);
+		for (column* col : columns) 
+		{
+			result.append(cellBegin);
+			result.append(formatOutput(col));
+			result.append(cellEnd);
+		}
+		result.append(rowEnd);
+	}
+	return result;
 }
 /******************************************************
  * Format Ouput
@@ -329,11 +463,8 @@ ParseResult sqlEngine::insert()
 {
 	size_t count = 0;
 	char* buff = (char*)malloc(queryTable->recordLength);
-	column* col;
-	map<char*,column*>::iterator itr;
-	map<char*,column*>columns = query->queryTable->columns;
-	for (itr = columns.begin(); itr != columns.end(); ++itr) {
-        col = (column*)itr->second;
+	for(column* col : queryTable->columns)
+	{
 		formatInput(buff, col);
 		count++;
 	}
@@ -362,7 +493,7 @@ ParseResult sqlEngine::formatInput(char* _buff, column* _col)
 	if(((size_t)_col->position + strlen(_col->value)) > (size_t)queryTable->recordLength)
 	{
 		errText.append("buffer overflow on ");
-		errText.append(_col->name.c_str());
+		errText.append(_col->name);
 		return ParseResult::FAILURE;
 	}
 	switch(_col->edit)
@@ -404,19 +535,33 @@ ParseResult sqlEngine::formatInput(char* _buff, column* _col)
  ******************************************************/
 ParseResult sqlEngine::updateIndexes(long _location)
 {	
-	column* iColumn;
 	column* qColumn;
-	for(size_t i = 0;i < cindex->columns.size();i++)
+
+	//TODO joins are a problem here
+	for(sIndex* idx : query->dbTable->indexes)
 	{
-		iColumn = query->scrollColumns(cindex->columns,(short)i);
-		qColumn = query->getQueryTableColumnByName((char*)iColumn->name.c_str());
-		if(!cindex->index->insertIndex->insert(qColumn->value,_location))
-		{
-			errText.append(" insert on ");
-			errText.append(iColumn->name);
-			errText.append(" failed ");
+		if(idx == nullptr)
+			return ParseResult::SUCCESS;
+
+		if(idx->columns.size() == 0)
 			return ParseResult::FAILURE;
-		};
+
+		for(column* iColumn : idx->columns)
+		{
+			
+			qColumn = queryTable->getColumn(iColumn->name);
+
+			if(qColumn == nullptr)
+				return ParseResult::FAILURE;
+
+			if(!idx->index->insertIndex->insert(qColumn->value,_location))
+			{
+				errText.append(" insert on ");
+				errText.append(iColumn->name);
+				errText.append(" failed ");
+				return ParseResult::FAILURE;
+			};
+		}
 	}
 	
 	return ParseResult::SUCCESS;

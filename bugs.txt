@@ -3,3 +3,7 @@
 - date should be stored as a single int 20240317 so it can be compared and indexed on,
     however, what to do about a query that asks for all product sold in march, perhaps add
     another int as wholeyear                            ", "Apache Junction", "AZ", "US", "" )
+- store insert
+    - missing storename
+    - failing to return on custid
+- conversion failing
