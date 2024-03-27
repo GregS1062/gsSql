@@ -1,6 +1,7 @@
 #pragma once
 #include "sqlParser.h"
 #include "sqlCommon.h"
+#include "utilities.h"
 
 class lookup
 {
@@ -8,8 +9,9 @@ class lookup
 
     static sTable*     scrollTableList(map<char*,sTable*>, size_t);
     static column*     scrollColumnList(list<column*>, size_t);
+    static column*     getColumnByName(list<column*>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
-    static splitToken  tokenSplit(char*);
+    static tokenPair   tokenSplit(char*,char*);
     static signed long findDelimiter(char*, char*);
     static signed long findDelimiterFromList(char*, list<char*>);
     static SQLACTION   determineAction(char* _token);
@@ -39,6 +41,18 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
        // printf("\n looking for %s found %s",_tableName,tbl->name);
         if(strcasecmp(tbl->name, _tableName) == 0)
             return tbl;
+    }
+    return nullptr;
+}
+/******************************************************
+ * Get Column By Name
+ ******************************************************/
+column* lookup::getColumnByName(list<column*> _columns, char* _name)
+{
+    for(column* col : _columns)
+    {
+        if(strcasecmp(col->name,_name) == 0)
+            return col;
     }
     return nullptr;
 }
@@ -163,15 +177,20 @@ SQLACTION lookup::determineAction(char* _token)
     return  SQLACTION::INVALID;
 
 }
-splitToken lookup::tokenSplit(char* _token)
+tokenPair lookup::tokenSplit(char* _token, char* delimiter)
 {
-    splitToken st;
+    tokenPair st;
     size_t len = strlen(_token);
+    if(len > 1)
+        utilities::lTrim(_token,' ');
+    
     char *s;
-    s = strstr(_token, ".");      // search for string "hassasin" in buff
+    s = strstr(_token, delimiter);      // search for string "hassasin" in buff
     if (s == NULL)                     // if successful then s now points at "hassasin"
     {
         st.one = _token;
+        st.two = nullptr;
+        return st;
     } 
     size_t position = s - _token;
     st.one = (char*)malloc(position);

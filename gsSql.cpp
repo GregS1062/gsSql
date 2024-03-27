@@ -4,9 +4,9 @@
 #include <string.h>
 #include "sqlParser.h"
 #include "queryParser.h"
-#include "sqlEngine.h"
 #include "indexBase.h"
 #include "lookup.h"
+#include "binding.h"
 #include "debug.h"
 
 using namespace std;
@@ -34,16 +34,41 @@ void printTable(sTable* tbl)
     }
 }
 
-void printQuery(queryParser* qp)
+void printQuery(queryParser* qp,binding* bind)
 {
     printf("\n*******************************************");
     printf("\n Query Tables");
     printf("\n*******************************************");
-    for(sTable* tbl : qp->tables)
+    for(char* name : qp->lstTables)
+    {
+        printf("\n NAME %s",name);
+    }
+    for(sTable* tbl : bind->lstTables)
     {
         printTable(tbl);
     }
-
+    return;
+    printf("\n--------------------------------------------");
+    printf("\n column names");
+    printf("\n--------------------------------------------");
+    for(char* c : qp->lstColName)
+    {
+        printf("\n column:%s",c);
+    }
+    printf("\n--------------------------------------------");
+    printf("\n column values");
+    printf("\n--------------------------------------------");
+    for(char* c : qp->lstValues)
+    {
+        printf("\n value:%s",c);
+    }
+    printf("\n--------------------------------------------");
+    printf("\n Column Name Values");
+    printf("\n--------------------------------------------");
+    for(ColumnNameValue* nv : qp->lstColNameValue)
+    {
+        printf("\n column:%s value:%s",nv->name,nv->value);
+    }
     if(qp->conditions.size() == 0)
     {
         printf("\n No conditions");
@@ -75,17 +100,19 @@ int main()
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
     
-    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t81-select-store-by-name";
+    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
+    //std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
     std::ifstream ifq(scriptFileName);
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
     queryStr.clear();
     
-    //queryStr.append("Update customers c set street2 = \"where\" where c.custid = \"0001230001\"");
+   //queryStr.append("Update customers c set street1 = \"noname\", street2 = \"where\" where c.custid = \"0001230001\"");
    //queryStr.append("Select top 5 * from customers  where custid = \"000009196\"");
-  // queryStr.append("insert into items i values (0, \"SO43659\", \"BK M82B 42\", 1, 2024.99, 0.00, 2024.99)");
+   //queryStr.append("Select top 5 custid, surname, givenname from customers  where custid = \"000009196\"");
+   queryStr.append("insert into items i values (0, \"SO43659\", \"BK M82B 42\", 1, 2024.99, 0.00, 2024.99)");
     //queryStr.append("Select top 5 * from stores");
-    queryStr.append("select c.custid, s.name, s.email from stores s, customers c");
+   // queryStr.append("select c.custid, s.name, s.email from stores s, customers c where c.custid = s.custid");
     printf("\n query=%s \n",queryStr.c_str());
 
     sqlParser* parser = new sqlParser((char*)sql.c_str());
@@ -105,15 +132,21 @@ int main()
     {
         printf("\n query parse failed");
         printf("\n error %s",errText.c_str());
-        return 0;
     };
     
-    
-    printQuery(query);
+    binding* bind = new binding(parser,query);
+    if(bind->validate() == ParseResult::FAILURE)
+    {
+        printf("\n bind validate failed");
+        printf("\n error %s",errText.c_str());
+    };
+    printQuery(query,bind);
     printf("\n\n");
+
+    
     return 0;
     
-    sTable* table = lookup::getTableByName(parser->tables,(char*)query->queryTable->name);
+    /* sTable* table; //= lookup::getTableByName(parser->tables,(char*)query->queryTable->name);
     if(table == nullptr)
     {
         printf("\n table not found");
@@ -158,5 +191,5 @@ int main()
         Debug::dumpAll(false,indexStream);
         indexStream->close();
     printf("\n\n");
-    return 0;
+    return 0; */
 }

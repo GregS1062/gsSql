@@ -15,8 +15,10 @@ class tokenParser
     void        parse(const char*);
     char*       getToken();
     bool        delimiterAhead();
+    bool        eof = false;
     const char* parseString;
     signed long parseStringLength;
+    signed long pos;
 };
 tokenParser::tokenParser()
 {
@@ -75,6 +77,11 @@ char* tokenParser::getToken()
         
         c = parseString[pos];
         pos++;
+        if(pos > parseStringLength)
+        {
+            eof = true;
+            break;
+        }
         
         if(c == QUOTE)
         {
@@ -180,5 +187,6 @@ char* tokenParser::getToken()
             printf("\n token = %s",retToken);
         return retToken;
     }
+    eof = true;
     return nullptr;
 }

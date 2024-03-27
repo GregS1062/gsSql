@@ -53,10 +53,12 @@ ParseResult sqlParser::parse()
 {
 
     char* token;
-    pos = 0;
-    while(pos < sqlStringLength)
+    while(!tok->eof)
     {
         token = tok->getToken();
+
+        if(tok->eof)
+            break;
 
         if(strlen(token) == 0)
             continue;
@@ -138,7 +140,7 @@ ParseResult sqlParser::parseColumns()
         return ParseResult::FAILURE;
     }
     
-    while(pos < sqlStringLength)
+    while(!tok->eof)
     {
         token = tok->getToken();
 
@@ -190,7 +192,7 @@ ParseResult sqlParser::parsePrimaryKey()
         return ParseResult::FAILURE;
     }
 
-    while(pos < sqlStringLength)
+    while(!tok->eof)
     {
         token = tok->getToken();
 
@@ -352,7 +354,7 @@ ParseResult sqlParser::createIndex()
         return ParseResult::FAILURE;
     }
     column* col;
-    while(pos < sqlStringLength)
+    while(!tok->eof)
     {
         token = tok->getToken();
         if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)

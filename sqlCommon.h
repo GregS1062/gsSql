@@ -105,7 +105,7 @@ class ReturnResult{
   string error;
 };
 
-class splitToken
+class tokenPair
 {
     public:
     char* one;
@@ -199,6 +199,5 @@ class sTable : public baseData
         char*           alias;
 };
 
-signed long pos   = 0; //pointer to position in string being parsed
 string debugText;
 

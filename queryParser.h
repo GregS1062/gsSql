@@ -14,7 +14,7 @@
 using namespace std;
 
 
-class ColumnValue
+class ColumnNameValue
 {
     //Note: all that is needed for update parsing is the column name
     //      the column and all of its edits are added in the sqlEngine
@@ -35,17 +35,15 @@ class queryParser
 {
     const char*         queryString;
     signed long         queryStringLength   = 0;
-    tokenParser*        tok;
     sqlParser*          sqlDB;
 
     public:
 
-    list<sTable*>           tables;         // tables
+    list<char*>             lstTables;       // tables
+    list<ColumnNameValue*>  lstColNameValue;// used in update to set list of column/values
+    list<char*>             lstColName;
+    list<char*>             lstValues;
     list<Condition*>        conditions;     // where condition (operator) value
-    list<ColumnValue*>      columnValue;    // used in update to set list of column/values
-
-    sTable* dbTable;        //template table with all columns defined
-    sTable* queryTable;     //table consisting of only columns defined in the query statement
 
     Condition*          condition       = nullptr;
 
@@ -60,14 +58,13 @@ class queryParser
     ParseResult         parseInsert();
     ParseResult         parseUpdate();
     ParseResult         parseTableList(char*);
-    ParseResult         parseColumnValue(signed long, signed long);
-    ParseResult         parseColumnList(signed long, signed long);
-    ParseResult         parseValueList(signed long, signed long);
-    ParseResult         parseConditions(signed long, signed long);
+    ParseResult         parseColumnNameValueList(char*);
+    ParseResult         parseColumnList(char*);
+    ParseResult         parseValueList(char*);
+    ParseResult         parseConditions(char*);
     ParseResult         addCondition(char*);
     ParseResult         validateSQLString();
     ParseResult         populateQueryTable(sTable* table);
-    bool                valueSizeOutofBounds(char*, column*);
 };
 
 /******************************************************
@@ -80,11 +77,11 @@ ParseResult queryParser::clear()
     isColumn        = false;
     isCondition     = false;
     condition       = nullptr;
-    dbTable         = nullptr;
-    queryTable      = nullptr;
-    tables.clear();
+    lstTables.clear();
+    lstColName.clear();
+    lstColNameValue.clear();
     conditions.clear();
-    columnValue.clear();
+    lstColNameValue.clear();
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -96,7 +93,7 @@ ParseResult queryParser::parse(const char* _queryString,sqlParser* _sqlDB)
     queryString       = _queryString;
     queryStringLength = strlen(_queryString);
     sqlDB             = _sqlDB;
-    tok               = new tokenParser(_queryString);
+    tokenParser* tok  = new tokenParser(_queryString);
     
     char* token     = tok->getToken();
     if(token == nullptr)
@@ -181,7 +178,16 @@ ParseResult queryParser::parseSelect()
     if(debug)
         printf("\n parse select");
 
-    char* token     = tok->getToken();
+    char workingString[MAXSQLSTRINGSIZE];
+
+    signed long beginColumnList;
+
+    tokenParser* tok = new tokenParser(queryString);
+
+    char* token     = tok->getToken();  //The first token will always be "SELECT", throw away
+    
+    //Get next token
+    token = tok->getToken();
     if(strcasecmp(token,sqlTokenTop) == 0)
     {
         token = tok->getToken();
@@ -191,14 +197,20 @@ ParseResult queryParser::parseSelect()
             return ParseResult::FAILURE;
         }
         rowsToReturn = atoi(token);
+        beginColumnList = tok->pos;
     }
     else
     {
         // Check for "top", a column was picked up - reverse
-        pos = pos - (strlen(token) + 1);
+        beginColumnList = tok->pos - ((strlen(token) +1));
     }
 
-    signed long posFrom     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenFrom);
+    //start of column list
+    strcpy(workingString,queryString+beginColumnList);
+
+
+    //Find begining of table list
+    signed long posFrom     = lookup::findDelimiter((char*)workingString, (char*)sqlTokenFrom);
   
     if(posFrom == NEGATIVE)
     {
@@ -210,45 +222,54 @@ ParseResult queryParser::parseSelect()
     delimiterList.push_back((char*)sqlTokenWhere);
     delimiterList.push_back((char*)sqlTokenOn);
     delimiterList.push_back((char*)sqlTokenJoin);
-
-    char fromClause[MAXSQLSTRINGSIZE];
-    strcpy(fromClause, (char*)queryString+(posFrom+1+strlen(sqlTokenFrom)));
     
-    long signed found       = lookup::findDelimiterFromList(fromClause,delimiterList);
+    strcpy(workingString, (char*)workingString+(posFrom+1+strlen(sqlTokenFrom)));
+    
+    long signed found       = lookup::findDelimiterFromList(workingString,delimiterList);
     if(found > NEGATIVE)
-        strncpy(fromClause, queryString+posFrom, found);
+    {
+        workingString[found] = '\0';
+    }
 
-    if(parseTableList(fromClause) == ParseResult::FAILURE)
+    if(parseTableList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    if(tables.size() == 0)
+    if(lstTables.size() == 0)
     {
         errText.append(" no selected tables found in string ");
         return ParseResult::FAILURE;
     }
 
-    /* Populate the query table with the columns that 
-        will be used by the engine
-    */
+    strcpy(workingString,queryString+beginColumnList);
+    printf("\n working %s",workingString);
 
-    queryTable = tables.front();
-    if(queryTable == nullptr)
+    signed long posAsterisk = lookup::findDelimiter((char*)workingString, (char*)sqlTokenAsterisk);
+    posFrom = lookup::findDelimiter((char*)workingString, (char*)sqlTokenFrom);
+
+    if(posAsterisk == NEGATIVE
+    || posAsterisk > posFrom)
     {
-        errText.append(" cannot find selected table ");
-        return ParseResult::FAILURE;
-    }
-
-    signed long posColumn   = pos;
-
-    if(parseColumnList(posColumn,posFrom) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-    
-    long signed posWhere      = lookup::findDelimiter((char*)queryString,(char*)sqlTokenWhere);
-    if(posWhere < queryStringLength)
-    {
-        if(parseConditions(posWhere + strlen(sqlTokenWhere), queryStringLength) == ParseResult::FAILURE)
+        workingString[posFrom] = '\0';
+        if(parseColumnList(workingString) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
     }
+    else
+    {
+        lstColName.push_back((char*)sqlTokenAsterisk);
+    }
+    
+    signed long posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
+
+    if(posWhere == NEGATIVE)
+        return ParseResult::SUCCESS;
+    
+    signed long endOfString = queryStringLength - posWhere - strlen((char*)sqlTokenWhere);
+
+    strcpy(workingString,queryString+posWhere + strlen((char*)sqlTokenWhere) + 1);
+    workingString[endOfString] = '\0';
+
+    if(parseConditions(workingString) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
 }
@@ -257,64 +278,62 @@ ParseResult queryParser::parseSelect()
  ******************************************************/
 ParseResult queryParser::parseInsert()
 {
-    char tableString[MAXSQLSTRINGSIZE];
-    signed long posInto = lookup::findDelimiter((char*)queryString, (char*)sqlTokenInto);
-    if(posInto == NEGATIVE)
+    char workingString[MAXSQLSTRINGSIZE];
+    long signed startColumn;
+
+    signed long startTable = lookup::findDelimiter((char*)queryString, (char*)sqlTokenInto);
+    if(startTable == NEGATIVE)
     {
         errText.append(" <p> expecting the literal 'into'");
         return ParseResult::FAILURE;
     }
-    strcpy((char*)tableString,queryString+posInto+strlen((char*)sqlTokenInto)+1);
+    startTable = startTable + strlen((char*)sqlTokenInto)+1;
+    strcpy((char*)workingString,queryString+startTable);
     
     list<char*> delimiterList;
     delimiterList.push_back((char*)sqlTokenValues);
     delimiterList.push_back((char*)sqlTokenOpenParen);
-    long signed found       = lookup::findDelimiterFromList(tableString,delimiterList);
+
+    long signed endTable = lookup::findDelimiterFromList(workingString,delimiterList);
     
-    printf("\n string:%s found:%ld",tableString,found);
-    if(found < 1)
+    if(endTable < 1)
     {
         errText.append(" <p> expecting a (colonm list or a values statement");
         return ParseResult::FAILURE;
     }
-    tableString[found] = '\0';
+    workingString[endTable] = '\0';
 
-
-    if(parseTableList(tableString) == ParseResult::FAILURE)
+    if(parseTableList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    queryTable = tables.front();
-    if(queryTable == nullptr)
-    {
-        errText.append(" cannot identify query table ");
-        return ParseResult::FAILURE;
-    }
+    // add table end to table start 
+    startColumn = startTable + endTable;
+    
+    // Get column list
+    strcpy(workingString,(char*)queryString+startColumn);
 
-    // pos = abbreviation for position
-    signed long posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
-    signed long posOpenParen    =lookup::findDelimiter((char*)queryString, (char*)sqlTokenOpenParen);
-    signed long posCloseParen   =lookup::findDelimiter((char*)queryString, (char*)sqlTokenCloseParen);
-
+    signed long posValues       =lookup::findDelimiter((char*)workingString, (char*)sqlTokenValues);
+    signed long posOpenParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenOpenParen);
+    signed long posCloseParen   =lookup::findDelimiter((char*)workingString, (char*)sqlTokenCloseParen);
 
     if(posValues > posOpenParen)
     {
-        // Signature (col,col,col) Values
-        if(parseColumnList(posOpenParen,posCloseParen) == ParseResult::FAILURE)
+        strcpy(workingString, workingString+posOpenParen+1);
+        workingString[posCloseParen-1] = '\0';
+        if(parseColumnList(workingString) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-    }
-    else{
-        dbTable = lookup::getTableByName(sqlDB->tables,(char*)queryTable->name);
-        if(dbTable == nullptr)
-        {
-            errText.append(" Check your table name. Cannot find ");
-            errText.append(queryTable->name);
-            errText.append(" in SQL def. ");
-            return ParseResult::FAILURE;
-        }
-        populateQueryTable(dbTable);
     }
 
-    if(parseValueList(posValues+strlen(sqlTokenValues),queryStringLength) == ParseResult::FAILURE)
+    posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
+    strcpy(workingString,queryString+posValues+strlen((char*)sqlTokenValues)+1);
+
+    posOpenParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenOpenParen);
+    strcpy(workingString,workingString+posOpenParen+1);
+    
+    posCloseParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenCloseParen);
+    workingString[posCloseParen] = '\0';
+
+    if(parseValueList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
@@ -325,85 +344,66 @@ ParseResult queryParser::parseInsert()
 ParseResult queryParser::parseUpdate()
 {
 
-    
-    char tableString[MAXSQLSTRINGSIZE];
+    char workingString[MAXSQLSTRINGSIZE];
 
-    strcpy(tableString, (char*)queryString+strlen((char*)sqlTokenUpdate)+1);
+    strcpy(workingString, (char*)queryString+strlen((char*)sqlTokenUpdate)+1);
    
-    signed long posSet = lookup::findDelimiter((char*)tableString, (char*)sqlTokenSet);
+    signed long posSet = lookup::findDelimiter((char*)workingString, (char*)sqlTokenSet);
      
     if(posSet < 1)
     {
         errText.append(" could not find the verb 'set' in update string");
     }
-    tableString[posSet-1] = '\0';
-
-    printf("\n 1:%s 2:%ld", tableString, posSet);
+    workingString[posSet-1] = '\0';
     
-
-    if(parseTableList(tableString) == ParseResult::FAILURE)
+    if(parseTableList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
+    //reset position of verb set
+    posSet = lookup::findDelimiter((char*)queryString, (char*)sqlTokenSet);
+    strcpy(workingString,queryString+posSet+strlen((char*)sqlTokenSet) +1);
+
+    signed long endOfColumnValues =lookup::findDelimiter((char*)workingString, (char*)sqlTokenWhere);
+
+    if(endOfColumnValues == NEGATIVE)
+        endOfColumnValues = strlen(workingString);
+    
+    workingString[endOfColumnValues] = '\0';
+    if(parseColumnNameValueList(workingString) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    
+    
     signed long posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
 
-    if(parseColumnValue(posSet+strlen(sqlTokenSet),posWhere) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
- 
-    //Update will only have one query table, though conditions may have more
-    queryTable = tables.front(); 
-    if(queryTable == nullptr)
-    {
-        errText.append(" cannot find selected table ");
-        return ParseResult::FAILURE;
-    }
-    
-    // The template table defined by the CREATE syntax)
-    dbTable = lookup::getTableByName(sqlDB->tables,(char*)queryTable->name);
-    
-    posWhere = posWhere + strlen(sqlTokenWhere);
+    if(posWhere == NEGATIVE)
+        return ParseResult::SUCCESS;
+    signed long endOfString = queryStringLength - posWhere - strlen((char*)sqlTokenWhere);
 
-    if(parseConditions(posWhere,queryStringLength) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-    
-    column* col;
-    for(ColumnValue* colVal : columnValue)
-    {
-        col = dbTable->getColumn(colVal->name);
-        if(col->primary)
-        {
-            errText.append(" ");
-            errText.append(colVal->name);
-            errText.append(" is a primary key, cannot update ");
-            return ParseResult::FAILURE;
-        }
-        if(col == nullptr)
-        {
-            errText.append(" column not found ");
-            errText.append(colVal->name);
-            return ParseResult::FAILURE;
-        }
-        if(valueSizeOutofBounds(colVal->value,col))
-            return ParseResult::FAILURE;
+    strcpy(workingString,queryString+posWhere + strlen((char*)sqlTokenWhere) + 1);
+    workingString[endOfString] = '\0';
 
-        col->value = colVal->value;
-        queryTable->columns.push_back(col);
-    }
+    if(parseConditions(workingString) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse Column List (for Update)
  ******************************************************/
-ParseResult queryParser::parseColumnValue(signed long _begin, signed long _end)
+ParseResult queryParser::parseColumnNameValueList(char* workingString)
 {
     char* token;
     bool  isColumnFlag = true;
-    ColumnValue* colVal = new ColumnValue();
+    ColumnNameValue* colVal = new ColumnNameValue();
+    tokenParser* tok = new tokenParser(workingString);
 
-    pos = _begin;
-    while(pos < _end)
+    printf("\n working string %s",workingString);
+    while(!tok->eof)
     {
         token = tok->getToken();
+        if(tok->eof)
+            break;
 
         if(strcmp(token,sqlTokenEqual) == 0)
         {
@@ -412,13 +412,13 @@ ParseResult queryParser::parseColumnValue(signed long _begin, signed long _end)
         if(isColumnFlag)
         {
             isColumnFlag = false;
-            colVal = new ColumnValue();
+            colVal = new ColumnNameValue();
             colVal->name = token;
             continue;
         }
         isColumnFlag = true;
         colVal->value = token;
-        columnValue.push_back(colVal);
+        lstColNameValue.push_back(colVal);
     }
 
     return ParseResult::SUCCESS;
@@ -521,157 +521,36 @@ ParseResult queryParser::addCondition(char* _token)
 /******************************************************
  * Parse Conditions
  ******************************************************/
-ParseResult queryParser::parseConditions(signed long _begin, signed long _end)
+ParseResult queryParser::parseConditions(char* _workString)
 {
     char* token;
-    column* col;
+    tokenParser* tok = new tokenParser(_workString);
 
-    pos = _begin;
-
-    //No conditions test
-    if(pos >= queryStringLength)
-        return ParseResult::SUCCESS;
-
-    //TODO Will eventually become a map
-    if(dbTable == nullptr)
-    {
-        errText.append(" null table ");
-        return ParseResult::FAILURE;
-    }
-
-
-    while(pos < _end)
+    while(!tok->eof)
     {
         token = tok->getToken();
+        if(tok->eof)
+            break;
         if(addCondition(token) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-    }
-    if(conditions.size() == 0)
-    {
-        errText.append(" expecting at least one condition column");
-        return ParseResult::FAILURE;
-    }
-    for(Condition* con : conditions)
-    {
-        col = dbTable->getColumn(con->name);
-        if(col == nullptr)
-        {
-
-            errText.append(" condition column |");
-            errText.append(con->name);
-            errText.append("| not found Value=");
-            errText.append(con->value);
-            return ParseResult::FAILURE;
-        }
-
-        if(valueSizeOutofBounds(con->value,col))
-            return ParseResult::FAILURE;
-
-        switch(col->edit)
-        {
-            case t_edit::t_bool:    //do nothing
-            {
-                break; 
-            }  
-            case t_edit::t_char:    //do nothing
-            {
-                break; 
-            }  
-            case t_edit::t_date:    //do nothing
-            {
-                if(!utilities::isDateValid(con->value))
-                    return ParseResult::FAILURE;
-                con->dateValue = utilities::parseDate(con->value);
-                break; 
-            } 
-            case t_edit::t_double:
-            {
-                if(!utilities::isNumeric(con->value))
-                {
-                    errText.append(" condition column ");
-                    errText.append(con->name); 
-                    errText.append("  value not numeric |");
-                    errText.append(con->value);
-                    errText.append("| ");
-                    return ParseResult::FAILURE;
-                }
-                con->doubleValue = atof(con->value);
-                break;
-            }
-            case t_edit::t_int:
-            {
-                if(!utilities::isNumeric(con->value))
-                {
-                    errText.append(" condition column ");
-                    errText.append(con->name); 
-                    errText.append("  value not numeric |");
-                    errText.append(con->value);
-                    errText.append("| ");
-                    return ParseResult::FAILURE;
-                }
-                con->intValue = atoi(con->value);
-                break;
-            }
-        }
     }
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse Column List
  ******************************************************/
-ParseResult queryParser::parseColumnList(signed long _begin,signed long _end)
+ParseResult queryParser::parseColumnList(char* _workingString)
 {
-    char*   token;
-    pos     = _begin;
-    column* col;
-
-    // The template table defined by the CREATE syntax
-    dbTable = lookup::getTableByName(sqlDB->tables,(char*)queryTable->name);
-    if(dbTable == nullptr)
+    // sample template   
+    // t.col1, t.col2
+    char* token;
+    tokenParser* tok = new tokenParser(_workingString);
+    while(!tok->eof)
     {
-        errText.append(" Could not find ");
-        errText.append(queryTable->name);
-        errText.append(" in SQL ");
-        return ParseResult::FAILURE;
-    }
-    //populate selected columns
-    while(pos < _end)
-    {
-        token = tok->getToken(); 
-
-        if(strcmp(token,(char*)sqlTokenOpenParen) == 0)
-            continue;
-
-        //populate all columns
-        if(strcmp(token,sqlTokenAsterisk) == 0)
-        { 
-           // if (queryTable->columns.size() == 0)
-            return populateQueryTable(dbTable);
-        }
-
-        splitToken st = lookup::tokenSplit(token);
-         if(strlen(token) == strlen(st.one))
-        {
-            col = dbTable->getColumn(st.one);
-        }
-        else
-        {
-            col = dbTable->getColumn(st.two);
-            col->alias = st.one;
-        }
-        //col = dbTable->getColumn(token);
-        if(col == nullptr)
-        {
-            errText.append(" column not found ");
-            errText.append(token);
-            return ParseResult::FAILURE;
-        }
-        queryTable->columns.push_back(col);
-    }
-    if(queryTable->columns.size() == 0)
-    {
-        errText.append(" expecting column list");
-        return ParseResult::FAILURE;
+        token = tok->getToken();
+        if(tok->eof)
+            break;
+        lstColName.push_back(token);
     }
 
     return ParseResult::SUCCESS;
@@ -679,47 +558,22 @@ ParseResult queryParser::parseColumnList(signed long _begin,signed long _end)
 /******************************************************
  * Parse Value List
  ******************************************************/
-ParseResult queryParser::parseValueList(signed long _begin,signed long _end)
+ParseResult queryParser::parseValueList(char* _workingString)
 {
-    size_t count = 0;
-    column* col;
     char* token;
-    pos = _begin;
 
-    while(pos < _end)
+    tokenParser* tok = new tokenParser(_workingString);
+
+    while(!tok->eof)
     {
 
         token = tok->getToken();
 
-        if(strcasecmp(token,sqlTokenOpenParen) == 0)
-            continue;
-        
-        if(strcasecmp(token,sqlTokenValues) == 0)
-            continue;
+        if(tok->eof)
+            break;
 
-        if(strcasecmp(token,sqlTokenCloseParen) == 0)
-        {    
-            if(count == 0)
-            {
-                errText.append("<p> expecting at least one value");
-                return ParseResult::FAILURE;
-            }
+        lstValues.push_back(token);
 
-            if(queryTable->columns.size() != (long unsigned int)count)
-            {
-                errText.append(" value count does not match number of columns in table");
-                return ParseResult::FAILURE;
-            }
-            return ParseResult::SUCCESS;
-        }
-
-        col = lookup::scrollColumnList(queryTable->columns,count);
-        
-        if(valueSizeOutofBounds(token,col))
-            return ParseResult::FAILURE;
-
-        col->value = token;
-        count++;
     }
 
     return ParseResult::SUCCESS;
@@ -729,60 +583,31 @@ ParseResult queryParser::parseValueList(signed long _begin,signed long _end)
  ******************************************************/
 ParseResult queryParser::parseTableList(char* _tableString)
 {
-    sTable* table;
     char* token;
-    tokenParser* tp = new tokenParser();
-    printf("\n table String %s ",_tableString);
-
+    char* retToken;
+    size_t len;
+    printf("\n tableString %s \n",_tableString);
+    token = strtok (_tableString,",");
+	while(token != NULL)
+    {
+        printf("\n token %s \n",token);
+        len = strlen(token);
+        retToken = (char*)malloc(len+1);
+        strcpy(retToken,token);
+        retToken[len] = '\0';
+        lstTables.push_back(retToken);
+        token = strtok (NULL, ",");
+    }
     // sample template   
     // table1 t1, table2 t2
-    char * split = strtok (_tableString,",");
-    while (split != NULL)
+   /*  while(!tok->eof)
     {
-        table = new sTable();
-        tp->parse(split);
-        token = tp->getToken(); 
-        sTable* t1 = lookup::getTableByName(sqlDB->tables,token); 
-        
-        if(t1 != nullptr)
-            table->name = token;
-
-        token = tp->getToken();
-        if(token == nullptr)
-        {
-            printf("\n table name %s ",table->name);
-            printf(" alias %s ",table->alias);
-            tables.push_back(table);
+        token = tok->getToken();
+        if(tok->eof)
             break;
-        }
-        //case: no alias -- from customer where
-        if (strlen(token) == 0)
-        {
-            printf("\n table name %s ",table->name);
-            printf(" alias %s ",table->alias);
-            tables.push_back(table);
-            split = strtok (NULL, ",");
-            continue;
-        } 
-
-        //case: alias -- from customer c where
-        sTable* t2 = lookup::getTableByName(sqlDB->tables,token);
-        if(t1 != nullptr
-        && t2 == nullptr)
-        {
-            table->alias = token;
-            printf("\n table name %s ",table->name);
-            printf(" alias %s ",table->alias);
-            tables.push_back(table);
-            split = strtok (NULL, ",");
-            continue;
-        }
-        
-        return ParseResult::FAILURE;    
-    }
-
-
-    if(tables.size() == 0)
+        lstTables.push_back(token);
+    } */
+    if(lstTables.size() == 0)
     {
         errText.append(" expecting at least one table");
         return ParseResult::FAILURE;
@@ -790,51 +615,5 @@ ParseResult queryParser::parseTableList(char* _tableString)
     return ParseResult::SUCCESS;
 }
 
-/******************************************************
- * Populate Query Table
- ******************************************************/
-ParseResult queryParser::populateQueryTable(sTable* _table)
-{
-
-    for (column* col : _table->columns) 
-    {
-        queryTable->columns.push_back(col);
-    }
-    return ParseResult::SUCCESS;
-}
-/******************************************************
- * Value Size Out Of Bounds
- ******************************************************/
-bool queryParser::valueSizeOutofBounds(char* value, column* col)
-{
-    if(value == nullptr)
-    {
-        errText.append(col->name);
-        errText.append(" : value is null");
-
-        return true;
-    }
-
-    if(col == nullptr)
-    {
-        errText.append(" cannot find column for ");
-        errText.append(value);
-        return true;
-    }
-
-    if(strlen(value) > (size_t)col->length
-    && col->edit == t_edit::t_char)
-    {
-        errText.append(col->name);
-        errText.append(" value length ");
-        errText.append(std::to_string(strlen(value)));
-        errText.append(" > edit length ");
-        errText.append(std::to_string(col->length));
-        return true;
-    }
-
-    //value is okay
-    return false;
-}
 
 
