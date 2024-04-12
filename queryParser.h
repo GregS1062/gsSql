@@ -241,7 +241,8 @@ ParseResult queryParser::parseSelect()
     }
 
     strcpy(workingString,queryString+beginColumnList);
-    printf("\n working %s",workingString);
+    if(debug)
+        printf("\n working %s",workingString);
 
     signed long posAsterisk = lookup::findDelimiter((char*)workingString, (char*)sqlTokenAsterisk);
     posFrom = lookup::findDelimiter((char*)workingString, (char*)sqlTokenFrom);
@@ -325,13 +326,19 @@ ParseResult queryParser::parseInsert()
     }
 
     posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
+    memset(&workingString,' ',MAXSQLSTRINGSIZE-1);
     strcpy(workingString,queryString+posValues+strlen((char*)sqlTokenValues)+1);
 
-    posOpenParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenOpenParen);
-    strcpy(workingString,workingString+posOpenParen+1);
-    
     posCloseParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenCloseParen);
-    workingString[posCloseParen] = '\0';
+    workingString[posCloseParen-1] = '\0';
+    
+    printf("\n working string after token values %s",workingString);
+    posOpenParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenOpenParen);
+    printf("\n working string search for ( %s",workingString);
+    
+    strcpy(workingString,workingString+posOpenParen+1);
+     
+     printf("\n working string after open paren %s",workingString);
 
     if(parseValueList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
@@ -371,8 +378,6 @@ ParseResult queryParser::parseUpdate()
     workingString[endOfColumnValues] = '\0';
     if(parseColumnNameValueList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
-
-    
     
     signed long posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
 
@@ -398,7 +403,8 @@ ParseResult queryParser::parseColumnNameValueList(char* workingString)
     ColumnNameValue* colVal = new ColumnNameValue();
     tokenParser* tok = new tokenParser(workingString);
 
-    printf("\n working string %s",workingString);
+    if(debug)
+        printf("\n working string %s",workingString);
     while(!tok->eof)
     {
         token = tok->getToken();
@@ -545,11 +551,10 @@ ParseResult queryParser::parseColumnList(char* _workingString)
     // t.col1, t.col2
     char* token;
     tokenParser* tok = new tokenParser(_workingString);
+    
     while(!tok->eof)
     {
         token = tok->getToken();
-        if(tok->eof)
-            break;
         lstColName.push_back(token);
     }
 
@@ -561,19 +566,13 @@ ParseResult queryParser::parseColumnList(char* _workingString)
 ParseResult queryParser::parseValueList(char* _workingString)
 {
     char* token;
-
     tokenParser* tok = new tokenParser(_workingString);
-
+    printf("\n working string %s",_workingString);
     while(!tok->eof)
     {
-
         token = tok->getToken();
-
-        if(tok->eof)
-            break;
-
-        lstValues.push_back(token);
-
+        if(token != nullptr)
+            lstValues.push_back(token);
     }
 
     return ParseResult::SUCCESS;
@@ -586,11 +585,13 @@ ParseResult queryParser::parseTableList(char* _tableString)
     char* token;
     char* retToken;
     size_t len;
-    printf("\n tableString %s \n",_tableString);
+    if(debug)
+        printf("\n tableString %s \n",_tableString);
     token = strtok (_tableString,",");
 	while(token != NULL)
     {
-        printf("\n token %s \n",token);
+        if(debug)
+            printf("\n token %s \n",token);
         len = strlen(token);
         retToken = (char*)malloc(len+1);
         strcpy(retToken,token);

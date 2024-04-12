@@ -4,14 +4,18 @@
 #include <cstring>
 #include <string.h>
 #include <cstdio>
-#include "sqlCommon.h"
+#include "defines.h"
+
+using namespace std;
 
 class utilities {
 public:
+	static void 	sendMessage(MESSAGETYPE,PRESENTATION,bool, const char*);
 	static void 	formatDate(char[], t_tm);
 	static char* 	padLeft(char[], int);
 	static void 	lTrim(char[], char);
 	static void 	rTrim(char[]);
+	static void 	scrub(char[]);
 	static void 	subString(char target[], int start, int end);
 	static bool		isNumeric(char*);
 	static void 	upperCase(char[]);
@@ -21,6 +25,27 @@ public:
 	static bool		isDateValid(char* _date);
 };
 
+void utilities::sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, const char* _msg)
+{
+	string msg;
+	if(_newLine)
+	{
+		if(_presentation == PRESENTATION::HTML)
+		{
+			msg.append("<p>");
+		}
+		else
+			msg.append("\n");
+	}
+
+	msg.append(_msg);
+
+	if(_type == MESSAGETYPE::ERROR)
+		errText.append(msg);
+	else
+		msgText.append(msg);
+
+}
 /*******************************************************
    Formate Date
 *******************************************************/
@@ -80,7 +105,7 @@ void utilities::terminateString(char target[], int start, int end)
 *******************************************************/
 char* utilities::padLeft(char target[], int max)
 {
-    char buffer[60];
+    char buff[60];
 	if (target == nullptr)
 		return nullptr;
 	if ((int)strlen(target) >= max)
@@ -94,15 +119,15 @@ char* utilities::padLeft(char target[], int max)
 
 	for (int i = 0; i < max; i++)
 	{
-		buffer[i + pad] = target[i];
+		buff[i + pad] = target[i];
 	}
 	for (int i = 0; i < pad; i++)
 	{
-		buffer[i] = '0';
+		buff[i] = '0';
 	}
-	buffer[max] = '\0';
+	buff[max] = '\0';
 	char* tmp;
-	tmp = strdup(buffer);
+	tmp = strdup(buff);
 	return tmp;
 }
 
@@ -139,6 +164,28 @@ void utilities::subString(char target[], int start, int end)
 		target[i] = target[i + start];
 	}
 	target[end - start] = '\0';
+}
+void utilities::scrub(char _target[])
+{
+	char c;
+	size_t len = strlen(_target);
+	size_t itr = 0;
+	for(size_t i = 0;i<len;i++)
+	{		
+		c = _target[i];
+		if((int)c == 0	//null
+		|| c == NEWLINE
+        || c == RETURN
+        || c == FORMFEED
+        || c == TAB
+        || c == VTAB)
+        {
+            continue;
+        }
+		_target[itr] = c;
+		itr++;
+	}
+	_target[itr] = '\0';
 }
 /*******************************************************
    Right Trim
@@ -240,7 +287,7 @@ bool utilities::isDateValid(char* _cdate)
 
 	if (_date.length() != 10)
 	{
-		errText.append("Invalid date, format must be MM/DD/YYYY");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
 	char digits[10];
@@ -257,7 +304,7 @@ bool utilities::isDateValid(char* _cdate)
 
 	if (strlen(digits) != 8)
 	{
-		errText.append("Invalid date, format must be MM/DD/YYYY");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
 
@@ -268,17 +315,17 @@ bool utilities::isDateValid(char* _cdate)
     const int lookup_table[12] = {31,29,31,30,31,30,31,31,30,31,30,31};
     if ((month < 1 || month > 12))
     {
-        errText.append("Invalid date, format must be MM/DD/YYYY: Month is invalid ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY: Month is invalid ");
         return false;
     }
     if (!(day >= 1 && day <= lookup_table[month-1]))
     {
-        errText.append("Invalid date, format must be MM/DD/YYYY: Day is invalid ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY: Day is invalid ");
         return false;
     }
     if (year < 2000 || year > 2033)
     {
-        errText.append("Invalid date, format must be MM/DD/YYYY: Year is invalid ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY: Year is invalid ");
         return false;
     }
 

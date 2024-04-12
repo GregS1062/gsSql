@@ -33,7 +33,7 @@ class sqlParser
     ParseResult createIndex();
     ParseResult parseColumns();
     ParseResult parsePrimaryKey();
-    ParseResult parseColumnEdit(column*);
+    ParseResult parseColumnEdit(Column*);
     ParseResult calculateTableColumnValues(sTable*);
 
 };
@@ -132,7 +132,7 @@ ParseResult sqlParser::parseColumns()
 {
     //Get first token
     char* token = tok->getToken();
-    column* col;
+    Column* col;
 
     if(strcasecmp(token,(char*)sqlTokenOpenParen) != 0)
     {
@@ -156,7 +156,7 @@ ParseResult sqlParser::parseColumns()
         if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)
             return ParseResult::SUCCESS;
         
-        col = new column();
+        col = new Column();
 
         //Get column name
         col->name = token;
@@ -175,7 +175,7 @@ ParseResult sqlParser::parsePrimaryKey()
 {
     //Get first token
     char* token = tok->getToken();
-    column* col;
+    Column* col;
     
     if(strcasecmp(token,(char*)sqlTokenKey) != 0)
     {
@@ -220,7 +220,7 @@ ParseResult sqlParser::parsePrimaryKey()
 /******************************************************
  * Parse Column Edit
  ******************************************************/
-ParseResult sqlParser::parseColumnEdit(column* _col)
+ParseResult sqlParser::parseColumnEdit(Column* _col)
 {
     char* token;
     token   = tok->getToken();
@@ -353,7 +353,7 @@ ParseResult sqlParser::createIndex()
         errText.append(" Expecting '(' to open column list");
         return ParseResult::FAILURE;
     }
-    column* col;
+    Column* col;
     while(!tok->eof)
     {
         token = tok->getToken();
@@ -384,7 +384,7 @@ ParseResult sqlParser::calculateTableColumnValues(sTable* _table)
     {
         int     recordLength        = 0;
         int     position            = 0;
-        for (column* col : _table->columns)
+        for (Column* col : _table->columns)
         {
             col->position   = position;
             position        = position + col->length;

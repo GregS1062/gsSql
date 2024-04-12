@@ -35,61 +35,27 @@ ParseResult runQuery(string _htmlRequest)
 		errText.append("SQL CREATE syntax error");
 		return ParseResult::FAILURE;
 	}
-	queryParser* query = new queryParser();
-	if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
-	{
-		errText.append("query parse failed");
-		return ParseResult::FAILURE;
-	};
-
-	sTable* table = parser->getTableByName((char*)query->queryTable->name);
-	if(table == nullptr)
-	{
-		errText.append(" table not found");
-		return ParseResult::FAILURE;
-	}
-
-	sqlEngine* engine = new sqlEngine();
-	engine->prepare(query,table);
-
-	if(engine->open() == ParseResult::FAILURE)
-	{
-		returnResult.resultTable.append(" ");
-		returnResult.message.append(" Parse error ");
-		returnResult.error.append(" ");
-		return ParseResult::FAILURE;
-	}
-	if(engine->query->sqlAction == SQLACTION::SELECT)
-	{
-		returnResult.resultTable = engine->select();
-		return ParseResult::SUCCESS;					
-	}
-
-	if(engine->query->sqlAction == SQLACTION::INSERT)
-	{
-		if(engine->insert() == ParseResult::FAILURE)
-		{
-			returnResult.resultTable.append(" ");
-			returnResult.message.append(" Insert failed");
-			returnResult.error.append(" ");
-			return ParseResult::FAILURE;
-		}
-		return ParseResult::SUCCESS;
-	}
 	
-	if(engine->query->sqlAction == SQLACTION::UPDATE)
-	{
-		if(engine->update() == ParseResult::FAILURE)
-		{
-			returnResult.resultTable.append(" ");
-			returnResult.message.append(" Insert failed");
-			returnResult.error.append(" ");
-			return ParseResult::FAILURE;
-		}
-		return ParseResult::SUCCESS;
-	} 
+	queryParser* query = new queryParser();
 
-	return ParseResult::FAILURE;
+    if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," query parse failed");
+    };
+
+    binding* bind = new binding(parser,query);
+    if(bind->bind() == ParseResult::FAILURE)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"bind validate failed");
+    };
+
+    sqlEngine* engine = new sqlEngine();
+    if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
+    {
+        return ParseResult::FAILURE;
+    }
+
+	return ParseResult::SUCCESS;
 }
 /*---------------------------------------
    Main
@@ -106,6 +72,7 @@ int main()
 
 	try
 	{
+		presentationType = PRESENTATION::HTML;
 		returnResult.resultTable.append(" ");
 		returnResult.message.append(" ");
 		returnResult.error.append(" ");

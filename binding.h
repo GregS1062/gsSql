@@ -5,57 +5,122 @@
 class binding
 {
     public:
-    list<sTable*>   lstTables;
-    queryParser*    qp;
-    sqlParser*      sp;
-    tokenParser*    tok;
+    list<sTable*>    lstTables;
+    list<Condition*> lstConditions;
+    list<Statement*> statements;
+    sTable*          defaultTable;    
+    sTable*          defaultSQLTable;   
+    queryParser*     qp;
+    sqlParser*       sp;
+    tokenParser*     tok;
 
     binding(sqlParser*,queryParser*);
-    ParseResult validate();
-    ParseResult validateTableList();
-    ParseResult validateColumnList();
+    ParseResult bind();
+    ParseResult bindTableList();
+    ParseResult bindColumnList();
+    ParseResult bindColumnValueList();
+    ParseResult bindColumn(char*);
+    ColumnAlias* resolveColumnAlias(TokenPair);
+    ParseResult editColumn(Column*,char*);
+    ParseResult editCondition(Condition*,char*);
+    ParseResult bindNonAliasedColumn(char*, char*);
+    ParseResult bindAliasedColumn(TokenPair, char*);
+    ParseResult bindValueList();
+    ParseResult bindConditions();
     ParseResult populateTable(sTable*,sTable*);
-    bool        valueSizeOutofBounds(char*, column*);
+    bool        valueSizeOutofBounds(char*, Column*);
 };
-
+/******************************************************
+ * Constructor
+ ******************************************************/
 binding::binding(sqlParser* _sp,queryParser* _qp) 
 {
     qp              = _qp;
     sp              = _sp;
 };
-
-ParseResult binding::validate()
+/******************************************************
+ * Bind
+ ******************************************************/
+ParseResult binding::bind()
 {
-    if(validateTableList() == ParseResult::FAILURE)
+    Statement* statement;
+    if(bindTableList() == ParseResult::FAILURE)
         return ParseResult::FAILURE;
-    if(validateColumnList() == ParseResult::FAILURE)
+
+    for(sTable* tbl : lstTables)
+    {
+         statement = new Statement();
+         statement->table = tbl;
+         statement->plan->action = qp->sqlAction;
+         statement->plan->rowsToReturn = qp->rowsToReturn;
+         statements.push_back(statement);
+    }
+    if(lstTables.size() == 1)
+    {
+        defaultTable = lstTables.front();
+        if(defaultTable == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," binding: unable to load default table");
+            return ParseResult::FAILURE;
+        }
+        defaultSQLTable = lookup::getTableByName(sp->tables,defaultTable->name);
+        if(defaultSQLTable == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," binding: unable to load default SQL table");
+            return ParseResult::FAILURE;
+        }
+    }
+
+
+    if(bindColumnList() == ParseResult::FAILURE)
+    {
+        if(debug)
+            printf("\n column binding failure");
         return ParseResult::FAILURE;
+    }
+
+    if(bindValueList() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    if(bindColumnValueList() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    if(bindConditions() == ParseResult::FAILURE)
+       return ParseResult::FAILURE;
+
     return ParseResult::SUCCESS;
 }
-ParseResult binding::validateTableList()
+/******************************************************
+ * Bind Table List
+ ******************************************************/
+ParseResult binding::bindTableList()
 {
-    tokenPair tp;
+    TokenPair tp;
     sTable* temp;
     sTable* table;
     for(char* token : qp->lstTables)
     {
-        printf("\n table name %s|| \n",token);
+        if(debug)
+            printf("\n table name %s|| \n",token);
         table = new sTable();
         tp = lookup::tokenSplit(token,(char*)" ");
+        if(debug)
+            printf("\n tp1:%s| tp2:%s|",tp.one, tp.two);
         temp = lookup::getTableByName(sp->tables,tp.one);
         if(temp != nullptr)
         {
             table->name     = temp->name;
             table->fileName = temp->fileName;
-            table->alias    = tp.two;
+            table->alias    = tp.two;;
+            table->recordLength = temp->recordLength;
             lstTables.push_back(table);
             continue;
         }
         //No valid table name at this point
         if(tp.two == nullptr)
         {
-            errText.append("<p> invalid table name:");
-            errText.append(tp.one);
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," invalid table name:");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp.one);
             return ParseResult::FAILURE;
         }
         //The valid table name must be tp.two and tp.one is the alias
@@ -65,66 +130,224 @@ ParseResult binding::validateTableList()
             table->name     = temp->name;
             table->fileName = temp->fileName;
             table->alias    = tp.one;
+            table->recordLength = temp->recordLength;
             lstTables.push_back(table);
             continue;
         }  
     }
     if(lstTables.size() == 0)
     {
-        errText.append("<p> binding expecting at least one table");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," binding expecting at least one table");
         return ParseResult::FAILURE;
     }
     return ParseResult::SUCCESS;
 }
-ParseResult binding::validateColumnList()
+/******************************************************
+ * Bind Column
+ ******************************************************/
+ParseResult binding::bindColumn(char* colName)
 {
-    tokenPair   tp;
-    sTable*     lstTbl;
-    sTable*     sqlTbl;
-    column*     col;
+    TokenPair   tp;
+    tp = lookup::tokenSplit(colName,(char*)".");
+    if(tp.two == nullptr)
+    {
+        if(bindNonAliasedColumn(tp.one,(char*)"") == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+    }
+    else
+    if(bindAliasedColumn(tp, (char*)"") == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+    
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Bind Column List
+ ******************************************************/
+ParseResult binding::bindColumnList()
+{
+    //case Insert into table values(....)
+    if(qp->lstColName.size() == 0
+    && qp->lstColNameValue.size() == 0)
+    {
+        if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        return ParseResult::SUCCESS;
+    }
 
     for(char* token : qp->lstColName)
     {
-        tp = lookup::tokenSplit(token,(char*)".");
-        if(tp.two == nullptr)
-        {
-            lstTbl = lstTables.front();
-            if(lstTbl == nullptr)
-            {
-                errText.append("<p>table list is empty");
-                return ParseResult::FAILURE;
-            }
-            sqlTbl = lookup::getTableByName(sp->tables,lstTbl->name);
-            if(sqlTbl == nullptr)
-            {
-                errText.append("<p>looking for table name:");
-                errText.append(lstTbl->name);
-                return ParseResult::FAILURE;
-            }
-
-            if(strcmp(tp.one,(char*)sqlTokenAsterisk) == 0)
-            {
-                //Since there is no alias, a single table is assumed
-                if(populateTable(lstTbl,sqlTbl) == ParseResult::FAILURE)
-                    return ParseResult::FAILURE;
-                continue;
-            }
-            col = lookup::getColumnByName(sqlTbl->columns,tp.one);
-            if(col == nullptr)
-            {
-                errText.append("<p>looking for column name:");
-                errText.append(tp.one);
-                return ParseResult::FAILURE;
-            }
-            lstTbl->columns.push_back(col);
-        }
+        if(debug)
+            printf("\n binding column %s",token);
+        if(bindColumn(token) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
     }
     return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Bind Column Value List
+ ******************************************************/
+ParseResult binding::bindColumnValueList()
+{
+    TokenPair   tp;
+
+    for(ColumnNameValue* cv : qp->lstColNameValue)
+    {
+        tp = lookup::tokenSplit(cv->name,(char*)".");
+        if(tp.two == nullptr)
+        {
+            if(bindNonAliasedColumn(tp.one,cv->value) == ParseResult::FAILURE)
+                return ParseResult::FAILURE;
+        }
+        else
+        if(bindAliasedColumn(tp, cv->value) == ParseResult::FAILURE)
+                return ParseResult::FAILURE;
+    }
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Bind Non-Aliased Column
+ ******************************************************/
+ParseResult binding::bindNonAliasedColumn(char* _name, char* _value)
+{
+    //Since there is no alias, the default table is assumed
+
+    if(strcmp(_name,(char*)sqlTokenAsterisk) == 0)
+    {
+        if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        return ParseResult::SUCCESS;
+    }
+
+    Column* col = lookup::getColumnByName(defaultSQLTable->columns,_name);
+    if(col == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name:");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_name);
+        return ParseResult::FAILURE;
+    }
+
+    if(editColumn(col,_value) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    defaultTable->columns.push_back(col);
+
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Resolve Column Alias
+ ******************************************************/
+ColumnAlias* binding::resolveColumnAlias(TokenPair tp)
+{
+    ColumnAlias* ca = new ColumnAlias();
+    sTable* temp1;
+    sTable* temp2;
+    
+    temp1 = lookup::getTableByAlias(lstTables,tp.one);
+    temp2 = lookup::getTableByAlias(lstTables,tp.two);
+    if(temp1 == nullptr
+    && temp2 == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table by alias:");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp.one);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," or ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp.two);
+        return nullptr;
+    }
+    if(temp1 != nullptr)
+    {
+        ca->tableName = temp1->name;
+        ca->columnName = tp.two;
+    }
+    else
+    {
+        ca->tableName = temp2->name;
+        ca->columnName = tp.one;
+    }
+    return ca;
+};
+/******************************************************
+ * Bind Non-Aliased Column
+ ******************************************************/
+ParseResult binding::bindAliasedColumn(TokenPair tp, char* _value)
+{
+    sTable* lstTbl;
+    sTable* sqlTbl;
+    Column* col;
+    
+    ColumnAlias* ca = resolveColumnAlias(tp);
+    if(ca == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"cannot resolve alias table name");
+        return ParseResult::FAILURE;
+    }
+
+    lstTbl = lookup::getTableByName(lstTables,ca->tableName);
+    sqlTbl = lookup::getTableByName(sp->tables,ca->tableName);
+    if(sqlTbl == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
+        return ParseResult::FAILURE;
+    }
+
+    if(strcmp(ca->columnName,(char*)sqlTokenAsterisk) == 0)
+    {
+        //Since there is no alias, a single table is assumed
+        if(populateTable(lstTbl,sqlTbl) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        return ParseResult::SUCCESS;
+    }
+
+    col = lookup::getColumnByName(sqlTbl->columns,ca->columnName);
+    if(col == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name:");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp.two);
+        return ParseResult::FAILURE;
+    }
+
+    col->tableName = lstTbl->name;
+    if(editColumn(col,_value) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    lstTbl->columns.push_back(col);
+    return ParseResult::SUCCESS;
+}
+
+/******************************************************
+ * Bind Value List
+ ******************************************************/
+ParseResult binding::bindValueList()
+{
+    if(qp->lstValues.size() == 0)
+        return ParseResult::SUCCESS;
+
+    //TODO account for case: update customer c OR insert into customer c ....select..
+    sTable* table = lstTables.front();
+    if(table->columns.size() != qp->lstValues.size())
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"The count of columns ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(table->columns.size()).c_str());
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," and values ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(qp->lstValues.size()).c_str());
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," do not match");
+        return ParseResult::FAILURE;
+    }
+
+    for(Column* col : table->columns)
+    {
+        if(editColumn(col,qp->lstValues.front()) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        qp->lstValues.pop_front();
+    }
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Populate table
+ ******************************************************/
 ParseResult binding::populateTable(sTable* _table,sTable* _sqlTbl)
 {
-
-    for (column* col : _sqlTbl->columns) 
+    for (Column* col : _sqlTbl->columns) 
     {
         _table->columns.push_back(col);
     }
@@ -133,197 +356,209 @@ ParseResult binding::populateTable(sTable* _table,sTable* _sqlTbl)
 /******************************************************
  * Value Size Out Of Bounds
  ******************************************************/
-bool binding::valueSizeOutofBounds(char* value, column* col)
+bool binding::valueSizeOutofBounds(char* value, Column* col)
 {
     if(value == nullptr)
     {
-        errText.append(col->name);
-        errText.append(" : value is null");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->name);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," : value is null");
 
         return true;
     }
 
     if(col == nullptr)
     {
-        errText.append(" cannot find column for ");
-        errText.append(value);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," cannot find column for ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,value);
         return true;
     }
 
     if(strlen(value) > (size_t)col->length
     && col->edit == t_edit::t_char)
     {
-        errText.append(col->name);
-        errText.append(" value length ");
-        errText.append(std::to_string(strlen(value)));
-        errText.append(" > edit length ");
-        errText.append(std::to_string(col->length));
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->name);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," value length ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(strlen(value)).c_str());
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," > edit length ");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(col->length).c_str());
         return true;
     }
 
     //value is okay
     return false;
 }
-
-
-
- /* //Update will only have one query table, though conditions may have more
-      queryTable = tables.front(); 
-    if(queryTable == nullptr)
+/******************************************************
+ * Bind Conditions
+ ******************************************************/
+ParseResult binding::bindConditions()
+{
+    TokenPair tp;
+    for(Condition* con : qp->conditions)
     {
-        errText.append(" cannot find selected table ");
-        return ParseResult::FAILURE;
-    }
-    
-    // The template table defined by the CREATE syntax)
-    dbTable = lookup::getTableByName(sqlDB->tables,(char*)queryTable->name);
-
-
-    else{
-        dbTable = lookup::getTableByName(sqlDB->tables,(char*)queryTable->name);
-        if(dbTable == nullptr)
+        tp = lookup::tokenSplit(con->name,(char*)".");
+        //------------------------------------------------
+        // case: no alias
+        //------------------------------------------------
+        if(tp.two == nullptr)
         {
-            errText.append(" Check your table name. Cannot find ");
-            errText.append(queryTable->name);
-            errText.append(" in SQL def. ");
-            return ParseResult::FAILURE;
-        }
-        populateQueryTable(dbTable);
-    } 
-    
-       col = lookup::scrollColumnList(queryTable->columns,count);
-        
-        if(valueSizeOutofBounds(token,col))
-            return ParseResult::FAILURE;
-    
-
-        if(strcasecmp(token,sqlTokenCloseParen) == 0)
-        {    
-            if(count == 0)
+            Column* col = lookup::getColumnByName(defaultSQLTable->columns,tp.one);
+            if(col == nullptr)
             {
-                errText.append("<p> expecting at least one value");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name:");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp.one);
                 return ParseResult::FAILURE;
             }
 
-            if(queryTable->columns.size() != (long unsigned int)count)
+            con->col->name  = col->name;
+            con->col->edit  = col->edit;
+            if(editCondition(con,con->value) == ParseResult::FAILURE)
+                return ParseResult::FAILURE;
+
+            defaultTable->conditions.push_back(con);
+            continue;
+        }
+        //--------------------------------------
+        // case alias.col
+        //--------------------------------------
+        sTable* lstTbl;
+        sTable* sqlTbl;
+        ColumnAlias* ca = resolveColumnAlias(tp);
+        if(ca == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"could not resolve table alias:");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
+            return ParseResult::FAILURE; 
+        }
+
+        lstTbl = lookup::getTableByName(lstTables,ca->tableName);
+        sqlTbl = lookup::getTableByName(sp->tables,ca->tableName);
+        if(sqlTbl == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
+            return ParseResult::FAILURE;
+        }
+
+        Column* col = lookup::getColumnByName(lstTbl->columns,ca->columnName);
+        con->col->name  = col->name;
+        con->col->edit  = col->edit;
+        con->col->tableName = lstTbl->name;
+        if(editCondition(con,con->value) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        lstTbl->conditions.push_back(con);
+    }
+     
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * edit column
+ ******************************************************/
+ParseResult binding::editColumn(Column* _col,char* _value)
+{
+    switch(_col->edit)
+    {
+        case t_edit::t_bool:    //do nothing
+        {
+            break; 
+        }  
+        case t_edit::t_char:    //do nothing
+        {
+            if(valueSizeOutofBounds(_value,_col))
+                return ParseResult::FAILURE;
+            _col->value = _value;
+            break; 
+        }  
+        case t_edit::t_date:    //do nothing
+        {
+            if(!utilities::isDateValid(_col->value))
+                return ParseResult::FAILURE;
+            _col->value = _value;
+            break; 
+        } 
+        case t_edit::t_double:
+        {
+            if(!utilities::isNumeric(_value))
             {
-                errText.append(" value count does not match number of columns in table");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," column ");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name); 
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric |");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
                 return ParseResult::FAILURE;
             }
-            return ParseResult::SUCCESS;
+            _col->value = _value;
+            break;
         }
-
-        if(conditions.size() == 0)
-    {
-        errText.append(" expecting at least one condition column");
-        return ParseResult::FAILURE;
-    }
-    for(Condition* con : conditions)
-    {
-        col = dbTable->getColumn(con->name);
-        if(col == nullptr)
+        case t_edit::t_int:
         {
-
-            errText.append(" condition column |");
-            errText.append(con->name);
-            errText.append("| not found Value=");
-            errText.append(con->value);
-            return ParseResult::FAILURE;
-        }
-
-        if(valueSizeOutofBounds(con->value,col))
-            return ParseResult::FAILURE;
-
-        switch(col->edit)
-        {
-            case t_edit::t_bool:    //do nothing
+            if(!utilities::isNumeric(_value))
             {
-                break; 
-            }  
-            case t_edit::t_char:    //do nothing
-            {
-                break; 
-            }  
-            case t_edit::t_date:    //do nothing
-            {
-                if(!utilities::isDateValid(con->value))
-                    return ParseResult::FAILURE;
-                con->dateValue = utilities::parseDate(con->value);
-                break; 
-            } 
-            case t_edit::t_double:
-            {
-                if(!utilities::isNumeric(con->value))
-                {
-                    errText.append(" condition column ");
-                    errText.append(con->name); 
-                    errText.append("  value not numeric |");
-                    errText.append(con->value);
-                    errText.append("| ");
-                    return ParseResult::FAILURE;
-                }
-                con->doubleValue = atof(con->value);
-                break;
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," column ");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name); 
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric |");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
+                return ParseResult::FAILURE;
             }
-            case t_edit::t_int:
+            _col->value = _value;
+            break;
+        }
+    }
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Edit Condition Column
+ ******************************************************/
+ParseResult binding::editCondition(Condition* _con ,char* _value)
+{
+    switch(_con->col->edit)
+    {
+        case t_edit::t_bool:    //do nothing
+        {
+            break; 
+        }  
+        case t_edit::t_char:    //do nothing
+        {
+            _con->col->value     = _con->value;
+            break; 
+        }  
+        case t_edit::t_date:    //do nothing
+        {
+            if(!utilities::isDateValid(_con->value))
+                return ParseResult::FAILURE;
+
+            _con->dateValue = utilities::parseDate(_con->value);
+            break; 
+        } 
+        case t_edit::t_double:
+        {
+            if(!utilities::isNumeric(_value))
             {
-                if(!utilities::isNumeric(con->value))
-                {
-                    errText.append(" condition column ");
-                    errText.append(con->name); 
-                    errText.append("  value not numeric |");
-                    errText.append(con->value);
-                    errText.append("| ");
-                    return ParseResult::FAILURE;
-                }
-                con->intValue = atoi(con->value);
-                break;
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," condition column ");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name); 
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric |");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
+                return ParseResult::FAILURE;
             }
+            _con->doubleValue = atof(_value);
+            break;
         }
-
-           column* col;
-    for(ColumnNameValue* colVal : lstColNameValue)
-    {
-        col = dbTable->getColumn(colVal->name);
-        if(col->primary)
+        case t_edit::t_int:
         {
-            errText.append(" ");
-            errText.append(colVal->name);
-            errText.append(" is a primary key, cannot update ");
-            return ParseResult::FAILURE;
+            if(!utilities::isNumeric(_value))
+            {
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," condition column ");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name); 
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric |");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
+                return ParseResult::FAILURE;
+            }
+            _con->intValue = atoi(_con->value);
+            break;
         }
-        if(col == nullptr)
-        {
-            errText.append(" column not found ");
-            errText.append(colVal->name);
-            return ParseResult::FAILURE;
-        }
-        if(valueSizeOutofBounds(colVal->value,col))
-            return ParseResult::FAILURE;
-
-        col->value = colVal->value;
-        queryTable->columns.push_back(col);
-
-
-    //Update will only have one primary table
-    queryTable = tables.front();
-    if(queryTable == nullptr)
-    {
-        errText.append(" cannot identify query table ");
-        return ParseResult::FAILURE;
     }
-
-        // Populate the query table with the columns that 
-       // will be used by the engine
-    
-
-    queryTable = tables.front();
-    if(queryTable == nullptr)
-    {
-        errText.append(" cannot find selected table ");
-        return ParseResult::FAILURE;
-    }
-
-
-
- */
+    return ParseResult::SUCCESS;
+}

@@ -2,23 +2,6 @@
 #include "sqlCommon.h"
 #include "sqlParser.h"
 
-class Condition
-{
-    public:
-        char*   name            = nullptr;  // described by user
-        char*   op              = nullptr;  // operator is a reserved word
-        char*   value           = nullptr;
-        int     intValue        = 0;
-        double  doubleValue     = 0;
-        bool    boolValue       = false;
-        t_tm    dateValue;
-        char*   prefix          = nullptr;  // (
-        char*   condition       = nullptr;	// and/or
-        char*   suffix          = nullptr;  // )
-        column* col             = nullptr;  // actual column loaded by engine
-		sTable*	table			= nullptr;	// table containing condition columns
-		sIndex* index			= nullptr;  // index candidate for search
-};
 
 class compareToCondition
 {
@@ -125,7 +108,7 @@ ParseResult compareToCondition::compareLike(Condition* _condition, char* _line)
 	// so "sch" = "schiller" because only three characters are being compared
 	
 	char buffRecord[60];
-	column* column = _condition->col;
+	Column* column = _condition->col;
 	strncpy(buffRecord, _line+column->position, strlen(_condition->value));
 	buffRecord[strlen(_condition->value)] = '\0';
 		
@@ -145,7 +128,7 @@ ParseResult compareToCondition::compareStringCondition(Condition* _condition, ch
 	// so "sch" != "schiller" 
 
 	char buffRecord[60];
-	column* column = _condition->col;
+	Column* column = _condition->col;
 	strncpy(buffRecord, _line+column->position, column->length);
 			buffRecord[column->length] = '\0';
 	
@@ -171,7 +154,7 @@ ParseResult compareToCondition::compareStringCondition(Condition* _condition, ch
  ParseResult compareToCondition::compareIntegerCondition(Condition* _condition, char* _line)
 {
 	int  recordInt;
-	column* column = _condition->col;
+	Column* column = _condition->col;
 	memcpy(&recordInt, _line+column->position, column->length);
 
 
@@ -203,7 +186,7 @@ ParseResult compareToCondition::compareStringCondition(Condition* _condition, ch
  ParseResult compareToCondition::compareDoubleCondition(Condition* _condition, char* _line)
 {
 	double  recordf;
-	column* column = _condition->col;
+	Column* column = _condition->col;
 	memcpy(&recordf, _line+column->position, column->length);
 
 	if(strcasecmp(_condition->op,sqlTokenEqual) == 0
@@ -234,7 +217,7 @@ ParseResult compareToCondition::compareStringCondition(Condition* _condition, ch
  ParseResult compareToCondition::compareDateCondition(Condition* _condition, char* _line)
 {
 	t_tm recordDate;
-	column* column = _condition->col;
+	Column* column = _condition->col;
 	memcpy(&recordDate, _line+column->position, column->length);
 
 

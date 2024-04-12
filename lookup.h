@@ -8,10 +8,11 @@ class lookup
     public:
 
     static sTable*     scrollTableList(map<char*,sTable*>, size_t);
-    static column*     scrollColumnList(list<column*>, size_t);
-    static column*     getColumnByName(list<column*>, char*);
+    static Column*     scrollColumnList(list<Column*>, size_t);
+    static Column*     getColumnByName(list<Column*>, char*);
+    static sTable*     getTableByAlias(list<sTable*>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
-    static tokenPair   tokenSplit(char*,char*);
+    static TokenPair   tokenSplit(char*,char*);
     static signed long findDelimiter(char*, char*);
     static signed long findDelimiterFromList(char*, list<char*>);
     static SQLACTION   determineAction(char* _token);
@@ -32,6 +33,19 @@ sTable* lookup::scrollTableList(map<char*,sTable*> _tables, size_t _index)
     return (sTable*)it->second;
 }
 /******************************************************
+ * Get Table By Alias
+ ******************************************************/
+sTable* lookup::getTableByAlias(list<sTable*> _tables, char* _alias)
+{
+    for(sTable* tbl : _tables)
+    {
+       // printf("\n looking for %s found %s",_alias,tbl->alias);
+        if(strcasecmp(tbl->alias, _alias) == 0)
+            return tbl;
+    }
+    return nullptr;
+}
+/******************************************************
  * Get Table By Name
  ******************************************************/
 sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
@@ -47,9 +61,9 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
 /******************************************************
  * Get Column By Name
  ******************************************************/
-column* lookup::getColumnByName(list<column*> _columns, char* _name)
+Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
 {
-    for(column* col : _columns)
+    for(Column* col : _columns)
     {
         if(strcasecmp(col->name,_name) == 0)
             return col;
@@ -59,10 +73,10 @@ column* lookup::getColumnByName(list<column*> _columns, char* _name)
 /******************************************************
  * ScrollColumns (returns nth column)
  ******************************************************/
-column* lookup::scrollColumnList(list<column*> _columns, size_t _index)
+Column* lookup::scrollColumnList(list<Column*> _columns, size_t _index)
 {
     size_t count = 0;
-    for(column* col : _columns)
+    for(Column* col : _columns)
     {
         if(count == _index)
             return col;
@@ -75,7 +89,7 @@ column* lookup::scrollColumnList(list<column*> _columns, size_t _index)
  ******************************************************/
 signed long lookup::findDelimiter(char* _string, char* _delimiter)
 {
-    char buff[2000];
+    char buff[MAXSQLSTRINGSIZE];
     bool betweenQuotes = false;
 
     //if the delimeter is enclosed in quotes, ignore it.
@@ -177,12 +191,21 @@ SQLACTION lookup::determineAction(char* _token)
     return  SQLACTION::INVALID;
 
 }
-tokenPair lookup::tokenSplit(char* _token, char* delimiter)
+/******************************************************
+ * Token Split
+ ******************************************************/
+TokenPair lookup::tokenSplit(char* _token, char* delimiter)
 {
-    tokenPair st;
+    TokenPair st;
+    
     size_t len = strlen(_token);
     if(len > 1)
+    {
         utilities::lTrim(_token,' ');
+        utilities::rTrim(_token);
+        utilities::scrub(_token);
+    }
+    
     
     char *s;
     s = strstr(_token, delimiter);      // search for string "hassasin" in buff

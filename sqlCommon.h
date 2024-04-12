@@ -1,102 +1,11 @@
 #pragma once
 #include <string>
+#include "defines.h"
+#include "utilities.h"
 #include "universal.h"
 #include "index.h"
 
 using namespace std;
-
-#define SPACE  			' '
-#define CRLF            "\r\n"  
-#define NEWLINE 		'\n'
-#define TAB 			'\t'
-#define VTAB 			'\v'
-#define RETURN          '\r'
-#define FORMFEED        '\f'
-#define COLON 			':'
-#define COMMA 			','
-#define OPENPAREN       '('   //Note difference between OPENPAREN and sqlTokenOpenParen
-#define CLOSEPAREN      ')'
-#define EQUAL           '='
-
-#define MAXSQLTOKENSIZE	    100
-#define MAXSQLSTRINGSIZE	1000
-
-#define gtr         ">"
-#define cellBegin   "<td>"
-#define cellEnd     "</td>"
-#define rowBegin    "<tr>"
-#define rowEnd      "</tr>"
-#define hdrBegin    "<th"
-#define hdrEnd      "</th>"
-
-
-#define sqlTokenCreate      "CREATE"
-#define sqlTokenTable       "TABLE"
-#define sqlTokenIndex       "INDEX"
-#define sqlTokenSelect      "SELECT"
-#define sqlTokenInsert      "INSERT"
-#define sqlTokenDelete      "DELETE"
-#define sqlTokenUpdate      "UPDATE"
-#define sqlTokenTop         "TOP"
-#define sqlTokenAs          "AS"
-#define sqlTokenAsterisk    "*"
-#define sqlTokenOpenParen   "("     //Note difference between OPENPAREN and sqlTokenOpenParen
-#define sqlTokenCloseParen   ")"
-#define sqlTokenEqual       "="
-#define sqlTokenNotEqual    "!="
-#define sqlTokenGreater     ">"
-#define sqlTokenLessThan    "<"
-#define sqlTokenInto        "INTO"
-#define sqlTokenFrom        "FROM"
-#define sqlTokenWhere       "WHERE"
-#define sqlTokenSet         "SET"
-#define sqlTokenKey         "KEY"
-#define sqlTokenPrimary     "PRIMARY"
-#define sqlTokenLike        "LIKE"
-#define sqlTokenAnd         "AND"
-#define sqlTokenOr          "OR"
-#define sqlTokenOn          "ON"
-#define sqlTokenJoin        "JOIN"
-#define sqlTokenValues      "VALUES"
-#define sqlTokenEditBool    "BOOL"
-#define sqlTokenEditChar    "CHAR"
-#define sqlTokenEditDate    "DATE"
-#define sqlTokenEditDouble  "DOUBLE"
-#define sqlTokenEditInt     "INT"
-
-enum ParseResult
-{
-    SUCCESS,
-    FAILURE
-};
-
-enum class SQLACTION{
-    NOACTION,
-    INVALID,
-    INSERT,
-    CREATE,
-    SELECT,
-    UPDATE,
-    DELETE
-};
-
-// C++ tm is 58 characters long - this is 16
-struct t_tm
-{
-    int year;
-    int month;
-    int day;
-    int yearMonthDay;
-};
-
-enum class t_edit
-{
-    t_bool,
-    t_char,
-    t_date,
-    t_double,
-    t_int
-};
 
 class ReturnResult{
   public:
@@ -105,16 +14,23 @@ class ReturnResult{
   string error;
 };
 
-class tokenPair
+ReturnResult returnResult;
+
+class TokenPair
 {
     public:
     char* one;
     char* two;
 };
 
-ReturnResult returnResult;
-string errText;
-class column
+class ColumnAlias
+{
+    public:
+    char* columnName;
+    char* tableName;
+};
+
+class Column
 {
     public:
     char*   name;
@@ -123,33 +39,48 @@ class column
     int     length = 0;
     int     position = 0;
     char*   value;
-    char*   alias;
+    char*   tableName;
+};
+class Condition
+{
+    public:
+        char*   name            = nullptr;  // described by user
+        char*   op              = nullptr;  // operator is a reserved word
+        char*   value           = nullptr;
+        int     intValue        = 0;
+        double  doubleValue     = 0;
+        bool    boolValue       = false;
+        t_tm    dateValue;
+        char*   prefix          = nullptr;  // (
+        char*   condition       = nullptr;	// and/or
+        char*   suffix          = nullptr;  // )
+        Column* col             = new Column();                     // edit of column in condition
 };
 
-class baseData
+class BaseData
 {
     public:
         fstream*            fileStream = nullptr;
         char*               name;
         char*               fileName;
-        list<column*>       columns;
+        list<Column*>       columns;
         fstream*            open();
         void                close();
-        column*             getColumn(char*);
+        Column*             getColumn(char*);
 };
-fstream* baseData::open()
+fstream* BaseData::open()
 {
 		////Open index file
         fileStream = new fstream{};
 		fileStream->open(fileName, ios::in | ios::out | ios::binary);
 		if (!fileStream->is_open()) {
-            errText.append(fileName);
-            errText.append(" not opened ");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,fileName);
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
 			return nullptr;
 		}
         return fileStream;
 };
-void baseData::close()
+void BaseData::close()
 {
     if(fileStream != nullptr)
     {
@@ -159,16 +90,16 @@ void baseData::close()
         }
     } 
 };
-column* baseData::getColumn(char* _name)
+Column* BaseData::getColumn(char* _name)
 {
 
-    for (column* col : columns) {
+    for (Column* col : columns) {
         if(strcasecmp(col->name,_name) == 0)
             return col;
     }
     return nullptr;
 };
-class sIndex : public baseData
+class sIndex : public BaseData
 {
     public:
     Index* index;
@@ -178,12 +109,12 @@ bool sIndex::openIndex()
 {
     if(strlen(name) == 0)
     {
-        errText.append("Index name not set");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index name not set");
         return false;
     }
     if(strlen(fileName) == 0)
     {
-        errText.append("Index filename not set");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index filename not set");
         return false;
     }
     fileStream = open();
@@ -191,13 +122,39 @@ bool sIndex::openIndex()
     return true;
 };
 
-class sTable : public baseData
+class sTable : public BaseData
 {  
     public:
-        list<sIndex*>   indexes;
-        int             recordLength = 0;
-        char*           alias;
+        list<sIndex*>    indexes;
+        list<Condition*> conditions;
+        int              recordLength = 0;
+        char*            alias;
 };
 
-string debugText;
+class Results
+{
+    PRESENTATION        presentation;
+    int rowCount        = 0;
+    list<Column*>       columns;
+    list<list<Column*>> rows;
+};
+class Plan
+{
+    public:
+        SQLACTION   action;
+        int         orderOfExecution;
+        int         rowsToReturn;
+};
+class Statement
+{
+    public:
+    Plan*       plan = new Plan();
+    sTable*     table;
+    Results*    results = new Results();
+};
+class Execution
+{
+    
+};
+
 

@@ -7,7 +7,8 @@
 #include "indexBase.h"
 #include "lookup.h"
 #include "binding.h"
-#include "debug.h"
+#include "sqlEngine.h"
+
 
 using namespace std;
 
@@ -15,19 +16,27 @@ void printTable(sTable* tbl)
 {
     printf("\n table name %s", tbl->name);
     printf(" alias %s", tbl->alias);
-    for(column* col : tbl->columns)
+    for(Column* col : tbl->columns)
     {
-        printf("\n\t\t column name %s", col->name);
-        printf(" alias %s", col->alias);
+        printf("\n\t column name %s", col->name);
+        printf(" alias %s", col->tableName);
         printf(" value %s", col->value);
         if(col->primary)
             printf(" PRIMARY");
+    }
+    printf("\n\n Conditions");
+    for(Condition* con : tbl->conditions)
+    {
+        printf("\n\n\t condition name      %s", con->name);
+        printf("\n\t condition condition %s", con->condition);
+        printf("\n\t condition op        %s", con->op);
+        printf("\n\t condition value     %s", con->value);
     }
     for(sIndex* idx : tbl->indexes)
     {
         printf("\n\t index name %s", idx->name);
         printf("  file name %s", idx->fileName);
-        for(column* col : idx->columns)
+        for(Column* col : idx->columns)
         {
             printf("\n\t\t index column name %s", col->name);
         }
@@ -39,10 +48,6 @@ void printQuery(queryParser* qp,binding* bind)
     printf("\n*******************************************");
     printf("\n Query Tables");
     printf("\n*******************************************");
-    for(char* name : qp->lstTables)
-    {
-        printf("\n NAME %s",name);
-    }
     for(sTable* tbl : bind->lstTables)
     {
         printTable(tbl);
@@ -83,38 +88,81 @@ void printQuery(queryParser* qp,binding* bind)
         printf("\n\t condition condition %s", con->condition);
         printf("\n\t condition op        %s", con->op);
         printf("\n\t condition value     %s", con->value);
-        if(con->table == nullptr)
-        {
-            printf("\n No condition table ");
-            return;
-        }
-        printTable(con->table);
     }
 }
 
-int main()
-{
+int main(int argc, char* argv[])
+{   
+    std::string scriptFileName;
+    std::string script;
+    if(argc > 1)
+    {
+        int runScript = atoi(argv[1]);
+        switch(runScript)
+        {
+            case 1:
+                script = "t10-select-top-5";
+                break;
+          case 2:
+                script = "t20-select-asterisk-equal";
+                break;
+          case 3:   
+                script = "t21-select-equal-single-value";
+                break;
+          case 4:   
+                script = "t30-select-like-and-like";
+                break;
+          case 5:
+                script = "t40-select-top-equal-and-equal";
+                break;
+          case 6:
+                script = "t50-insert-into-values";
+                break;
+          case 7:   
+                script = "t55-insert-items-from-values"; 
+                break;
+          case 8:
+                script = "t60-insert-columns-and-values"; 
+                break;
+          case 9:
+                script = "t70-update-customers";
+                break;
+          case 10:
+                script = "t80-insert-store";               
+                break;
+          case 11:
+                script = "t81-select-store-by-name";        //segment fault
+                break; 
+           case 12:
+                script = "t90-select-columns-with-alias";   //conditions failed
+                break;
+           case 13:
+                script = "t100-select-columns-and tables-with-alias"; //To be completed
+                break;
+          default:
+                printf("\n No case for this script number\n\n");
+                return 0;
+        }
+    }
+    else
+    {
+        script = "t60-insert-columns-and-values";
+    }
+
+    scriptFileName = "/home/greg/projects/regTest/scripts/";
+    scriptFileName.append(script);
 
     std::string sqlFileName = "bike.sql";
     std::ifstream ifs(sqlFileName);
     std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
     
-    std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
-    //std::string scriptFileName = "/home/greg/projects/regTest/scripts/t60-insert-columns-and-values";
     std::ifstream ifq(scriptFileName);
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
-    queryStr.clear();
     
-   //queryStr.append("Update customers c set street1 = \"noname\", street2 = \"where\" where c.custid = \"0001230001\"");
-   //queryStr.append("Select top 5 * from customers  where custid = \"000009196\"");
-   //queryStr.append("Select top 5 custid, surname, givenname from customers  where custid = \"000009196\"");
-   queryStr.append("insert into items i values (0, \"SO43659\", \"BK M82B 42\", 1, 2024.99, 0.00, 2024.99)");
-    //queryStr.append("Select top 5 * from stores");
-   // queryStr.append("select c.custid, s.name, s.email from stores s, customers c where c.custid = s.custid");
     printf("\n query=%s \n",queryStr.c_str());
-
+    presentationType = PRESENTATION::TEXT;
     sqlParser* parser = new sqlParser((char*)sql.c_str());
 
     if(parser->parse() == ParseResult::FAILURE)
@@ -123,8 +171,6 @@ int main()
         printf("\n %s",errText.c_str());
         return 0;
     }
-
-    printf("\n sql parse success");
     
     queryParser* query = new queryParser();
 
@@ -133,63 +179,25 @@ int main()
         printf("\n query parse failed");
         printf("\n error %s",errText.c_str());
     };
-    
+
     binding* bind = new binding(parser,query);
-    if(bind->validate() == ParseResult::FAILURE)
+    if(bind->bind() == ParseResult::FAILURE)
     {
         printf("\n bind validate failed");
         printf("\n error %s",errText.c_str());
     };
-    printQuery(query,bind);
-    printf("\n\n");
 
-    
-    return 0;
-    
-    /* sTable* table; //= lookup::getTableByName(parser->tables,(char*)query->queryTable->name);
-    if(table == nullptr)
-    {
-        printf("\n table not found");
-        return 0;
-    }
- 
     sqlEngine* engine = new sqlEngine();
-    engine->prepare(query,table);
-
-    if(engine->open() == ParseResult::FAILURE)
+    if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
     {
-        printf("\n engine open failed");
         printf("\n error %s",errText.c_str());
         return 0;
     }
+
+    printf("\n %s",returnResult.resultTable.c_str());
+    printf("\n %s",msgText.c_str());
+    printf("\n %s",errText.c_str());
         
-    printf("\n engine opened");
-    if(query->sqlAction == SQLACTION::SELECT)
-    {
-        string output = engine->select();
-        printf("\n select output = %s", output.c_str());
-        return 0;
-    }
-    if(query->sqlAction == SQLACTION::UPDATE)
-    {
-        engine->update();
-        printf("\n %s", errText.c_str());
-        printf("\n %s", returnResult.message.c_str());
-        return 0;
-    }
-    if(query->sqlAction == SQLACTION::INSERT)
-    {
-        engine->insert();
-        printf("\n %s", errText.c_str());
-        printf("\n %s", returnResult.message.c_str());
-    }
     printf("\n\n");
-        string indexFileName;
-        indexFileName.append("~/projects/test/testIndex/custid.idx");
-        fstream* indexStream = new fstream{};
-		indexStream->open(indexFileName, ios::in | ios::out | ios::binary);
-        Debug::dumpAll(false,indexStream);
-        indexStream->close();
-    printf("\n\n");
-    return 0; */
+    return 0; 
 }
