@@ -64,7 +64,6 @@ class queryParser
     ParseResult         parseConditions(char*);
     ParseResult         addCondition(char*);
     ParseResult         validateSQLString();
-    ParseResult         populateQueryTable(sTable* table);
 };
 
 /******************************************************
@@ -178,8 +177,6 @@ ParseResult queryParser::parseSelect()
     if(debug)
         printf("\n parse select");
 
-    char workingString[MAXSQLSTRINGSIZE];
-
     signed long beginColumnList;
 
     tokenParser* tok = new tokenParser(queryString);
@@ -205,33 +202,27 @@ ParseResult queryParser::parseSelect()
         beginColumnList = tok->pos - ((strlen(token) +1));
     }
 
-    //start of column list
-    strcpy(workingString,queryString+beginColumnList);
-
-
-    //Find begining of table list
-    signed long posFrom     = lookup::findDelimiter((char*)workingString, (char*)sqlTokenFrom);
-  
-    if(posFrom == NEGATIVE)
-    {
-        errText.append(" missing FROM token");
-        return ParseResult::FAILURE;
-    }
-
+    //----------------------------------------------------------
+    // Parse Table List
+    //----------------------------------------------------------
+    signed long posFrom     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenFrom);
+    char* strTableList = utilities::dupString(queryString+posFrom+1+strlen(sqlTokenFrom));
+    
     list<char*> delimiterList;
     delimiterList.push_back((char*)sqlTokenWhere);
     delimiterList.push_back((char*)sqlTokenOn);
     delimiterList.push_back((char*)sqlTokenJoin);
     
-    strcpy(workingString, (char*)workingString+(posFrom+1+strlen(sqlTokenFrom)));
-    
-    long signed found       = lookup::findDelimiterFromList(workingString,delimiterList);
+    long signed found       = lookup::findDelimiterFromList(strTableList,delimiterList);
     if(found > NEGATIVE)
     {
-        workingString[found] = '\0';
+        strTableList[found] = '\0';
     }
 
-    if(parseTableList(workingString) == ParseResult::FAILURE)
+    if(debug)
+        printf("\n tableList:%s",strTableList);
+
+    if(parseTableList(strTableList) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     if(lstTables.size() == 0)
@@ -240,36 +231,46 @@ ParseResult queryParser::parseSelect()
         return ParseResult::FAILURE;
     }
 
-    strcpy(workingString,queryString+beginColumnList);
+    //-----------------------------------------------------
+    // Parse column list
+    //-----------------------------------------------------
+    //start of column list
+    char* strColumnList = utilities::dupString(queryString+beginColumnList);
+
+    //Find begining of table list
+    posFrom     = lookup::findDelimiter(strColumnList, (char*)sqlTokenFrom);
+  
+    if(posFrom == NEGATIVE)
+    {
+        errText.append(" missing FROM token");
+        return ParseResult::FAILURE;
+    }
+
+    //Terminate column list
+    strColumnList[posFrom-1] = '\0';
+
     if(debug)
-        printf("\n working %s",workingString);
+        printf("\n columnList:%s",strColumnList);
 
-    signed long posAsterisk = lookup::findDelimiter((char*)workingString, (char*)sqlTokenAsterisk);
-    posFrom = lookup::findDelimiter((char*)workingString, (char*)sqlTokenFrom);
+    if(parseColumnList(strColumnList) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
 
-    if(posAsterisk == NEGATIVE
-    || posAsterisk > posFrom)
-    {
-        workingString[posFrom] = '\0';
-        if(parseColumnList(workingString) == ParseResult::FAILURE)
-            return ParseResult::FAILURE;
-    }
-    else
-    {
-        lstColName.push_back((char*)sqlTokenAsterisk);
-    }
+    //----------------------------------------------------------
+    // Parse Conditions
+    //----------------------------------------------------------
     
     signed long posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
 
+    // Test for no conditions
     if(posWhere == NEGATIVE)
         return ParseResult::SUCCESS;
+
+    char* strConditionList = utilities::dupString(queryString+posWhere + strlen((char*)sqlTokenWhere)+1);
+
+    if(debug)
+        printf("\n conditionList:%s",strConditionList);
     
-    signed long endOfString = queryStringLength - posWhere - strlen((char*)sqlTokenWhere);
-
-    strcpy(workingString,queryString+posWhere + strlen((char*)sqlTokenWhere) + 1);
-    workingString[endOfString] = '\0';
-
-    if(parseConditions(workingString) == ParseResult::FAILURE)
+    if(parseConditions(strConditionList) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
@@ -332,13 +333,18 @@ ParseResult queryParser::parseInsert()
     posCloseParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenCloseParen);
     workingString[posCloseParen-1] = '\0';
     
-    printf("\n working string after token values %s",workingString);
+    if(debug)
+        printf("\n working string after token values %s",workingString);
+    
     posOpenParen    =lookup::findDelimiter((char*)workingString, (char*)sqlTokenOpenParen);
-    printf("\n working string search for ( %s",workingString);
+    
+    if(debug)
+        printf("\n working string search for ( %s",workingString);
     
     strcpy(workingString,workingString+posOpenParen+1);
      
-     printf("\n working string after open paren %s",workingString);
+    if(debug)
+        printf("\n working string after open paren %s",workingString);
 
     if(parseValueList(workingString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
@@ -410,6 +416,8 @@ ParseResult queryParser::parseColumnNameValueList(char* workingString)
         token = tok->getToken();
         if(tok->eof)
             break;
+        if(tok == nullptr)
+            break;
 
         if(strcmp(token,sqlTokenEqual) == 0)
         {
@@ -443,7 +451,9 @@ ParseResult queryParser::addCondition(char* _token)
 
         Initially only looking for column, opeator, value in quotes
     */
-
+   if(debug)
+     printf("\n token=%s\n",_token);
+     
     if(condition == nullptr)
     {
         condition = new Condition();
@@ -486,6 +496,8 @@ ParseResult queryParser::addCondition(char* _token)
         if(strcasecmp(_token,sqlTokenLike) != 0
         && strcasecmp(_token,sqlTokenGreater) != 0
         && strcasecmp(_token,sqlTokenLessThan) != 0
+        && strcasecmp(_token,sqlTokenLessOrEqual) != 0
+        && strcasecmp(_token,sqlTokenGreaterOrEqual) != 0
         && strcasecmp(_token,sqlTokenEqual) != 0
         && strcasecmp(_token,sqlTokenNotEqual) != 0)
         {
@@ -535,10 +547,9 @@ ParseResult queryParser::parseConditions(char* _workString)
     while(!tok->eof)
     {
         token = tok->getToken();
-        if(tok->eof)
-            break;
-        if(addCondition(token) == ParseResult::FAILURE)
-            return ParseResult::FAILURE;
+        if(token != nullptr)
+            if(addCondition(token) == ParseResult::FAILURE)
+                return ParseResult::FAILURE;
     }
     return ParseResult::SUCCESS;
 }
@@ -555,7 +566,8 @@ ParseResult queryParser::parseColumnList(char* _workingString)
     while(!tok->eof)
     {
         token = tok->getToken();
-        lstColName.push_back(token);
+        if(token != nullptr)
+            lstColName.push_back(token);
     }
 
     return ParseResult::SUCCESS;
@@ -567,7 +579,7 @@ ParseResult queryParser::parseValueList(char* _workingString)
 {
     char* token;
     tokenParser* tok = new tokenParser(_workingString);
-    printf("\n working string %s",_workingString);
+    //printf("\n working string %s",_workingString);
     while(!tok->eof)
     {
         token = tok->getToken();
@@ -599,15 +611,7 @@ ParseResult queryParser::parseTableList(char* _tableString)
         lstTables.push_back(retToken);
         token = strtok (NULL, ",");
     }
-    // sample template   
-    // table1 t1, table2 t2
-   /*  while(!tok->eof)
-    {
-        token = tok->getToken();
-        if(tok->eof)
-            break;
-        lstTables.push_back(token);
-    } */
+
     if(lstTables.size() == 0)
     {
         errText.append(" expecting at least one table");

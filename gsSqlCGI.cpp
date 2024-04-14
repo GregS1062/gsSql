@@ -41,15 +41,17 @@ ParseResult runQuery(string _htmlRequest)
     if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
     {
         utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," query parse failed");
+		return ParseResult::FAILURE;
     };
 
     binding* bind = new binding(parser,query);
     if(bind->bind() == ParseResult::FAILURE)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"bind validate failed");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind validate failed");
+		return ParseResult::FAILURE;
     };
 
-    sqlEngine* engine = new sqlEngine();
+    sqlEngine* engine = new sqlEngine(parser);
     if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
     {
         return ParseResult::FAILURE;
@@ -90,9 +92,13 @@ int main()
 			}
 		}
 
-		runQuery(htmlRequest);
+		if (runQuery(htmlRequest) == ParseResult::FAILURE)
+		{
+			returnResult.resultTable = "";
+		};
 
 		returnResult.error.append(errText);
+		returnResult.message.append(msgText);
 
 		//Format output
 		htmlResponse.append("Content-type:text/html\r\n\r\n");

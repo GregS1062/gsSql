@@ -139,6 +139,12 @@ int main(int argc, char* argv[])
            case 13:
                 script = "t100-select-columns-and tables-with-alias"; //To be completed
                 break;
+            case 14:
+                script = "t99-select-orderdate-in-orders";
+                break;
+             case 15:
+                script = "t100-select-multiple-conditions";
+                break;             
           default:
                 printf("\n No case for this script number\n\n");
                 return 0;
@@ -187,7 +193,7 @@ int main(int argc, char* argv[])
         printf("\n error %s",errText.c_str());
     };
 
-    sqlEngine* engine = new sqlEngine();
+    sqlEngine* engine = new sqlEngine(parser);
     if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
     {
         printf("\n error %s",errText.c_str());

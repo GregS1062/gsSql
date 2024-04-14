@@ -12,7 +12,7 @@ class lookup
     static Column*     getColumnByName(list<Column*>, char*);
     static sTable*     getTableByAlias(list<sTable*>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
-    static TokenPair   tokenSplit(char*,char*);
+    static TokenPair*  tokenSplit(char*,char*);
     static signed long findDelimiter(char*, char*);
     static signed long findDelimiterFromList(char*, list<char*>);
     static SQLACTION   determineAction(char* _token);
@@ -194,9 +194,13 @@ SQLACTION lookup::determineAction(char* _token)
 /******************************************************
  * Token Split
  ******************************************************/
-TokenPair lookup::tokenSplit(char* _token, char* delimiter)
+TokenPair* lookup::tokenSplit(char* _token, char* delimiter)
 {
-    TokenPair st;
+    if(_token == nullptr)
+    {
+        return nullptr;
+    }
+    TokenPair* tp = new TokenPair();
     
     size_t len = strlen(_token);
     if(len > 1)
@@ -211,19 +215,19 @@ TokenPair lookup::tokenSplit(char* _token, char* delimiter)
     s = strstr(_token, delimiter);      // search for string "hassasin" in buff
     if (s == NULL)                     // if successful then s now points at "hassasin"
     {
-        st.one = _token;
-        st.two = nullptr;
-        return st;
+        tp->one = _token;
+        tp->two = nullptr;
+        return tp;
     } 
     size_t position = s - _token;
-    st.one = (char*)malloc(position);
-    strncpy(st.one, _token, position);
-    st.one[position] = '\0';
+    tp->one = (char*)malloc(position);
+    strncpy(tp->one, _token, position);
+    tp->one[position] = '\0';
     
     position++;
-    st.two = (char*)malloc(len-position);
+    tp->two = (char*)malloc(len-position);
 
-    strncpy(st.two, _token+position, len-position);
-    st.two[len-position] = '\0';
-    return st;
+    strncpy(tp->two, _token+position, len-position);
+    tp->two[len-position] = '\0';
+    return tp;
 }

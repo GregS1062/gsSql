@@ -76,13 +76,27 @@ char* tokenParser::getToken()
     {
         
         c = parseString[pos];
+        
         pos++;
+        
         if(pos > parseStringLength)
         {
             eof = true;
             break;
         }
-        
+
+        if((c == GTR
+        || c == LST)
+        && parseString[pos] == EQUAL)
+        {
+           pos++; 
+           retToken = (char*)malloc(3); 
+           retToken[0] = c;
+           retToken[1] = EQUAL;
+           retToken[2] = '\0';
+           return retToken;
+        }
+
         if(c == QUOTE)
         {
             if(betweenQuotes)

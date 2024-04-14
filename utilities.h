@@ -11,6 +11,8 @@ using namespace std;
 class utilities {
 public:
 	static void 	sendMessage(MESSAGETYPE,PRESENTATION,bool, const char*);
+	static void		messageHTML(MESSAGETYPE,bool, const char*);
+	static void		messageTEXT(MESSAGETYPE,bool, const char*);
 	static void 	formatDate(char[], t_tm);
 	static char* 	padLeft(char[], int);
 	static void 	lTrim(char[], char);
@@ -23,20 +25,35 @@ public:
 	static t_tm 	parseDate(char[]);
 	static string   findAndReplace(string s,string _target, string _text);
 	static bool		isDateValid(char* _date);
+	static char*	dupString(const char*);
 };
 
+/*******************************************************
+   String Duplicate
+*******************************************************/
+char* utilities::dupString(const char* str)
+{
+ return strcpy((char*)malloc( strlen(str) + 1),str);
+}
+/*******************************************************
+   Send Message
+*******************************************************/
 void utilities::sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, const char* _msg)
+{
+
+	if(_presentation == PRESENTATION::HTML)
+		utilities::messageHTML(_type,_newLine,_msg);
+	else
+		utilities::messageTEXT(_type,_newLine,_msg);
+}
+/*******************************************************
+   Message TEXT
+*******************************************************/
+void utilities::messageTEXT(MESSAGETYPE _type, bool _newLine, const char* _msg)
 {
 	string msg;
 	if(_newLine)
-	{
-		if(_presentation == PRESENTATION::HTML)
-		{
-			msg.append("<p>");
-		}
-		else
-			msg.append("\n");
-	}
+		msg.append("\n");
 
 	msg.append(_msg);
 
@@ -44,8 +61,30 @@ void utilities::sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool 
 		errText.append(msg);
 	else
 		msgText.append(msg);
-
 }
+/*******************************************************
+   Message HTML
+*******************************************************/
+void utilities::messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
+{
+	string msg;
+
+	if(_newLine)
+		msg.append("<p>");
+
+	if(_type == MESSAGETYPE::ERROR)
+		msg.append("<font color=\"crimson\">");
+	else
+		msg.append("<font color=\"navy\">");
+
+	msg.append(_msg);
+	msg.append("</font>");
+
+	if(_type == MESSAGETYPE::ERROR)
+		errText.append(msg);
+	else
+		msgText.append(msg);
+};
 /*******************************************************
    Formate Date
 *******************************************************/
@@ -276,14 +315,16 @@ string utilities::findAndReplace(string s,string _target, string _text)
 *******************************************************/
 bool utilities::isDateValid(char* _cdate)
 {
+	//Blank date is valid
+	if(_cdate == nullptr)
+		return true;
+		
+	if(strlen(_cdate) == 0)
+		return true;
 
 	string _date;
 	_date.append(_cdate);
 	//if blank, return without error
-
-    //Blank date is valid
-	if (_date.length() == 0)
-		return true;
 
 	if (_date.length() != 10)
 	{

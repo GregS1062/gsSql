@@ -17,11 +17,13 @@ using namespace std;
 #define OPENPAREN       '('   //Note difference between OPENPAREN and sqlTokenOpenParen
 #define CLOSEPAREN      ')'
 #define EQUAL           '='
+#define EXCLAMATION     '!'
+#define GTR             '>'
+#define LST             '<'
 
 #define MAXSQLTOKENSIZE	    100
 #define MAXSQLSTRINGSIZE	1000
 
-#define gtr         ">"
 #define cellBegin   "<td>"
 #define cellEnd     "</td>"
 #define rowBegin    "<tr>"
@@ -30,39 +32,51 @@ using namespace std;
 #define hdrEnd      "</th>"
 
 
-#define sqlTokenCreate      "CREATE"
-#define sqlTokenTable       "TABLE"
-#define sqlTokenIndex       "INDEX"
-#define sqlTokenSelect      "SELECT"
-#define sqlTokenInsert      "INSERT"
-#define sqlTokenDelete      "DELETE"
-#define sqlTokenUpdate      "UPDATE"
-#define sqlTokenTop         "TOP"
-#define sqlTokenAs          "AS"
-#define sqlTokenAsterisk    "*"
-#define sqlTokenOpenParen   "("     //Note difference between OPENPAREN and sqlTokenOpenParen
-#define sqlTokenCloseParen   ")"
-#define sqlTokenEqual       "="
-#define sqlTokenNotEqual    "!="
-#define sqlTokenGreater     ">"
-#define sqlTokenLessThan    "<"
-#define sqlTokenInto        "INTO"
-#define sqlTokenFrom        "FROM"
-#define sqlTokenWhere       "WHERE"
-#define sqlTokenSet         "SET"
-#define sqlTokenKey         "KEY"
-#define sqlTokenPrimary     "PRIMARY"
-#define sqlTokenLike        "LIKE"
-#define sqlTokenAnd         "AND"
-#define sqlTokenOr          "OR"
-#define sqlTokenOn          "ON"
-#define sqlTokenJoin        "JOIN"
-#define sqlTokenValues      "VALUES"
-#define sqlTokenEditBool    "BOOL"
-#define sqlTokenEditChar    "CHAR"
-#define sqlTokenEditDate    "DATE"
-#define sqlTokenEditDouble  "DOUBLE"
-#define sqlTokenEditInt     "INT"
+#define sqlTokenCreate          "CREATE"
+#define sqlTokenTable           "TABLE"
+#define sqlTokenIndex           "INDEX"
+#define sqlTokenSelect          "SELECT"
+#define sqlTokenInsert          "INSERT"
+#define sqlTokenDelete          "DELETE"
+#define sqlTokenUpdate          "UPDATE"
+#define sqlTokenTop             "TOP"
+#define sqlTokenAs              "AS"
+#define sqlTokenInto            "INTO"
+#define sqlTokenFrom            "FROM"
+#define sqlTokenWhere           "WHERE"
+#define sqlTokenSet             "SET"
+#define sqlTokenKey             "KEY"
+#define sqlTokenPrimary         "PRIMARY"
+#define sqlTokenLike            "LIKE"
+#define sqlTokenValues          "VALUES"
+#define sqlTokenEditBool        "BOOL"
+#define sqlTokenEditChar        "CHAR"
+#define sqlTokenEditDate        "DATE"
+#define sqlTokenEditDouble      "DOUBLE"
+#define sqlTokenEditInt         "INT"
+#define sqlTokenAsterisk        "*"
+#define sqlTokenOpenParen       "("     //Note difference between OPENPAREN and sqlTokenOpenParen
+#define sqlTokenCloseParen      ")"
+#define sqlTokenEqual           "="
+#define sqlTokenNotEqual        "<>"
+#define sqlTokenGreater         ">"
+#define sqlTokenLessThan        "<"
+#define sqlTokenLessOrEqual     "<="
+#define sqlTokenGreaterOrEqual  ">="
+#define sqlTokenAll             "ALL"
+#define sqlTokenAny             "ANY"
+#define sqlTokenBetween         "BETWEEN"
+#define sqlTokenExits           "EXISTS"
+#define sqlTokenSome            "SOME"
+#define sqlTokenUnique          "UNIQUE"
+#define sqlTokenIN              "IN"
+#define sqlTokenOrder           "ORDER"
+#define sqlTokenBY              "BY"
+#define sqlTokenAnd             "AND"
+#define sqlTokenOr              "OR"
+#define sqlTokenOn              "ON"
+#define sqlTokenJoin            "JOIN"
+
 
 enum MESSAGETYPE
 {

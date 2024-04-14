@@ -45,12 +45,13 @@ class sqlEngine
 	fstream* 		tableStream;
 	fstream* 		indexStream;
 	list<sIndex*>	sIndexes;
-	list<Column*>	queryColumn;
 	binding* 		bind;
 	char* 			line;
+	sqlParser* 		sp;
 	Statement*		statement;
 
 	public:
+		sqlEngine(sqlParser*);
 		ParseResult 	execute(Statement*);
 		ParseResult 	open();
 		ParseResult 	close();
@@ -68,13 +69,17 @@ class sqlEngine
 		string 			tableScan(list<Column*>);
 		searchIndexes* 	gatherIndexesForSelect();
 		string 			indexReadResults(searchIndexes*);
-		string  		htmlHeader(list<Column*>,int);
+		string  		htmlHeader(list<Column*>,int32_t);
 		string  		textHeader(list<Column*>);
 
 };
 /******************************************************
  * SQL Engine Constuctor
  ******************************************************/
+sqlEngine::sqlEngine(sqlParser* _sp)
+{
+	sp = _sp;
+}
 ParseResult sqlEngine::execute(Statement* _statement)
 {
 		statement = _statement;
@@ -173,13 +178,18 @@ ParseResult sqlEngine::close()
  ******************************************************/
 ParseResult sqlEngine::getConditionColumns()
 {
+	//Get the SQL definition of the full table because the condition column may
+	//	not be in the list of columns to be returned
+	sTable* sqlTable = lookup::getTableByName(sp->tables,statement->table->name);
+	
 	Column* col;
 	for(Condition* condition : statement->table->conditions)
 	{
 		if(condition == nullptr)
 			return ParseResult::FAILURE;
 		
-		col = statement->table->getColumn(condition->name);
+
+		col = sqlTable->getColumn(condition->name);
 
 		if(col == nullptr)
 		{
@@ -206,7 +216,7 @@ ParseResult sqlEngine::update()
 
 	if(getConditionColumns() == ParseResult::FAILURE)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false, " Query condition failure");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true, " Query condition failure");
 		return ParseResult::FAILURE;
 	};
 
@@ -302,11 +312,6 @@ string sqlEngine::select()
 	string rowResponse;
 	string header;
 
-	if(getConditionColumns() == ParseResult::FAILURE)
-	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false, " Query condition failure");
-		return "";
-	};
 	int sumOfColumnSize = 0;
 
 	list<Column*> columns = statement->table->columns;
