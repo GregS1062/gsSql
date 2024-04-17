@@ -15,20 +15,20 @@ class binding
     tokenParser*     tok;
 
     binding(sqlParser*,queryParser*);
-    ParseResult bind();
-    ParseResult bindTableList();
-    ParseResult bindColumnList();
-    ParseResult bindColumnValueList();
-    ParseResult bindColumn(char*);
-    ColumnAlias* resolveColumnAlias(TokenPair*);
-    ParseResult editColumn(Column*,char*);
-    ParseResult editCondition(Condition*,char*);
-    ParseResult bindNonAliasedColumn(char*, char*);
-    ParseResult bindAliasedColumn(TokenPair*, char*);
-    ParseResult bindValueList();
-    ParseResult bindConditions();
-    ParseResult populateTable(sTable*,sTable*);
-    bool        valueSizeOutofBounds(char*, Column*);
+    ParseResult     bind();
+    ParseResult     bindTableList();
+    ParseResult     bindColumnList();
+    ParseResult     bindColumnValueList();
+    ParseResult     bindColumn(char*);
+    ColumnAlias*    resolveColumnAlias(TokenPair*);
+    ParseResult     editColumn(Column*,char*);
+    ParseResult     editCondition(Condition*,char*);
+    ParseResult     bindNonAliasedColumn(char*, char*);
+    ParseResult     bindAliasedColumn(TokenPair*, char*);
+    ParseResult     bindValueList();
+    ParseResult     bindConditions();
+    ParseResult     populateTable(sTable*,sTable*);
+    bool            valueSizeOutofBounds(char*, Column*);
 };
 /******************************************************
  * Constructor
@@ -98,15 +98,6 @@ ParseResult binding::bind()
     if(bindConditions() == ParseResult::FAILURE)
        return ParseResult::FAILURE;
 
-   /* for(Condition* con : defaultTable->conditions)
-    {
-        printf("\n condition %s", con->condition);
-        printf(" column %s", con->col->name);
-        printf(" op %s", con->op);
-        printf(" value %s",con->value);
-        printf(" double %f",con->doubleValue);
-    }*/
-
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -142,6 +133,10 @@ ParseResult binding::bindTableList()
             table->fileName     = temp->fileName;
             table->alias        = tp->two;;
             table->recordLength = temp->recordLength;
+            for(sIndex* idx : temp->indexes)
+            {
+                table->indexes.push_back(idx);
+            }
             lstTables.push_back(table);
             continue;
         }
@@ -158,10 +153,14 @@ ParseResult binding::bindTableList()
         temp = lookup::getTableByName(sp->tables,tp->two);
         if(temp != nullptr)
         {
-            table->name     = temp->name;
-            table->fileName = temp->fileName;
-            table->alias    = tp->one;
+            table->name         = temp->name;
+            table->fileName     = temp->fileName;
+            table->alias        = tp->one;
             table->recordLength = temp->recordLength;
+            for(sIndex* idx : temp->indexes)
+            {
+                table->indexes.push_back(idx);
+            }
             lstTables.push_back(table);
             continue;
         }  
@@ -547,6 +546,7 @@ ParseResult binding::editColumn(Column* _col,char* _value)
     {
         case t_edit::t_bool:    //do nothing
         {
+            _col->value = _value;
             break; 
         }  
         case t_edit::t_char:    //do nothing

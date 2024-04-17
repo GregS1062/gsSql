@@ -1,10 +1,10 @@
-Build 27
+Build
 X    add date int to date structure
 X    Index parsing
 X    automate conversion
 X    restart regression testing
 
-Build 28
+Build
 X   primary index constraint
 X   solve update problem
 X   solve "empty" problem
@@ -12,15 +12,19 @@ X   validate dates
 X   numeric conditions
 X   add single index (custid) on single table (customer)
 
-Build 29
-    solves reserved word within quotes problem
-    check to make sure sql query is well-formed - all reserved words must be present
-    select using index
+Build
+X   solves reserved word within quotes problem
+X   check to make sure sql query is well-formed - all reserved words must be present
+X   select using index
     fix deleted column
     add delete function
     index primary on all tables, including concatenated columns
 
-Build 29
+Build
     all secondary indexes
     indexes updated on updates and deletes
     simple join on primary key condition
+
+Build
+    condition column compared to column
+    order by sort

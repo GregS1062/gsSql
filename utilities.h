@@ -26,7 +26,9 @@ public:
 	static string   findAndReplace(string s,string _target, string _text);
 	static bool		isDateValid(char* _date);
 	static char*	dupString(const char*);
+	static void 	stripQuotesFromToken(char _token[]);
 };
+
 
 /*******************************************************
    String Duplicate
@@ -204,6 +206,9 @@ void utilities::subString(char target[], int start, int end)
 	}
 	target[end - start] = '\0';
 }
+/*******************************************************
+   Scrub token
+*******************************************************/
 void utilities::scrub(char _target[])
 {
 	char c;
@@ -389,5 +394,29 @@ bool utilities::isNumeric(char* _token)
             return false;
     }
     return true;
+}
+
+/*******************************************************
+   Strip quotes from token
+*******************************************************/
+void utilities::stripQuotesFromToken(char _token[])
+{
+	//strip quotes from value
+	size_t s = 0;
+	size_t len = strlen(_token);
+	for(size_t i = 0;i< len; i++)
+	{
+		if(_token[i] == QUOTE)
+			s++;
+
+		if(_token[s] == QUOTE)
+		{
+			_token[i] = '\0';
+		}
+		else{
+			_token[i] = _token[s];
+		}
+		s++;  
+	}
 }
 		

@@ -28,9 +28,9 @@ using namespace std;
 class searchIndexes
 {
 	public:
-	sIndex* index;
-	//map<char*,Column*>  columns;
-	list<Column*> col;
+		sIndex* index;
+		char*	op;
+		list<Column*> col;
 };
 
 /******************************************************
@@ -41,7 +41,6 @@ class sqlEngine
 	/***************************************
 	 * Assuming a single table for now
 	*******************************************/
-	sIndex* 		eIndex;
 	fstream* 		tableStream;
 	fstream* 		indexStream;
 	list<sIndex*>	sIndexes;
@@ -59,18 +58,20 @@ class sqlEngine
 		ParseResult 	update();
 		ParseResult 	insert();
 		string 			select();
-		char* 			getRecord(long, fstream*, int);
-		long			appendRecord(void*, fstream*, int);
-		bool 			writeRecord(void*, long, fstream*, int);
-		string			outputLine(list<Column*>);
-		string 			formatOutput(Column*);
-		ParseResult 	formatInput(char*, Column*);
-		ParseResult 	updateIndexes(long);
-		string 			tableScan(list<Column*>);
-		searchIndexes* 	gatherIndexesForSelect();
-		string 			indexReadResults(searchIndexes*);
-		string  		htmlHeader(list<Column*>,int32_t);
-		string  		textHeader(list<Column*>);
+		char* 			getRecord(		long, fstream*, int);
+		long			appendRecord(	void*, fstream*, int);
+		bool 			writeRecord(	void*, long, fstream*, int);
+		string			outputLine(		list<Column*>);
+		string 			formatOutput(	Column*);
+		ParseResult 	formatInput(	char*, Column*);
+		ParseResult 	updateIndexes(	long);
+		string 			tableScan(		list<Column*>);
+		searchIndexes* 	determineIndex();
+		string 			searchForward(	Search*, char*, int, SEARCH);
+		string 			searchBack(		Search*, char*, int);
+		string 			indexRead(		searchIndexes*);
+		string  		htmlHeader(		list<Column*>,int32_t);
+		string  		textHeader(		list<Column*>);
 
 };
 /******************************************************
@@ -154,12 +155,16 @@ ParseResult sqlEngine::open()
 		{
 			for(sIndex* idx : statement->table->indexes)
 			{
-				idx->open();
-				idx->open();
+				//TODO test that file
+				if(idx->open() == nullptr)
+				{
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to open index: ");
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,idx->fileName);
+					return ParseResult::FAILURE;
+				}
 				idx->index = new Index(idx->fileStream);
 			}
 		}
-
 		return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -169,8 +174,6 @@ ParseResult sqlEngine::close()
 {
 	if(tableStream != nullptr)
 		tableStream->close();
-	if(eIndex != nullptr)
-		eIndex->close();
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -341,7 +344,8 @@ string sqlEngine::select()
 	}
 
 	//checks the index columns against the queryColumns
-	searchIndexes* searchOn = gatherIndexesForSelect();
+	searchIndexes* searchOn = determineIndex();
+
 	//query condition but not on an indexed column
 	if(searchOn == nullptr)
 	{
@@ -349,7 +353,7 @@ string sqlEngine::select()
 		return rowResponse;
 	}
 	
-	rowResponse.append(indexReadResults(searchOn));
+	rowResponse.append(indexRead(searchOn));
 	return rowResponse;
 
 }
@@ -393,7 +397,7 @@ string sqlEngine::tableScan(list<Column*> _columns)
 		}
 		recordPosition = recordPosition + statement->table->recordLength;
 	}
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Table scan: rows scanned ");
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,"Table scan: rows scanned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(resultCount).c_str());
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
@@ -402,7 +406,7 @@ string sqlEngine::tableScan(list<Column*> _columns)
 /******************************************************
  * Index read
  ******************************************************/
-searchIndexes* sqlEngine::gatherIndexesForSelect()
+searchIndexes* sqlEngine::determineIndex()
 {
 	searchIndexes* searchOn = nullptr;
 	for(sIndex* idx : statement->table->indexes)
@@ -414,9 +418,10 @@ searchIndexes* sqlEngine::gatherIndexesForSelect()
 				if(strcasecmp(col->name,condition->col->name) == 0 )
 				{
 					//TODO  only affects char* indexes
-					if(searchOn == nullptr)
+				   if(searchOn == nullptr)
 						searchOn = new searchIndexes();
 					searchOn->index = idx;
+					searchOn->op	= condition->op;
 					condition->col->value = condition->value;
 					searchOn->col.push_back(condition->col);
 					return searchOn;
@@ -430,32 +435,82 @@ searchIndexes* sqlEngine::gatherIndexesForSelect()
 /******************************************************
  * Index read
  ******************************************************/
-string sqlEngine::indexReadResults(searchIndexes* _searchOn)
+string sqlEngine::indexRead(searchIndexes* _searchOn)
+{
+
+	string lineResult;
+	SEARCH op;
+	int rowsToReturn 	= 0;
+
+	if(statement->plan->rowsToReturn > 0)
+	{
+		rowsToReturn = statement->plan->rowsToReturn;
+	}
+	else	
+	{
+		rowsToReturn = MAXRESULTS;
+	}
+
+	Search* search = new Search(_searchOn->index->fileStream);
+
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,"indexed read on ");
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,_searchOn->index->name);
+
+	//TODO using one column
+	Column* col = _searchOn->col.front();
+
+	if(col == nullptr)
+	{
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column is null ");
+		return "";
+	}
+
+	if(strcasecmp(_searchOn->op,(char*)sqlTokenEqual) == 0)
+	{
+		op = SEARCH::EXACT;
+	}
+	else
+	if(strcasecmp(_searchOn->op,(char*)sqlTokenGreater) == 0
+	|| strcasecmp(_searchOn->op,(char*)sqlTokenGreaterOrEqual) == 0)
+	{
+		op = SEARCH::FORWARD;
+	}
+	else
+	if(strcasecmp(_searchOn->op,(char*)sqlTokenLessThan) == 0
+	|| strcasecmp(_searchOn->op,(char*)sqlTokenLessOrEqual) == 0)
+	{
+		op = SEARCH::BACK;
+		return searchBack(search,col->value,rowsToReturn);
+	}
+	else
+	if(strcasecmp(_searchOn->op,(char*)sqlTokenLike) == 0)
+	{
+		op = SEARCH::LIKE;
+	}
+	
+	return searchForward(search,col->value,rowsToReturn, op);
+}
+/******************************************************
+ * Search Forward
+ ******************************************************/
+string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn, SEARCH _op)
 {
 	string rowResponse;
 	string lineResult;
-	int rowCount = 0;
-	int recordPosition 	= 0;
-	int resultCount 	= 0; 
-	ResultList* results = new ResultList();
-	Search* search = new Search(_searchOn->index->fileStream);
-	Column* col = _searchOn->col.front();
-	//TODO using one column
-	results = search->findRange(col->value, MAXRESULTS, SEARCH::EXACT);
+	int rowCount 		= 0;
+	ResultList* results = _search->findRange(_value, _rowsToReturn, _op);
+	
 	while(results != nullptr)
 	{
-		line = getRecord(recordPosition,tableStream, statement->table->recordLength);
+		line = getRecord(results->location,tableStream, statement->table->recordLength);
 		
 		//End of File
 		if(line == nullptr)
 			break;
 
 		//select top n
-		if(statement->plan->rowsToReturn > 0
-		&& rowCount >= statement->plan->rowsToReturn)
+		if(rowCount >= _rowsToReturn)
 			break;
-
-		resultCount++;
 
 		lineResult = outputLine(statement->table->columns);
 		if(lineResult.length() > 0)
@@ -463,14 +518,51 @@ string sqlEngine::indexReadResults(searchIndexes* _searchOn)
 			rowResponse.append(lineResult);
 			rowCount++;
 		}
-		recordPosition = recordPosition + statement->table->recordLength;
 		results = results->next;
 	}
-	returnResult.message.append(" indexed read on ");
-	returnResult.message.append(eIndex->name);
-	returnResult.message.append("<p>");
-	returnResult.message.append(" rows returned ");
-	returnResult.message.append(std::to_string(rowCount));
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
+	return rowResponse;
+}
+/******************************************************
+ * Search Back
+ ******************************************************/
+string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
+{
+	string rowResponse;
+	string lineResult;
+	int rowCount 		= 0;
+	int location		= 0;
+	char* key;
+	Node* _leaf = _search->findLeafBase(_value);
+	ScrollNode* scrollNode = _search->scrollIndexBackward(_leaf,_value);
+	key = _value;
+	
+	while(true)
+	{
+		scrollNode = _search->scrollIndexBackward(scrollNode->leaf,key);
+		location = _search->getLocation(scrollNode->leaf,scrollNode->position);
+		_search->getKeyFromPosition(scrollNode->leaf, key, scrollNode->position);
+		
+		line = getRecord(location,tableStream, statement->table->recordLength);
+		
+		//End of File
+		if(line == nullptr)
+			break;
+
+		//select top n
+		if(rowCount >= _rowsToReturn)
+			break;
+
+		lineResult = outputLine(statement->table->columns);
+		if(lineResult.length() > 0)
+		{
+			rowResponse.append(lineResult);
+			rowCount++;
+		}
+	}
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return rowResponse;
 }
 /******************************************************
@@ -590,7 +682,8 @@ ParseResult sqlEngine::insert()
 	char* buff = (char*)malloc(statement->table->recordLength);
 	for(Column* col : statement->table->columns)
 	{
-		formatInput(buff, col);
+		if(formatInput(buff, col) == ParseResult::FAILURE)
+			return ParseResult::FAILURE;
 		count++;
 	}
 	
@@ -615,6 +708,12 @@ ParseResult sqlEngine::insert()
  ******************************************************/
 ParseResult sqlEngine::formatInput(char* _buff, Column* _col)
 {
+	if(_col->value == nullptr)
+	{
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," is null");
+		return ParseResult::FAILURE;
+	}
 	if(((size_t)_col->position + strlen(_col->value)) > (size_t)statement->table->recordLength)
 	{
 		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"buffer overflow on ");
@@ -706,7 +805,6 @@ char* sqlEngine::getRecord(long _address, fstream* _file, int _size)
 		char* ptr = (char*)malloc(_size);
 
 		_file->clear();
-
 		if (!_file->seekg(_address))
 		{
 			free(ptr);

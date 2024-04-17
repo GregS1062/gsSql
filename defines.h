@@ -55,6 +55,8 @@ using namespace std;
 #define sqlTokenEditDouble      "DOUBLE"
 #define sqlTokenEditInt         "INT"
 #define sqlTokenAsterisk        "*"
+#define sqlTokenQuote           "\""
+#define sqlTokenPeriod          "."
 #define sqlTokenOpenParen       "("     //Note difference between OPENPAREN and sqlTokenOpenParen
 #define sqlTokenCloseParen      ")"
 #define sqlTokenEqual           "="
@@ -71,12 +73,19 @@ using namespace std;
 #define sqlTokenUnique          "UNIQUE"
 #define sqlTokenIN              "IN"
 #define sqlTokenOrder           "ORDER"
+#define sqlTokenGroup           "GROUP"
+#define sqlTokenHaving          "HAVING"
 #define sqlTokenBY              "BY"
 #define sqlTokenAnd             "AND"
 #define sqlTokenOr              "OR"
 #define sqlTokenOn              "ON"
 #define sqlTokenJoin            "JOIN"
-
+#define sqlTokenInner           "INNER"
+#define sqlTokenLeft            "LEFT"
+#define sqlTokenRight           "RIGHT"
+#define sqlTokenOuter           "OUTER"
+#define sqlTokenOrderDescending "DESC"
+#define sqlTokenOrderAcending   "ASC"
 
 enum MESSAGETYPE
 {

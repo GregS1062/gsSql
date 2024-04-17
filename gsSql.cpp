@@ -144,7 +144,10 @@ int main(int argc, char* argv[])
                 break;
              case 15:
                 script = "t100-select-multiple-conditions";
-                break;             
+                break;        
+             case 16:
+                script = "t101-select-equal-index";
+                break;   
           default:
                 printf("\n No case for this script number\n\n");
                 return 0;

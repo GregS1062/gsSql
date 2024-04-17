@@ -57,6 +57,9 @@ ParseResult sqlParser::parse()
     {
         token = tok->getToken();
 
+        if(token == nullptr)
+            break;
+
         if(tok->eof)
             break;
 
@@ -144,6 +147,9 @@ ParseResult sqlParser::parseColumns()
     {
         token = tok->getToken();
 
+        if(token == nullptr)
+            break;
+
         if(strcasecmp(token,(char*)sqlTokenPrimary) == 0)
         {
             if(parsePrimaryKey() == ParseResult::FAILURE)
@@ -195,6 +201,9 @@ ParseResult sqlParser::parsePrimaryKey()
     while(!tok->eof)
     {
         token = tok->getToken();
+
+        if(token == nullptr)
+            break;
 
         if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)
             return ParseResult::SUCCESS;
@@ -357,6 +366,10 @@ ParseResult sqlParser::createIndex()
     while(!tok->eof)
     {
         token = tok->getToken();
+
+        if(token == nullptr)
+            continue;
+
         if(strcasecmp(token,(char*)sqlTokenCloseParen) == 0)
         {
             break;

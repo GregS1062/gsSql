@@ -7,6 +7,9 @@
 
 using namespace std;
 
+/******************************************************
+ * Result
+ ******************************************************/
 class ReturnResult{
   public:
   string resultTable;
@@ -16,6 +19,9 @@ class ReturnResult{
 
 ReturnResult returnResult;
 
+/******************************************************
+ * Token Pair
+ ******************************************************/
 class TokenPair
 {
     public:
@@ -23,6 +29,9 @@ class TokenPair
     char* two;
 };
 
+/******************************************************
+ * Column Alias
+ ******************************************************/
 class ColumnAlias
 {
     public:
@@ -30,44 +39,68 @@ class ColumnAlias
     char* tableName;
 };
 
+/******************************************************
+ * Column
+ ******************************************************/
 class Column
 {
     public:
+    char*   tableName;
     char*   name;
     bool    primary = false;
     t_edit  edit;
     int     length = 0;
     int     position = 0;
     char*   value;
-    char*   tableName;
 };
+/******************************************************
+ * Order By
+ ******************************************************/
+class OrderBy
+{
+    public:
+        Column* col;
+        char*   DescAsc;
+};
+/******************************************************
+ * Condition
+ ******************************************************/
 class Condition
 {
     public:
-        char*   name            = nullptr;  // described by user
+        char*   name            = nullptr;
+        char*   compareToName   = nullptr;
         char*   op              = nullptr;  // operator is a reserved word
+        char*   prefix          = nullptr;  // (
+        char*   condition       = nullptr;	// and/or
+        char*   suffix          = nullptr;  // )
         char*   value           = nullptr;
         int     intValue        = 0;
         double  doubleValue     = 0;
         bool    boolValue       = false;
         t_tm    dateValue;
-        char*   prefix          = nullptr;  // (
-        char*   condition       = nullptr;	// and/or
-        char*   suffix          = nullptr;  // )
-        Column* col             = new Column();                     // edit of column in condition
+        Column* col;
+        Column* compareToColumn;
+        list<char*> valueList {};
 };
 
+/******************************************************
+ * Base
+ ******************************************************/
 class BaseData
 {
     public:
         fstream*            fileStream = nullptr;
         char*               name;
         char*               fileName;
-        list<Column*>       columns;
+        list<Column*>       columns{};
         fstream*            open();
         void                close();
         Column*             getColumn(char*);
 };
+/******************************************************
+ * Base Open
+ ******************************************************/
 fstream* BaseData::open()
 {
 		////Open index file
@@ -80,6 +113,9 @@ fstream* BaseData::open()
 		}
         return fileStream;
 };
+/******************************************************
+ * Base Close
+ ******************************************************/
 void BaseData::close()
 {
     if(fileStream != nullptr)
@@ -90,6 +126,9 @@ void BaseData::close()
         }
     } 
 };
+/******************************************************
+ * Base Get Column
+ ******************************************************/
 Column* BaseData::getColumn(char* _name)
 {
 
@@ -99,12 +138,20 @@ Column* BaseData::getColumn(char* _name)
     }
     return nullptr;
 };
+
+
+/******************************************************
+ * Index
+ ******************************************************/
 class sIndex : public BaseData
 {
     public:
     Index* index;
     bool openIndex();
 };
+/******************************************************
+ * Open Index
+ ******************************************************/
 bool sIndex::openIndex()
 {
     if(strlen(name) == 0)
@@ -122,22 +169,35 @@ bool sIndex::openIndex()
     return true;
 };
 
+
+/******************************************************
+ * Table
+ ******************************************************/
 class sTable : public BaseData
 {  
     public:
-        list<sIndex*>    indexes;
-        list<Condition*> conditions;
+        list<sIndex*>    indexes{};
+        list<Condition*> conditions{};
+        list<OrderBy*>   orderBy{};
+        list<Condition*> groupBy{};
         int              recordLength = 0;
         char*            alias;
 };
 
+/******************************************************
+ * Results
+ ******************************************************/
 class Results
 {
     PRESENTATION        presentation;
     int rowCount        = 0;
-    list<Column*>       columns;
-    list<list<Column*>> rows;
+    list<Column*>       columns{};
+    list<list<Column*>> rows{};
 };
+
+/******************************************************
+ * Plan
+ ******************************************************/
 class Plan
 {
     public:
@@ -145,6 +205,10 @@ class Plan
         int         orderOfExecution;
         int         rowsToReturn;
 };
+
+/******************************************************
+ * Statement
+ ******************************************************/
 class Statement
 {
     public:
@@ -152,6 +216,10 @@ class Statement
     sTable*     table;
     Results*    results = new Results();
 };
+
+/******************************************************
+ * Execution
+ ******************************************************/
 class Execution
 {
     

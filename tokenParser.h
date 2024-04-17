@@ -8,11 +8,14 @@ using namespace std;
 
 class tokenParser
 {
+    bool keepQuotes = false;
+
     public:
     tokenParser();
     tokenParser(const char*);
     
     void        parse(const char*);
+    void        parse(const char*,bool);
     char*       getToken();
     bool        delimiterAhead();
     bool        eof = false;
@@ -35,6 +38,13 @@ void tokenParser::parse(const char* _parseString)
     parseString         = _parseString;
     parseStringLength   = (signed long)strlen(parseString);
     pos = 0;
+}
+void tokenParser::parse(const char* _parseString, bool _keepQuotes)
+{
+    parseString         = _parseString;
+    parseStringLength   = (signed long)strlen(parseString);
+    keepQuotes          = _keepQuotes;
+    pos                 = 0;
 }
 bool tokenParser::delimiterAhead()
 {
@@ -102,7 +112,11 @@ char* tokenParser::getToken()
             if(betweenQuotes)
             {
                 betweenQuotes = false;
-
+                if(keepQuotes)
+                {
+                    token[t] = c;
+                    t++;
+                }
                 // Looking for end of value list without a comma
                 // example Update tablename set column = "" where....
                 if(!delimiterAhead())
@@ -110,14 +124,21 @@ char* tokenParser::getToken()
                     token[t] = '\0';
                     retToken = (char*)malloc(t+1);
                     strcpy(retToken,token);
+
                     if(debug)
                         printf("\n token = %s",retToken);
+
                     return retToken;
                 }
             }
             else
             {
                 betweenQuotes = true; 
+            }
+            if(keepQuotes)
+            {
+                token[t] = c;
+                t++;
             }
             continue;
         }
