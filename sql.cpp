@@ -4,11 +4,11 @@
 #include "sqlParser.h"
 int main()
 {
-    printf("\n customers %d",sizeof(Customers));
-    printf("\n Stores    %d",sizeof(Stores));
-    printf("\n Products  %d",sizeof(Products));
-    printf("\n Orders    %d",sizeof(Orders));
-    printf("\n Items     %d",sizeof(Items));
+    fprintf(traceFile,"\n customers %d",sizeof(Customers));
+    fprintf(traceFile,"\n Stores    %d",sizeof(Stores));
+    fprintf(traceFile,"\n Products  %d",sizeof(Products));
+    fprintf(traceFile,"\n Orders    %d",sizeof(Orders));
+    fprintf(traceFile,"\n Items     %d",sizeof(Items));
     
 
     std::string scriptFileName = "/home/greg/projects/gsSql/bike.sql";
@@ -20,44 +20,44 @@ int main()
     sqlParser* parser = new sqlParser((char*)sql.c_str());
     if(parser->parse() == ParseResult::FAILURE)
     {
-        printf("\n error %s",errText.c_str());
+        fprintf(traceFile,"\n error %s",errText.c_str());
         return 0;
     };
-    printf("\n\n");
+    fprintf(traceFile,"\n\n");
     map<char*,column*>::iterator itr;
     column* col;
     for(sTable* table : parser->tables)
     {
-        printf("\n----------------------------------------");
-        printf("\n table name %s",table->name);
-        printf(" at ");
-        printf(table->fileName.c_str());
-        printf("  %d",table->recordLength);
+        fprintf(traceFile,"\n\n----------------------------------------");
+        fprintf(traceFile,"\n table name %s",table->name);
+        fprintf(traceFile," at ");
+        fprintf(traceFile,table->fileName.c_str());
+        fprintf(traceFile,"  %d",table->recordLength);
         map<char*,column*>columns = table->columns;
         for (itr = columns.begin(); itr != columns.end(); ++itr) 
         {
             col = (column*)itr->second;
-            printf("\n\t\t\tname %s",col->name);
-            printf(" length %d",col->length);
+            fprintf(traceFile,"\n\t\t\tname %s",col->name);
+            fprintf(traceFile," length %d",col->length);
             if(col->primary)
-                printf("\t PRIMARY");
+                fprintf(traceFile,"\t PRIMARY");
         }
         for(sIndex* index : table->indexes)
         {
-            printf("\n\t index name %s",index->name);
-            printf(" at ");
-            printf(index->fileName.c_str());
+            fprintf(traceFile,"\n\t index name %s",index->name);
+            fprintf(traceFile," at ");
+            fprintf(traceFile,index->fileName.c_str());
             map<char*,column*>columns = index->columns;
             for (itr = columns.begin(); itr != columns.end(); ++itr) 
             {
                 col = (column*)itr->second;
-                printf("\n\t\t\tname %s",col->name);
-                printf(" length %d",col->length);
+                fprintf(traceFile,"\n\t\t\tname %s",col->name);
+                fprintf(traceFile," length %d",col->length);
             }
         }
 
         
     }
-    printf("\n\n");
+    fprintf(traceFile,"\n\n");
     return 0;
 }

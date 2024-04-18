@@ -124,10 +124,6 @@ char* tokenParser::getToken()
                     token[t] = '\0';
                     retToken = (char*)malloc(t+1);
                     strcpy(retToken,token);
-
-                    if(debug)
-                        printf("\n token = %s",retToken);
-
                     return retToken;
                 }
             }
@@ -176,8 +172,6 @@ char* tokenParser::getToken()
                 token[t] = '\0';
                 retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
-                if(debug)
-                    printf("\n token = %s",retToken);
                 return retToken;
             }
             continue;
@@ -194,7 +188,7 @@ char* tokenParser::getToken()
                 retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
                 if(debug)
-                   printf("\n token = %s",retToken);
+                   fprintf(traceFile,"\n token = %s",retToken);
                 return retToken;
             }
             else
@@ -205,7 +199,7 @@ char* tokenParser::getToken()
                 retToken = (char*)malloc(t+1);
                 strcpy(retToken,token);
                 if(debug)
-                   printf("\n token = %s",retToken);
+                   fprintf(traceFile,"\n token = %s",retToken);
                 return retToken;
             }
          }
@@ -219,7 +213,7 @@ char* tokenParser::getToken()
         retToken = (char*)malloc(t+1);
         strcpy(retToken,token);
         if(debug)
-            printf("\n token = %s",retToken);
+            fprintf(traceFile,"\n token = %s",retToken);
         return retToken;
     }
     eof = true;

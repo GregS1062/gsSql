@@ -50,28 +50,29 @@ class sqlEngine
 	Statement*		statement;
 
 	public:
-		sqlEngine(sqlParser*);
-		ParseResult 	execute(Statement*);
-		ParseResult 	open();
-		ParseResult 	close();
-		ParseResult		getConditionColumns();
-		ParseResult 	update();
-		ParseResult 	insert();
-		string 			select();
-		char* 			getRecord(		long, fstream*, int);
-		long			appendRecord(	void*, fstream*, int);
-		bool 			writeRecord(	void*, long, fstream*, int);
-		string			outputLine(		list<Column*>);
-		string 			formatOutput(	Column*);
-		ParseResult 	formatInput(	char*, Column*);
-		ParseResult 	updateIndexes(	long);
-		string 			tableScan(		list<Column*>);
-		searchIndexes* 	determineIndex();
-		string 			searchForward(	Search*, char*, int, SEARCH);
-		string 			searchBack(		Search*, char*, int);
-		string 			indexRead(		searchIndexes*);
-		string  		htmlHeader(		list<Column*>,int32_t);
-		string  		textHeader(		list<Column*>);
+		sqlEngine						(sqlParser*);
+		ParseResult 	execute			(Statement*);
+		ParseResult 	open			();
+		ParseResult 	close			();
+		ParseResult 	update			();
+		ParseResult 	insert			();
+		ParseResult 	Delete			();
+		ParseResult		select			();
+		char* 			getRecord		(long, fstream*, int);
+		long			appendRecord	(void*, fstream*, int);
+		bool 			writeRecord		(void*, long, fstream*, int);
+		string			outputLine		(list<Column*>);
+		string 			formatOutput	(Column*);
+		ParseResult 	formatInput		(char*, Column*);
+		ParseResult 	updateIndexes	(long, SQLACTION);
+		ParseResult 	tableScan		(list<Column*>, SQLACTION);
+		searchIndexes* 	determineIndex	();
+		string 			searchForward	(Search*, char*, int, SEARCH);
+		string 			searchBack		(Search*, char*, int);
+		string 			indexRead		(searchIndexes*);
+		string  		htmlHeader		(list<Column*>,int32_t);
+		string  		textHeader		(list<Column*>);
+		bool			isRecordDeleted (bool);
 
 };
 /******************************************************
@@ -81,60 +82,65 @@ sqlEngine::sqlEngine(sqlParser* _sp)
 {
 	sp = _sp;
 }
+/******************************************************
+ * Execute
+ ******************************************************/
 ParseResult sqlEngine::execute(Statement* _statement)
 {
-		statement = _statement;
-		if(statement == nullptr)
+	if(debug)
+        fprintf(traceFile,"\n\n-------------------------BEGIN ENGINE-------------------------------------------");
+		
+	statement = _statement;
+	if(statement == nullptr)
+	{
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Statement is null");
+	}
+	if(open() == ParseResult::FAILURE)
+	{
+		return ParseResult::FAILURE;
+	}
+	switch(statement->plan->action)
+	{
+		case SQLACTION::CREATE:
 		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Statement is null");
-		}
-		if(open() == ParseResult::FAILURE)
-		{
+			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Not implemented at this time");
 			return ParseResult::FAILURE;
+			break;
 		}
-		switch(statement->plan->action)
+		case SQLACTION::DELETE:
 		{
-			case SQLACTION::CREATE:
-			{
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Not implemented at this time");
-				return ParseResult::FAILURE;
-				break;
-			}
-			case SQLACTION::DELETE:
-			{
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Not implemented at this time");
-				return ParseResult::FAILURE;
-				break;
-			}
-			case SQLACTION::NOACTION:
-			{
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
-				return ParseResult::FAILURE;
-				break;
-			}
-			case SQLACTION::SELECT:
-			{
-				returnResult.resultTable = select();
-				break;
-			}
-			case SQLACTION::INSERT:
-			{
-				insert();
-				break;
-			}
-			case SQLACTION::INVALID:
-			{
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
-				return ParseResult::FAILURE;
-				break;
-			}
-			case SQLACTION::UPDATE:
-			{
-				update();
-				break;
-			}
+			Delete();
+			break;
 		}
-		return ParseResult::SUCCESS;
+		case SQLACTION::NOACTION:
+		{
+			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::SELECT:
+		{
+			select();
+			break;
+		}
+		case SQLACTION::INSERT:
+		{
+			insert();
+			break;
+		}
+		case SQLACTION::INVALID:
+		{
+			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::UPDATE:
+		{
+			update();
+			break;
+		}
+	}
+	return ParseResult::SUCCESS;
 }
 /******************************************************
  * Open
@@ -177,77 +183,17 @@ ParseResult sqlEngine::close()
 	return ParseResult::SUCCESS;
 }
 /******************************************************
- * Get Condition Columns
- ******************************************************/
-ParseResult sqlEngine::getConditionColumns()
-{
-	//Get the SQL definition of the full table because the condition column may
-	//	not be in the list of columns to be returned
-	sTable* sqlTable = lookup::getTableByName(sp->tables,statement->table->name);
-	
-	Column* col;
-	for(Condition* condition : statement->table->conditions)
-	{
-		if(condition == nullptr)
-			return ParseResult::FAILURE;
-		
-
-		col = sqlTable->getColumn(condition->name);
-
-		if(col == nullptr)
-		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," condition column ");
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,condition->name);
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," not found ");
-			statement->plan->rowsToReturn = 1;
-			return ParseResult::FAILURE;
-
-		}
-
-		condition->col = col;
-	}
-	return ParseResult::SUCCESS;
-}
-
-/******************************************************
  * Update Record
  ******************************************************/
 ParseResult sqlEngine::update()
 {
-	int recordPosition 	= 0;
-	int rowCount 		= 0;
 
-	if(getConditionColumns() == ParseResult::FAILURE)
+	if(tableScan(statement->table->columns,SQLACTION::UPDATE) == ParseResult::FAILURE)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true, " Query condition failure");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Failed to update record");
 		return ParseResult::FAILURE;
 	};
 
-	//table scan for now
-	while(true)
-	{
-		line = getRecord(recordPosition,tableStream, statement->table->recordLength);
-		if(line == nullptr)
-			break;
-		
-		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
-		{
-			for (Column* col :statement->table->columns) 
-			{
-				if(formatInput(line,col) == ParseResult::FAILURE)
-					return ParseResult::FAILURE;
-			}
-			if(!writeRecord(line,recordPosition,tableStream,statement->table->recordLength))
-			{
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Failed to update record");
-				return ParseResult::FAILURE;
-			}
-			rowCount++;
-		}
-		recordPosition = recordPosition + statement->table->recordLength;
-	}
-	returnResult.message.append(std::to_string(rowCount));
-	returnResult.message.append(" rows updated");
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -308,11 +254,10 @@ string sqlEngine::textHeader(list<Column*> _columns)
 	return header;
 }
 /******************************************************
- * Fetch Row
+ * Select
  ******************************************************/
-string sqlEngine::select()
+ParseResult sqlEngine::select()
 {
-	string rowResponse;
 	string header;
 
 	int sumOfColumnSize = 0;
@@ -334,13 +279,14 @@ string sqlEngine::select()
 	else
 		header = textHeader(columns);
 
-	rowResponse.append(header);
+	returnResult.resultTable.append(header);
 
 	//No conditions
 	if(statement->table->conditions.size() == 0)
 	{
-		rowResponse.append(tableScan(columns));
-		return rowResponse;
+		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
+			return ParseResult::FAILURE;
+		return ParseResult::SUCCESS;
 	}
 
 	//checks the index columns against the queryColumns
@@ -349,20 +295,55 @@ string sqlEngine::select()
 	//query condition but not on an indexed column
 	if(searchOn == nullptr)
 	{
-		rowResponse.append(tableScan(columns));
-		return rowResponse;
+		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
+			return ParseResult::FAILURE;
+		return ParseResult::SUCCESS;
 	}
 	
-	rowResponse.append(indexRead(searchOn));
-	return rowResponse;
+	returnResult.resultTable.append(indexRead(searchOn));
+	
+	return ParseResult::SUCCESS;
 
+}
+/******************************************************
+ * Delete
+ ******************************************************/
+ParseResult sqlEngine::Delete()
+{
+	//checks the index columns against the queryColumns
+	searchIndexes* searchOn = determineIndex();
+
+	//query condition but not on an indexed column
+	if(searchOn == nullptr)
+	{
+		tableScan(statement->table->columns, SQLACTION::DELETE);
+		return ParseResult::SUCCESS;
+	}
+	
+	indexRead(searchOn);
+
+	return ParseResult::SUCCESS;
+}
+bool sqlEngine::isRecordDeleted(bool _ignoreDelete)
+{
+	//used for testing
+	if(_ignoreDelete)
+		return false;
+
+	char buff[60];
+	memcpy(&buff, line, 1);
+	buff[1] = '\0';
+	if(strcasecmp(buff,(char*)sqlTokenTrue) == 0)
+		return true;
+	
+	return false;
 }
 /******************************************************
  * Table Scan
  ******************************************************/
-string sqlEngine::tableScan(list<Column*> _columns)
+ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 {
-	string rowResponse;
+
 	int rowCount = 0;
 	int recordPosition 	= 0;
 	int resultCount 	= 0; 
@@ -371,12 +352,19 @@ string sqlEngine::tableScan(list<Column*> _columns)
 
 	while(true)
 	{
-		line = getRecord(recordPosition,tableStream, statement->table->recordLength);
 		
+		line = getRecord(recordPosition,tableStream, statement->table->recordLength);
+
 		//End of File
 		if(line == nullptr)
 		{
 			break;
+		}
+
+		if(isRecordDeleted(false))
+		{
+			recordPosition = recordPosition + statement->table->recordLength;
+			continue;
 		}
 
 
@@ -387,21 +375,62 @@ string sqlEngine::tableScan(list<Column*> _columns)
 			break;
 		}
 
-		resultCount++;
-
-		lineResult = outputLine(_columns);
-		if(lineResult.length() > 0)
+		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
-			rowResponse.append(lineResult);
-			rowCount++;
+
+			resultCount++;
+			
+			//--------------------------------------------------------
+			// Select Logic
+			//--------------------------------------------------------
+			if(_action == SQLACTION::SELECT)
+			{
+				lineResult = outputLine(_columns);
+				if(lineResult.length() > 0)
+				{
+					returnResult.resultTable.append(lineResult);
+					rowCount++;
+				}
+			}
+			
+			//--------------------------------------------------------
+			// Update and Delete Logic
+			//--------------------------------------------------------
+			if(_action == SQLACTION::UPDATE
+			|| _action == SQLACTION::DELETE)
+			{
+				if(updateIndexes(recordPosition,_action)== ParseResult::FAILURE)
+				{
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," Failed to update indexes");
+					return ParseResult::FAILURE;
+				}
+
+				for (Column* col :statement->table->columns) 
+				{
+					if(formatInput(line,col) == ParseResult::FAILURE)
+					{
+						utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"format input failure");
+						return ParseResult::FAILURE;
+					}
+				}
+				if(!writeRecord(line,recordPosition,tableStream,statement->table->recordLength))
+				{
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," Failed to write record");
+					return ParseResult::FAILURE;
+				}
+				
+				rowCount++;
+			}
+
 		}
+
 		recordPosition = recordPosition + statement->table->recordLength;
 	}
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,"Table scan: rows scanned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(resultCount).c_str());
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
-	return rowResponse;
+	return ParseResult::SUCCESS;
 }
 /******************************************************
  * Index read
@@ -465,6 +494,8 @@ string sqlEngine::indexRead(searchIndexes* _searchOn)
 		return "";
 	}
 
+	utilities::upperCase(col->value);
+
 	if(strcasecmp(_searchOn->op,(char*)sqlTokenEqual) == 0)
 	{
 		op = SEARCH::EXACT;
@@ -498,6 +529,10 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 	string rowResponse;
 	string lineResult;
 	int rowCount 		= 0;
+	if(debug)
+	{
+		fprintf(traceFile,"\nOp=%d",(int)_op);
+	}
 	ResultList* results = _search->findRange(_value, _rowsToReturn, _op);
 	
 	while(results != nullptr)
@@ -511,12 +546,15 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		//select top n
 		if(rowCount >= _rowsToReturn)
 			break;
-
-		lineResult = outputLine(statement->table->columns);
-		if(lineResult.length() > 0)
+		
+		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
-			rowResponse.append(lineResult);
-			rowCount++;
+			lineResult = outputLine(statement->table->columns);
+			if(lineResult.length() > 0)
+			{
+				rowResponse.append(lineResult);
+				rowCount++;
+			}
 		}
 		results = results->next;
 	}
@@ -572,40 +610,39 @@ string sqlEngine::outputLine(list<Column*> columns)
 {
 	size_t pad = 0;
 	string result;
-	if(compareToCondition::queryContitionsMet(statement->table->conditions,line) == ParseResult::SUCCESS)
+
+	result.append("\n");
+	if(presentationType == PRESENTATION::HTML)
 	{
-		result.append("\n");
+		//newline and tabs aid the reading of html source
+		result.append("\t\t");
+		result.append(rowBegin);
+	}
+	for (Column* col : columns) 
+	{
 		if(presentationType == PRESENTATION::HTML)
 		{
-			//newline and tabs aid the reading of html source
-			result.append("\t\t");
-			result.append(rowBegin);
+			result.append(cellBegin);
+			result.append(formatOutput(col));
+			result.append(cellEnd);
 		}
-		for (Column* col : columns) 
+		else
 		{
-			if(presentationType == PRESENTATION::HTML)
+			string out = formatOutput(col);
+			result.append(out);
+			if((size_t)col->length > out.length())
 			{
-				result.append(cellBegin);
-				result.append(formatOutput(col));
-				result.append(cellEnd);
-			}
-			else
-			{
-				string out = formatOutput(col);
-				result.append(out);
-				if((size_t)col->length > out.length())
+				pad = col->length - out.length();
+				for(size_t i =0;i<pad;i++)
 				{
-					pad = col->length - out.length();
-					for(size_t i =0;i<pad;i++)
-					{
-						result.append(" ");
-					}
+					result.append(" ");
 				}
 			}
 		}
-		if(presentationType == PRESENTATION::HTML)
-			result.append(rowEnd);
 	}
+	if(presentationType == PRESENTATION::HTML)
+		result.append(rowEnd);
+
 	return result;
 }
 /******************************************************
@@ -629,14 +666,11 @@ string sqlEngine::formatOutput(Column* _col)
 		}
 		case t_edit::t_bool:
 		{
-			char boole;
-			memcpy(&boole, line+_col->position, 1);
-			int b = (int)boole;
-			if(b == 1)
-				formatString.append("T ");
-			else
-				formatString.append("F ");
-			return formatString;
+			if(debug)
+				fprintf(traceFile,"\nposition=%d length=%d",_col->position,_col->length);
+			memcpy(&buff, line+_col->position, _col->length);
+			buff[_col->length] = '\0';
+			return formatString.append(buff);
 			break;
 		}
 		case t_edit::t_int:
@@ -691,7 +725,7 @@ ParseResult sqlEngine::insert()
 	free(buff);
 	if(recordNumber > NEGATIVE)
 	{	
-		if(updateIndexes(recordNumber) == ParseResult::FAILURE)
+		if(updateIndexes(recordNumber, SQLACTION::INSERT) == ParseResult::FAILURE)
 		{
 			returnResult.message.append("update index failed");
 			return ParseResult::FAILURE;
@@ -729,7 +763,7 @@ ParseResult sqlEngine::formatInput(char* _buff, Column* _col)
 		}
 		case t_edit::t_char:
 		{
-			//printf("\n %d %s %d",_col->position, _col->value, _col->length);
+			//fprintf(traceFile,"\n %d %s %d",_col->position, _col->value, _col->length);
 			memmove(&_buff[_col->position], _col->value, _col->length);
 			break;
 		}
@@ -757,34 +791,90 @@ ParseResult sqlEngine::formatInput(char* _buff, Column* _col)
 /******************************************************
  * Update Indexes
  ******************************************************/
-ParseResult sqlEngine::updateIndexes(long _location)
+ParseResult sqlEngine::updateIndexes(long _location, SQLACTION _action)
 {	
 	Column* qColumn;
-
 	//TODO joins are a problem here
 	for(sIndex* idx : statement->table->indexes)
 	{
+
 		if(idx == nullptr)
 			return ParseResult::SUCCESS;
 
-		if(idx->columns.size() == 0)
-			return ParseResult::FAILURE;
+		if(debug)
+			fprintf(traceFile,"\n index %s",idx->name);
 
+		if(idx->columns.size() == 0)
+		{
+			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"index has no columns");
+			return ParseResult::FAILURE;
+		}
+
+		//TODO ONLY WORKS FOR SINGLE COLUMN INDEXES
 		for(Column* iColumn : idx->columns)
 		{
-			
+
 			qColumn = statement->table->getColumn(iColumn->name);
 
 			if(qColumn == nullptr)
-				return ParseResult::FAILURE;
-
-			if(!idx->index->insertIndex->insert(qColumn->value,_location))
 			{
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," insert on ");
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
-				utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
-				return ParseResult::FAILURE;
-			};
+				continue;
+			}
+
+			if(_action == SQLACTION::INSERT)
+			{
+				if(!idx->index->insertIndex->insert(qColumn->value,_location))
+				{
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+					return ParseResult::FAILURE;
+				};
+			}
+			if(_action == SQLACTION::UPDATE)
+			{
+				//If not primary delete and insert column - note: primary indexes cannot change.
+				if(!iColumn->primary)
+				{
+					if(debug)
+						fprintf(traceFile,"\ncolumn name %s position %d length %d",qColumn->name,qColumn->position,qColumn->length);
+					
+					char buffBeforValue[60];
+					memcpy(&buffBeforValue,line+qColumn->position, qColumn->length);
+					buffBeforValue[qColumn->length] = '\0';
+					
+					if(debug)
+						fprintf(traceFile,"\nUpdate before value %s \nchanged value %s",buffBeforValue,qColumn->value);
+					
+					if(strcasecmp(buffBeforValue,qColumn->value) != 0)
+					{
+						if(!idx->index->deleteIndex->deleteEntry(buffBeforValue,_location))
+						{
+							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Delete on ");
+							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+							return ParseResult::FAILURE;
+						};
+						if(!idx->index->insertIndex->insert(qColumn->value,_location))
+						{
+							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
+							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+							return ParseResult::FAILURE;
+						};
+					}
+				};
+			}
+			if(_action == SQLACTION::DELETE)
+			{
+				if(!idx->index->deleteIndex->deleteEntry(qColumn->value,_location))
+				{
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Delete on ");
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+					return ParseResult::FAILURE;
+				};
+			}
 		}
 	}
 	
@@ -861,10 +951,18 @@ bool sqlEngine::writeRecord(void* _ptr, long _address, fstream* _file, int _size
 	{ 
 		_file->clear();
 		if (!_file->seekp(_address))
+		{
+			if(debug)
+				fprintf(traceFile,"\nwrite Record seek failure address %ld size %i line %s",_address,_size,(char*)_ptr);
 			return false;
+		}
 
 		if (!_file->write((char*)_ptr, _size))
+		{
+			if(debug)
+				fprintf(traceFile,"\nwrite failure address %ld size %i line %s",_address,_size,(char*)_ptr);
 			return false;
+		}
 
 		_file->flush();
 		return true;

@@ -18,9 +18,9 @@ namespace fs = std::filesystem;
 
     /*const int result = remove( "no-file" );
     if( result == 0 ){
-        printf( "success\n" );  
+        fprintf(traceFile, "success\n" );  
     } else {
-        printf( "%s\n", strerror( errno ) ); // No such file or directory
+        fprintf(traceFile, "%s\n", strerror( errno ) ); // No such file or directory
     }*/
 
 bool runScript(string script)
@@ -39,14 +39,14 @@ bool runScript(string script)
 
     if(parser->parse(sql.c_str()) == ParseResult::FAILURE)
     {
-        printf("\n Parse failure %s  script = %s",errText.c_str(),scriptFileName.c_str());
+        fprintf(traceFile,"\n Parse failure %s  script = %s",errText.c_str(),scriptFileName.c_str());
         return 0;
     }
     
     sTable* table = loader->getTableByName((char*)"customer");
     if(table == nullptr)
     {
-        printf("\n table not found");
+        fprintf(traceFile,"\n table not found");
         return 0;
     }
     
@@ -74,7 +74,7 @@ bool runScript(string script)
             return true;
         }
     }
-    printf("\n %s", errText.c_str());
+    fprintf(traceFile,"\n %s", errText.c_str());
 
     return false;
 }
@@ -112,7 +112,7 @@ int main()
         inStream.close();
 
         if(result.compare(proof) != 0)
-            printf("\n %s failed test", name.c_str());
+            fprintf(traceFile,"\n %s failed test", name.c_str());
     }
 
 

@@ -44,7 +44,9 @@ binding::binding(sqlParser* _sp,queryParser* _qp)
 ParseResult binding::bind()
 {
 
-
+    if(debug)
+        fprintf(traceFile,"\n\n-------------------------BEGIN BIND-------------------------------------------");
+    
     Statement* statement;
 
     if(bindTableList() == ParseResult::FAILURE)
@@ -85,7 +87,7 @@ ParseResult binding::bind()
     if(bindColumnList() == ParseResult::FAILURE)
     {
         if(debug)
-            printf("\n column binding failure");
+            fprintf(traceFile,"\n column binding failure");
         return ParseResult::FAILURE;
     }
 
@@ -111,7 +113,7 @@ ParseResult binding::bindTableList()
     for(char* token : qp->lstTables)
     {
         if(debug)
-            printf("\n table name %s|| \n",token);
+            fprintf(traceFile,"\n table name %s|| \n",token);
 
         table = new sTable();
 
@@ -124,7 +126,7 @@ ParseResult binding::bindTableList()
         }
 
         if(debug)
-            printf("\n tp1:%s| tp2:%s|",tp->one, tp->two);
+            fprintf(traceFile,"\n tp1:%s| tp2:%s|",tp->one, tp->two);
 
         temp = lookup::getTableByName(sp->tables,tp->one);
         if(temp != nullptr)
@@ -215,7 +217,7 @@ ParseResult binding::bindColumnList()
     for(char* token : qp->lstColName)
     {
         if(debug)
-            printf("\n binding column %s",token);
+            fprintf(traceFile,"\n binding column %s",token);
 
         if(bindColumn(token) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
@@ -228,9 +230,17 @@ ParseResult binding::bindColumnList()
 ParseResult binding::bindColumnValueList()
 {
     TokenPair*  tp;
-
+    if(debug)
+    {
+        fprintf(traceFile,"\n\n-----------Bind Column Value List----------------");
+    }
     for(ColumnNameValue* cv : qp->lstColNameValue)
     {
+        if(debug)
+        {
+          fprintf(traceFile,"\ncolumn name:%s",cv->name);  
+          fprintf(traceFile," value:%s",cv->value);
+        }
         tp = lookup::tokenSplit(cv->name,(char*)".");
         if(tp == nullptr)
         {
@@ -269,9 +279,11 @@ ParseResult binding::bindNonAliasedColumn(char* _name, char* _value)
         utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_name);
         return ParseResult::FAILURE;
     }
-
-    if(editColumn(col,_value) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+    if(strlen(_value) > 0)
+        if(editColumn(col,_value) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+    fprintf(traceFile,"\nbound column name:%s",col->name);
+    fprintf(traceFile," value:%s",col->value);
 
     defaultTable->columns.push_back(col);
 
@@ -544,9 +556,16 @@ ParseResult binding::editColumn(Column* _col,char* _value)
 
     switch(_col->edit)
     {
-        case t_edit::t_bool:    //do nothing
+        case t_edit::t_bool: 
         {
-            _col->value = _value;
+            if(strcasecmp(_value,"T") == 0
+            || strcasecmp(_value,"F") == 0)
+                _col->value = _value;
+            else
+            {
+                fprintf(traceFile,"\n bool value %s",_value);
+                return ParseResult::FAILURE;
+            }
             break; 
         }  
         case t_edit::t_char:    //do nothing
@@ -605,6 +624,10 @@ ParseResult binding::editCondition(Condition* _con ,char* _value)
         return ParseResult::FAILURE;
     }
 
+    if(_con->value == nullptr
+    && _con->compareToName != nullptr)
+       return ParseResult::SUCCESS;
+
     switch(_con->col->edit)
     {
         case t_edit::t_bool:    //do nothing
@@ -613,6 +636,7 @@ ParseResult binding::editCondition(Condition* _con ,char* _value)
         }  
         case t_edit::t_char:    //do nothing
         {
+
             _con->col->value     = _con->value;
             break; 
         }  
@@ -630,9 +654,8 @@ ParseResult binding::editCondition(Condition* _con ,char* _value)
             {
                 utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," condition column ");
                 utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name); 
-                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric |");
+                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric ");
                 utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
-                utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
                 return ParseResult::FAILURE;
             }
             _con->doubleValue = atof(_value);

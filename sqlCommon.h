@@ -225,4 +225,6 @@ class Execution
     
 };
 
+FILE* traceFile;
+
 

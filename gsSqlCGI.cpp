@@ -36,6 +36,8 @@ ParseResult runQuery(string _htmlRequest)
 		return ParseResult::FAILURE;
 	}
 	
+	debug = true;
+	
 	queryParser* query = new queryParser();
 
     if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
@@ -64,13 +66,14 @@ ParseResult runQuery(string _htmlRequest)
 -----------------------------------------*/
 int main()
 {
+
     Cgicc formData;
 
 	string htmlRequest = "select top 5 * from customers";
 
 	string htmlResponse;
 
-	ofstream traceFile;
+	traceFile = fopen ("trace.txt" , "w");
 
 	try
 	{
@@ -146,22 +149,17 @@ int main()
 		htmlResponse.append("\n</body>");
 		htmlResponse.append("\n</html>");
 
-		traceFile.open ("gsSqlTrace.txt");
-		traceFile << htmlResponse;
-		traceFile.flush();
-		traceFile.close();
-
-
 		//Send Response
 		cout << htmlResponse;
+		fclose(traceFile);
 		return 0;
 	}
     catch(const std::exception& e)
     {
         errText.append( e.what());
-		traceFile.open ("gsSqlTrace.txt");
-		traceFile <<  errText;
-		traceFile.close();
+	//	traceFile.open ("gsSqlTrace.txt");
+	//	traceFile <<  errText;
+	//	traceFile.close();
 		cout << "<html>";
 		cout << errText;
 		cout << "</html>";

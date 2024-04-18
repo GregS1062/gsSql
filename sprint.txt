@@ -16,15 +16,18 @@ Build
 X   solves reserved word within quotes problem
 X   check to make sure sql query is well-formed - all reserved words must be present
 X   select using index
-    fix deleted column
-    add delete function
-    index primary on all tables, including concatenated columns
+X   fix deleted column
+X   condition column compared to column
+X   add delete function
+X   indexes updated on updates and deletes
+X   index primary on all tables
 
 Build
+    index on concatenated columns
     all secondary indexes
-    indexes updated on updates and deletes
+    multi-column indexe inserts, updates and deletes
     simple join on primary key condition
 
 Build
-    condition column compared to column
     order by sort
+    group by

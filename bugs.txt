@@ -11,5 +11,6 @@ X != not recognised --- because it is an error SQL uses <>
 - compare two fields freight > totaldue
 - condition alias failing
 - select top 25 * from orders where orderdate <> "05/31/2011" and freight > 55.93 and status <> 0  Status condition ignored
-- select top 25 o.* from orders o where o.tax > 14000
+X select top 25 o.* from orders o where o.tax > 14000
 X select top 25 orderdate from orders
+

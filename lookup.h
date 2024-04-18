@@ -39,7 +39,7 @@ sTable* lookup::getTableByAlias(list<sTable*> _tables, char* _alias)
 {
     for(sTable* tbl : _tables)
     {
-       // printf("\n looking for %s found %s",_alias,tbl->alias);
+       // fprintf(traceFile,"\n looking for %s found %s",_alias,tbl->alias);
         if(strcasecmp(tbl->alias, _alias) == 0)
             return tbl;
     }
@@ -52,7 +52,7 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
 {
     for(sTable* tbl : _tables)
     {
-       // printf("\n looking for %s found %s",_tableName,tbl->name);
+       // fprintf(traceFile,"\n looking for %s found %s",_tableName,tbl->name);
         if(strcasecmp(tbl->name, _tableName) == 0)
             return tbl;
     }
@@ -91,12 +91,13 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
 {
     char buff[MAXSQLSTRINGSIZE];
     bool betweenQuotes = false;
+    char* str = utilities::dupString(_string);
 
     //if the delimeter is enclosed in quotes, ignore it.
     // To do so, blank out everything between quotes in the search buffer
-    for(size_t i = 0;i<strlen(_string);i++)
+    for(size_t i = 0;i<strlen(str);i++)
     {
-        if(_string[i] == QUOTE)
+        if(str[i] == QUOTE)
         {
             if(betweenQuotes)
                 betweenQuotes = false; 
@@ -107,29 +108,29 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
         if(betweenQuotes)
             buff[i] = ' ';
         else
-            if((int)_string[i] > 96
-            && (int)_string[i] < 123)
+            if((int)str[i] > 96
+            && (int)str[i] < 123)
             {
-                buff[i] = (char)toupper(_string[i]);
+                buff[i] = (char)toupper(str[i]);
             }
             else{
-                buff[i] = _string[i];
+                buff[i] = str[i];
             }
             
     }
-
+    buff[strlen(str)] = '\0';
     if(debug)
-        printf("\n buff:%s d=%s",buff,_delimiter);
+        fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
 
     char *s;
     s = strstr(buff, _delimiter);      // search for string "hassasin" in buff
     if(debug)
-        printf("\n s:%s",s);
+        fprintf(traceFile,"\ndelimiter s:%s",s);
     if (s != NULL)                     // if successful then s now points at "hassasin"
     {
         long int result = s - buff;
         if(debug)
-            printf(" result = %ld",result);
+            fprintf(traceFile," result = %ld",result);
         return result;
     }                                  
 
@@ -161,7 +162,7 @@ signed long lookup::findDelimiterFromList(char* _string, list<char*> _list)
 SQLACTION lookup::determineAction(char* _token)
 {
     if(debug)
-      printf("\n determine action");
+      fprintf(traceFile,"\n determine action");
 
     if(strcasecmp(_token,sqlTokenSelect) == 0)
     {

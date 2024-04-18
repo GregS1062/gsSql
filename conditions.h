@@ -190,6 +190,7 @@ ParseResult compareToCondition::compareStringToConditionValue(Condition* _condit
 	Column* column = _condition->col;
 	
 	strncpy(buffRecord, _line+column->position, column->length);
+	utilities::rTrim(buffRecord);
 	
 	if (strcasecmp(_condition->op,sqlTokenEqual) == 0
 	|| strcasecmp(_condition->op,sqlTokenNotEqual) == 0)

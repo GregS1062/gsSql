@@ -14,85 +14,86 @@ using namespace std;
 
 void printTable(sTable* tbl)
 {
-    printf("\n table name %s", tbl->name);
-    printf(" alias %s", tbl->alias);
+    fprintf(traceFile,"\n table name %s", tbl->name);
+    fprintf(traceFile," alias %s", tbl->alias);
     for(Column* col : tbl->columns)
     {
-        printf("\n\t column name %s", col->name);
-        printf(" alias %s", col->tableName);
-        printf(" value %s", col->value);
+        fprintf(traceFile,"\n\t column name %s", col->name);
+        fprintf(traceFile," alias %s", col->tableName);
+        fprintf(traceFile," value %s", col->value);
         if(col->primary)
-            printf(" PRIMARY");
+            fprintf(traceFile," PRIMARY");
     }
-    printf("\n\n Conditions");
+    fprintf(traceFile,"\n\n Conditions");
     for(Condition* con : tbl->conditions)
     {
-        printf("\n\n\t condition name      %s", con->name);
-        printf("\n\t condition condition %s", con->condition);
-        printf("\n\t condition op        %s", con->op);
-        printf("\n\t condition value     %s", con->value);
+        fprintf(traceFile,"\n\n\t condition name      %s", con->name);
+        fprintf(traceFile,"\n\t condition condition %s", con->condition);
+        fprintf(traceFile,"\n\t condition op        %s", con->op);
+        fprintf(traceFile,"\n\t condition value     %s", con->value);
     }
     for(sIndex* idx : tbl->indexes)
     {
-        printf("\n\t index name %s", idx->name);
-        printf("  file name %s", idx->fileName);
+        fprintf(traceFile,"\n\t index name %s", idx->name);
+        fprintf(traceFile,"  file name %s", idx->fileName);
         for(Column* col : idx->columns)
         {
-            printf("\n\t\t index column name %s", col->name);
+            fprintf(traceFile,"\n\t\t index column name %s", col->name);
         }
     }
 }
 
 void printQuery(queryParser* qp,binding* bind)
 {
-    printf("\n*******************************************");
-    printf("\n Query Tables");
-    printf("\n*******************************************");
+    fprintf(traceFile,"\n*******************************************");
+    fprintf(traceFile,"\n Query Tables");
+    fprintf(traceFile,"\n*******************************************");
     for(sTable* tbl : bind->lstTables)
     {
         printTable(tbl);
     }
     return;
-    printf("\n--------------------------------------------");
-    printf("\n column names");
-    printf("\n--------------------------------------------");
+    fprintf(traceFile,"\n\n--------------------------------------------");
+    fprintf(traceFile,"\n column names");
+    fprintf(traceFile,"\n\n--------------------------------------------");
     for(char* c : qp->lstColName)
     {
-        printf("\n column:%s",c);
+        fprintf(traceFile,"\n column:%s",c);
     }
-    printf("\n--------------------------------------------");
-    printf("\n column values");
-    printf("\n--------------------------------------------");
+    fprintf(traceFile,"\n\n--------------------------------------------");
+    fprintf(traceFile,"\n column values");
+    fprintf(traceFile,"\n\n--------------------------------------------");
     for(char* c : qp->lstValues)
     {
-        printf("\n value:%s",c);
+        fprintf(traceFile,"\n value:%s",c);
     }
-    printf("\n--------------------------------------------");
-    printf("\n Column Name Values");
-    printf("\n--------------------------------------------");
+    fprintf(traceFile,"\n\n--------------------------------------------");
+    fprintf(traceFile,"\n Column Name Values");
+    fprintf(traceFile,"\n\n--------------------------------------------");
     for(ColumnNameValue* nv : qp->lstColNameValue)
     {
-        printf("\n column:%s value:%s",nv->name,nv->value);
+        fprintf(traceFile,"\n column:%s value:%s",nv->name,nv->value);
     }
     if(qp->conditions.size() == 0)
     {
-        printf("\n No conditions");
+        fprintf(traceFile,"\n No conditions");
         return;
     }
-    printf("\n--------------------------------------------");
-    printf("\n Conditions");
-    printf("\n--------------------------------------------");
+    fprintf(traceFile,"\n\n--------------------------------------------");
+    fprintf(traceFile,"\n Conditions");
+    fprintf(traceFile,"\n\n--------------------------------------------");
     for(Condition* con : qp->conditions)
     {
-        printf("\n\t condition name      %s", con->name);
-        printf("\n\t condition condition %s", con->condition);
-        printf("\n\t condition op        %s", con->op);
-        printf("\n\t condition value     %s", con->value);
+        fprintf(traceFile,"\n\t condition name      %s", con->name);
+        fprintf(traceFile,"\n\t condition condition %s", con->condition);
+        fprintf(traceFile,"\n\t condition op        %s", con->op);
+        fprintf(traceFile,"\n\t condition value     %s", con->value);
     }
 }
 
 int main(int argc, char* argv[])
 {   
+    traceFile = fopen ("trace.txt" , "w");
     std::string scriptFileName;
     std::string script;
     if(argc > 1)
@@ -148,8 +149,14 @@ int main(int argc, char* argv[])
              case 16:
                 script = "t101-select-equal-index";
                 break;   
+            case 17:
+                script = "t102-select-column-greater-column";
+                break;   
+            case 18:
+                script = "t103-delete";
+                break; 
           default:
-                printf("\n No case for this script number\n\n");
+                fprintf(traceFile,"\n No case for this script number\n\n");
                 return 0;
         }
     }
@@ -170,43 +177,44 @@ int main(int argc, char* argv[])
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
     
-    printf("\n query=%s \n",queryStr.c_str());
+    fprintf(traceFile,"\n query=%s \n",queryStr.c_str());
     presentationType = PRESENTATION::TEXT;
     sqlParser* parser = new sqlParser((char*)sql.c_str());
 
     if(parser->parse() == ParseResult::FAILURE)
     {
-        printf("\n sql=%s",sql.c_str());
-        printf("\n %s",errText.c_str());
+        fprintf(traceFile,"\n sql=%s",sql.c_str());
+        fprintf(traceFile,"\n %s",errText.c_str());
         return 0;
     }
-    
+    debug = true;
     queryParser* query = new queryParser();
 
     if(query->parse((char*)queryStr.c_str(),parser) == ParseResult::FAILURE)
     {
-        printf("\n query parse failed");
-        printf("\n error %s",errText.c_str());
+        fprintf(traceFile,"\n query parse failed");
+        fprintf(traceFile,"\n error %s",errText.c_str());
     };
 
     binding* bind = new binding(parser,query);
     if(bind->bind() == ParseResult::FAILURE)
     {
-        printf("\n bind validate failed");
-        printf("\n error %s",errText.c_str());
+        fprintf(traceFile,"\n bind validate failed");
+        fprintf(traceFile,"\n error %s",errText.c_str());
     };
 
     sqlEngine* engine = new sqlEngine(parser);
     if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
     {
-        printf("\n error %s",errText.c_str());
+        fprintf(traceFile,"\n error %s",errText.c_str());
         return 0;
     }
 
-    printf("\n %s",returnResult.resultTable.c_str());
-    printf("\n %s",msgText.c_str());
-    printf("\n %s",errText.c_str());
+    fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
+    fprintf(traceFile,"\n %s",msgText.c_str());
+    fprintf(traceFile,"\n %s",errText.c_str());
         
-    printf("\n\n");
+    fprintf(traceFile,"\n\n");
+    fclose(traceFile);
     return 0; 
 }

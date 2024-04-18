@@ -35,13 +35,18 @@ public:
 *******************************************************/
 char* utilities::dupString(const char* str)
 {
- return strcpy((char*)malloc( strlen(str) + 1),str);
+	int len = (int)strlen(str) + 1;
+	char* cpy = (char*)malloc(len);
+	memcpy(cpy, str, len);
+	return cpy;
 }
 /*******************************************************
    Send Message
 *******************************************************/
 void utilities::sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, const char* _msg)
 {
+	if(_msg == nullptr)
+		_msg = "trying to send null message";
 
 	if(_presentation == PRESENTATION::HTML)
 		utilities::messageHTML(_type,_newLine,_msg);
@@ -72,7 +77,7 @@ void utilities::messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
 	string msg;
 
 	if(_newLine)
-		msg.append("<p>");
+		msg.append("<br>");
 
 	if(_type == MESSAGETYPE::ERROR)
 		msg.append("<font color=\"crimson\">");
@@ -178,9 +183,12 @@ char* utilities::padLeft(char target[], int max)
 *******************************************************/
 void utilities::lTrim(char _target[], char _ch)
 {
-	int len = (int)strlen(_target);
-	int i = 0;
-	int i2 = 0;
+	if(_target[0] != _ch)
+		return;
+		
+	size_t len = strlen(_target);
+	size_t i = 0;
+	size_t i2 = 0;
 	for (i = 0; i < len; i++)
 	{
 		if (_target[i] != _ch)

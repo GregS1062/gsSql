@@ -72,8 +72,8 @@ using namespace std;
 #define sqlTokenSome            "SOME"
 #define sqlTokenUnique          "UNIQUE"
 #define sqlTokenIN              "IN"
-#define sqlTokenOrder           "ORDER"
-#define sqlTokenGroup           "GROUP"
+#define sqlTokenOrderBy         "ORDER BY"
+#define sqlTokenGroupBy         "GROUP BY"
 #define sqlTokenHaving          "HAVING"
 #define sqlTokenBY              "BY"
 #define sqlTokenAnd             "AND"
@@ -86,6 +86,7 @@ using namespace std;
 #define sqlTokenOuter           "OUTER"
 #define sqlTokenOrderDescending "DESC"
 #define sqlTokenOrderAcending   "ASC"
+#define sqlTokenTrue            "T"
 
 enum MESSAGETYPE
 {
