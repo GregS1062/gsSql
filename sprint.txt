@@ -23,11 +23,12 @@ X   indexes updated on updates and deletes
 X   index primary on all tables
 
 Build
+    order by sort
+    group by
+
+Build
     index on concatenated columns
     all secondary indexes
     multi-column indexe inserts, updates and deletes
     simple join on primary key condition
 
-Build
-    order by sort
-    group by

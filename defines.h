@@ -115,6 +115,14 @@ enum class SQLACTION{
     DELETE
 };
 
+enum class RETURNACTION
+{
+    ORDER,
+    GROUP,
+    JOIN,
+    SEND
+};
+
 // C++ tm is 58 characters long - this is 16
 struct t_tm
 {

@@ -54,6 +54,18 @@ class Column
     char*   value;
 };
 /******************************************************
+ * Temp Column 
+ ******************************************************/
+class TempColumn : public Column
+{
+    public:
+    char*   charValue       = nullptr;
+    int     intValue        = 0;
+    double  doubleValue     = 0;
+    bool    boolValue       = false;
+    t_tm    dateValue       = {};
+};
+/******************************************************
  * Order By
  ******************************************************/
 class OrderBy
@@ -189,10 +201,7 @@ class sTable : public BaseData
  ******************************************************/
 class Results
 {
-    PRESENTATION        presentation;
-    int rowCount        = 0;
-    list<Column*>       columns{};
-    list<list<Column*>> rows{};
+
 };
 
 /******************************************************
@@ -202,6 +211,7 @@ class Plan
 {
     public:
         SQLACTION   action;
+        bool        sorted;
         int         orderOfExecution;
         int         rowsToReturn;
 };

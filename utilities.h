@@ -341,7 +341,8 @@ bool utilities::isDateValid(char* _cdate)
 
 	if (_date.length() != 10)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
 	char digits[10];
@@ -358,7 +359,8 @@ bool utilities::isDateValid(char* _cdate)
 
 	if (strlen(digits) != 8)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
 
@@ -369,17 +371,20 @@ bool utilities::isDateValid(char* _cdate)
     const int lookup_table[12] = {31,29,31,30,31,30,31,31,30,31,30,31};
     if ((month < 1 || month > 12))
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY: Month is invalid ");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Month is invalid ");
         return false;
     }
     if (!(day >= 1 && day <= lookup_table[month-1]))
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY: Day is invalid ");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Day is invalid ");
         return false;
     }
-    if (year < 2000 || year > 2033)
+    if (year < 1900 || year > 2033)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid date, format must be MM/DD/YYYY: Year is invalid ");
+		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Year is invalid ");
         return false;
     }
 

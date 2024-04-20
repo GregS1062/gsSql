@@ -316,7 +316,7 @@ ParseResult queryParser::parseSelect()
     }
 
     //Case 4.
-    posOrder =lookup::findDelimiter((char*)queryString, (char*)sqlTokenOrderBy);
+    posOrder =lookup::findDelimiter((char*)strConditionList, (char*)sqlTokenOrderBy);
 
     //Terminate condition list at beginning of order by
     strConditionList[posOrder] = '\0';

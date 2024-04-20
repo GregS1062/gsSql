@@ -21,6 +21,7 @@
 #include "search.h"
 #include "lookup.h"
 #include "defines.h"
+#include "resultList.h"
 
 
 using namespace std;
@@ -48,6 +49,7 @@ class sqlEngine
 	char* 			line;
 	sqlParser* 		sp;
 	Statement*		statement;
+	resultList*		results;
 
 	public:
 		sqlEngine						(sqlParser*);
@@ -61,8 +63,6 @@ class sqlEngine
 		char* 			getRecord		(long, fstream*, int);
 		long			appendRecord	(void*, fstream*, int);
 		bool 			writeRecord		(void*, long, fstream*, int);
-		string			outputLine		(list<Column*>);
-		string 			formatOutput	(Column*);
 		ParseResult 	formatInput		(char*, Column*);
 		ParseResult 	updateIndexes	(long, SQLACTION);
 		ParseResult 	tableScan		(list<Column*>, SQLACTION);
@@ -73,6 +73,7 @@ class sqlEngine
 		string  		htmlHeader		(list<Column*>,int32_t);
 		string  		textHeader		(list<Column*>);
 		bool			isRecordDeleted (bool);
+		vector<TempColumn*>	outputLine	(list<Column*>);
 
 };
 /******************************************************
@@ -89,7 +90,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 {
 	if(debug)
         fprintf(traceFile,"\n\n-------------------------BEGIN ENGINE-------------------------------------------");
-		
+	results = new resultList();
 	statement = _statement;
 	if(statement == nullptr)
 	{
@@ -180,6 +181,15 @@ ParseResult sqlEngine::close()
 {
 	if(tableStream != nullptr)
 		tableStream->close();
+	
+	if(statement->table->indexes.size() > 0)
+	{
+		for(sIndex* idx : statement->table->indexes)
+		{
+			//TODO test that file
+			idx->close();
+		}
+	}
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -258,6 +268,7 @@ string sqlEngine::textHeader(list<Column*> _columns)
  ******************************************************/
 ParseResult sqlEngine::select()
 {
+	fprintf(traceFile,"\n------------------------Select-----------------------------");
 	string header;
 
 	int sumOfColumnSize = 0;
@@ -286,6 +297,8 @@ ParseResult sqlEngine::select()
 	{
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
+		results->Sort();
+		results->print();
 		return ParseResult::SUCCESS;
 	}
 
@@ -297,6 +310,8 @@ ParseResult sqlEngine::select()
 	{
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
+		results->Sort();
+		results->print();
 		return ParseResult::SUCCESS;
 	}
 	
@@ -385,12 +400,9 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 			//--------------------------------------------------------
 			if(_action == SQLACTION::SELECT)
 			{
-				lineResult = outputLine(_columns);
-				if(lineResult.length() > 0)
-				{
-					returnResult.resultTable.append(lineResult);
-					rowCount++;
-				}
+			
+				results->addRow(outputLine(_columns));
+				rowCount++;
 			}
 			
 			//--------------------------------------------------------
@@ -432,6 +444,55 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Output Line
+ ******************************************************/
+vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
+{
+
+	vector<TempColumn*> row;
+	for(Column* col : _columns )
+	{
+		TempColumn* temp = new TempColumn();
+		temp->name		= col->name;
+		temp->length	= col->length;
+		temp->edit		= col->edit;
+		switch(col->edit)
+		{
+			case t_edit::t_bool:
+			{
+				memcpy(&temp->boolValue,line+col->position,col->length);
+				break;
+			}
+			case t_edit::t_char:
+			{
+				
+				char buff[60];
+				strncpy(buff, line+col->position, col->length);
+				buff[col->length] = '\0';
+				temp->charValue = utilities::dupString(buff);
+				break;
+			}
+			case t_edit::t_int:
+			{
+				memcpy(&temp->intValue,line+col->position,col->length);
+				break;
+			}
+			case t_edit::t_double:
+			{
+				memcpy(&temp->doubleValue,line+col->position,col->length);
+				break;
+			}
+			case t_edit::t_date:
+			{
+				memcpy(&temp->dateValue,line+col->position,col->length);
+				break;
+			}
+		}
+		row.push_back(temp);
+	}
+	return row;
+};
 /******************************************************
  * Index read
  ******************************************************/
@@ -533,11 +594,11 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 	{
 		fprintf(traceFile,"\nOp=%d",(int)_op);
 	}
-	ResultList* results = _search->findRange(_value, _rowsToReturn, _op);
+	ResultList* searchResults = _search->findRange(_value, _rowsToReturn, _op);
 	
 	while(results != nullptr)
 	{
-		line = getRecord(results->location,tableStream, statement->table->recordLength);
+		line = getRecord(searchResults->location,tableStream, statement->table->recordLength);
 		
 		//End of File
 		if(line == nullptr)
@@ -549,14 +610,15 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		
 		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
-			lineResult = outputLine(statement->table->columns);
+			results->addRow(outputLine(statement->table->columns));
+
 			if(lineResult.length() > 0)
 			{
 				rowResponse.append(lineResult);
 				rowCount++;
 			}
 		}
-		results = results->next;
+		searchResults = searchResults->next;
 	}
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
@@ -592,7 +654,7 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 		if(rowCount >= _rowsToReturn)
 			break;
 
-		lineResult = outputLine(statement->table->columns);
+		results->addRow(outputLine(statement->table->columns));
 		if(lineResult.length() > 0)
 		{
 			rowResponse.append(lineResult);
@@ -602,110 +664,6 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return rowResponse;
-}
-/******************************************************
- * Format Ouput
- ******************************************************/
-string sqlEngine::outputLine(list<Column*> columns)
-{
-	size_t pad = 0;
-	string result;
-
-	result.append("\n");
-	if(presentationType == PRESENTATION::HTML)
-	{
-		//newline and tabs aid the reading of html source
-		result.append("\t\t");
-		result.append(rowBegin);
-	}
-	for (Column* col : columns) 
-	{
-		if(presentationType == PRESENTATION::HTML)
-		{
-			result.append(cellBegin);
-			result.append(formatOutput(col));
-			result.append(cellEnd);
-		}
-		else
-		{
-			string out = formatOutput(col);
-			result.append(out);
-			if((size_t)col->length > out.length())
-			{
-				pad = col->length - out.length();
-				for(size_t i =0;i<pad;i++)
-				{
-					result.append(" ");
-				}
-			}
-		}
-	}
-	if(presentationType == PRESENTATION::HTML)
-		result.append(rowEnd);
-
-	return result;
-}
-/******************************************************
- * Format Ouput
- ******************************************************/
-string sqlEngine::formatOutput(Column* _col)
-{
-	char buff[60];
-	std::stringstream ss;
-	string formatString;
-
-
-	switch(_col->edit)
-	{
-		case t_edit::t_char:
-		{
-			memcpy(&buff, line+_col->position, _col->length);
-			buff[_col->length] = '\0';
-			return formatString.append(buff);
-			break;
-		}
-		case t_edit::t_bool:
-		{
-			if(debug)
-				fprintf(traceFile,"\nposition=%d length=%d",_col->position,_col->length);
-			memcpy(&buff, line+_col->position, _col->length);
-			buff[_col->length] = '\0';
-			return formatString.append(buff);
-			break;
-		}
-		case t_edit::t_int:
-		{
-			int icopy;
-			memcpy(&icopy, line+_col->position, _col->length);
-			return formatString.append(std::to_string(icopy));
-			break;
-		}
-		case t_edit::t_double:
-		{
-			double dbl;
-			memcpy(&dbl, line+_col->position, _col->length);
-			if(dbl < 0){
-				ss << "-$" << std::fixed << std::setprecision(2) << -dbl; 
-				} else {
-				ss << "$" << std::fixed << std::setprecision(2) << dbl; 
-			}
-			return ss.str();
-			break;
-		}
-		case t_edit::t_date:
-		{
-			t_tm dt;
-			memcpy(&dt, line+_col->position, sizeof(t_tm));
-			formatString.append(std::to_string(dt.month));
-			formatString.append("/");
-			formatString.append(std::to_string(dt.day));
-			formatString.append("/");
-			formatString.append(std::to_string(dt.year));
-			return formatString;
-		}
-		
-	}
-	return "e";
 }
 /******************************************************
  * Store Record
