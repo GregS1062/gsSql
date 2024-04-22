@@ -54,7 +54,7 @@ ParseResult runQuery(string _htmlRequest)
     };
 
     sqlEngine* engine = new sqlEngine(parser);
-    if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
+    if(engine->execute(bind->lstStatements.front()) == ParseResult::FAILURE)
     {
         return ParseResult::FAILURE;
     }

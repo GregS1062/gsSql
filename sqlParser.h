@@ -31,7 +31,7 @@ class sqlParser
     ParseResult parse();
     ParseResult createTable();
     ParseResult createIndex();
-    ParseResult parseColumns();
+    ParseResult parseColumns(char*);
     ParseResult parsePrimaryKey();
     ParseResult parseColumnEdit(Column*);
     ParseResult calculateTableColumnValues(sTable*);
@@ -116,7 +116,7 @@ ParseResult sqlParser::createTable()
     token               = tok->getToken();
     table->fileName     = token;
 
-    if(parseColumns() == ParseResult::FAILURE)
+    if(parseColumns(table->name) == ParseResult::FAILURE)
     {
         return ParseResult::FAILURE;
     }
@@ -131,7 +131,7 @@ ParseResult sqlParser::createTable()
 /******************************************************
  * Parse Columns
  ******************************************************/
-ParseResult sqlParser::parseColumns()
+ParseResult sqlParser::parseColumns(char* _tableName)
 {
     //Get first token
     char* token = tok->getToken();
@@ -165,7 +165,8 @@ ParseResult sqlParser::parseColumns()
         col = new Column();
 
         //Get column name
-        col->name = token;
+        col->name       = token;
+        col->tableName = _tableName;
 
         if(parseColumnEdit(col) == ParseResult::FAILURE)
             return ParseResult::FAILURE;    

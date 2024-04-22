@@ -50,6 +50,9 @@ sTable* lookup::getTableByAlias(list<sTable*> _tables, char* _alias)
  ******************************************************/
 sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
 {
+    if(_tableName == nullptr)
+        return nullptr;
+
     for(sTable* tbl : _tables)
     {
        // fprintf(traceFile,"\n looking for %s found %s",_tableName,tbl->name);
@@ -63,6 +66,8 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
  ******************************************************/
 Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
 {
+    if(_name == nullptr)
+        return nullptr;
     for(Column* col : _columns)
     {
         if(strcasecmp(col->name,_name) == 0)
@@ -75,6 +80,7 @@ Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
  ******************************************************/
 Column* lookup::scrollColumnList(list<Column*> _columns, size_t _index)
 {
+
     size_t count = 0;
     for(Column* col : _columns)
     {
@@ -89,6 +95,10 @@ Column* lookup::scrollColumnList(list<Column*> _columns, size_t _index)
  ******************************************************/
 signed long lookup::findDelimiter(char* _string, char* _delimiter)
 {
+    if(_string == nullptr
+    || _delimiter == nullptr)
+        return DELIMITERERR;
+
     char buff[MAXSQLSTRINGSIZE];
     bool betweenQuotes = false;
     char* str = utilities::dupString(_string);
@@ -148,6 +158,9 @@ signed long lookup::findDelimiterFromList(char* _string, list<char*> _list)
     for(char* delimiter : _list)
     {
         result = findDelimiter(_string,delimiter);
+        if(result == DELIMITERERR)
+            return DELIMITERERR;
+
         if(result != NEGATIVE
         && result < found)
             found = result;

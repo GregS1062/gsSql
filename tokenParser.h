@@ -11,21 +11,66 @@ class tokenParser
     bool keepQuotes = false;
 
     public:
-    tokenParser();
+    tokenParser(){}
     tokenParser(const char*);
     
     void        parse(const char*);
     void        parse(const char*,bool);
     char*       getToken();
+    char*       cleanString(char*);
     bool        delimiterAhead();
     bool        eof = false;
     const char* parseString;
     signed long parseStringLength;
     signed long pos;
 };
-tokenParser::tokenParser()
+
+char* tokenParser::cleanString(char* _string)
 {
-    
+    // ABC  DEF
+    size_t  len = strlen(_string);
+    char*   newString = (char*)malloc(len+1);
+    char    c;
+    size_t  posNewString = 0;
+    bool    betweenQuotes = false;
+    bool    priorSpace = false;
+
+    for(size_t posString = 0; posString<len; posString++)
+    {
+        c =_string[posString];
+
+        if(c == NEWLINE
+        || c == RETURN
+        || c == FORMFEED
+        || c == TAB
+        || c == VTAB)
+            continue;
+        
+        if(c == QUOTE)
+        {
+            if(betweenQuotes)
+                betweenQuotes = false;
+            else
+                betweenQuotes = true;
+        }
+
+        if(!betweenQuotes
+        && c == SPACE)
+        {
+            if(priorSpace)
+                continue;
+            else
+                priorSpace = true;
+        }
+
+        if(c != SPACE)
+            priorSpace = false;
+
+        newString[posNewString] = c;
+        posNewString++;
+    }
+    newString[posNewString] = '\0';
+    return newString;
 }
 tokenParser::tokenParser(const char* _parseString)
 {

@@ -90,7 +90,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 {
 	if(debug)
         fprintf(traceFile,"\n\n-------------------------BEGIN ENGINE-------------------------------------------");
-	results = new resultList();
+	results = new resultList(_statement);
 	statement = _statement;
 	if(statement == nullptr)
 	{
@@ -100,7 +100,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 	{
 		return ParseResult::FAILURE;
 	}
-	switch(statement->plan->action)
+	switch(statement->action)
 	{
 		case SQLACTION::CREATE:
 		{
@@ -384,8 +384,8 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 
 
 		//select top n
-		if(statement->plan->rowsToReturn > 0
-		&& rowCount >= statement->plan->rowsToReturn)
+		if(statement->rowsToReturn > 0
+		&& rowCount >= statement->rowsToReturn)
 		{
 			break;
 		}
@@ -532,9 +532,9 @@ string sqlEngine::indexRead(searchIndexes* _searchOn)
 	SEARCH op;
 	int rowsToReturn 	= 0;
 
-	if(statement->plan->rowsToReturn > 0)
+	if(statement->rowsToReturn > 0)
 	{
-		rowsToReturn = statement->plan->rowsToReturn;
+		rowsToReturn = statement->rowsToReturn;
 	}
 	else	
 	{
@@ -596,7 +596,7 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 	}
 	ResultList* searchResults = _search->findRange(_value, _rowsToReturn, _op);
 	
-	while(results != nullptr)
+	while(searchResults != nullptr)
 	{
 		line = getRecord(searchResults->location,tableStream, statement->table->recordLength);
 		
@@ -611,36 +611,38 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
 			results->addRow(outputLine(statement->table->columns));
+			rowCount++;
 
-			if(lineResult.length() > 0)
-			{
-				rowResponse.append(lineResult);
-				rowCount++;
-			}
 		}
 		searchResults = searchResults->next;
 	}
+	if(statement->table->orderBy.size() > 0)
+		results->Sort();
+	results->print();
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
-	return rowResponse;
+	return "";
 }
 /******************************************************
  * Search Back
  ******************************************************/
 string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 {
-	string rowResponse;
-	string lineResult;
+
 	int rowCount 		= 0;
-	int location		= 0;
+	long location		= 0;
 	char* key;
 	Node* _leaf = _search->findLeafBase(_value);
 	ScrollNode* scrollNode = _search->scrollIndexBackward(_leaf,_value);
 	key = _value;
-	
+
 	while(true)
 	{
 		scrollNode = _search->scrollIndexBackward(scrollNode->leaf,key);
+		
+		if(scrollNode == nullptr)
+			break;
+		
 		location = _search->getLocation(scrollNode->leaf,scrollNode->position);
 		_search->getKeyFromPosition(scrollNode->leaf, key, scrollNode->position);
 		
@@ -654,16 +656,18 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 		if(rowCount >= _rowsToReturn)
 			break;
 
-		results->addRow(outputLine(statement->table->columns));
-		if(lineResult.length() > 0)
+		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
-			rowResponse.append(lineResult);
+			results->addRow(outputLine(statement->table->columns));
 			rowCount++;
 		}
 	}
+	if(statement->table->orderBy.size() > 0)
+		results->Sort();
+	results->print();
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
-	return rowResponse;
+	return "";
 }
 /******************************************************
  * Store Record

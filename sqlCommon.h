@@ -71,8 +71,10 @@ class TempColumn : public Column
 class OrderBy
 {
     public:
-        Column* col;
-        char*   DescAsc;
+        Column* col         {};
+        char*   name       = nullptr;
+        bool    asc        = true;
+        int     columnNbr   = 0;        //Tells the sort routing which column to sort on
 };
 /******************************************************
  * Condition
@@ -90,10 +92,10 @@ class Condition
         int     intValue        = 0;
         double  doubleValue     = 0;
         bool    boolValue       = false;
-        t_tm    dateValue;
-        Column* col;
-        Column* compareToColumn;
-        list<char*> valueList {};
+        t_tm    dateValue       {};
+        Column* col             {};
+        Column* compareToColumn {};
+        list<char*> valueList   {};
 };
 
 /******************************************************
@@ -210,10 +212,7 @@ class Results
 class Plan
 {
     public:
-        SQLACTION   action;
-        bool        sorted;
-        int         orderOfExecution;
-        int         rowsToReturn;
+
 };
 
 /******************************************************
@@ -222,9 +221,11 @@ class Plan
 class Statement
 {
     public:
-    Plan*       plan = new Plan();
-    sTable*     table;
-    Results*    results = new Results();
+        SQLACTION       action;
+        list<OrderBy*>   orderList;        
+        int             rowsToReturn;
+        sTable*         table;
+        Results*        results = new Results();
 };
 
 /******************************************************
@@ -232,7 +233,7 @@ class Statement
  ******************************************************/
 class Execution
 {
-    
+    public:
 };
 
 FILE* traceFile;

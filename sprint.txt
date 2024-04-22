@@ -23,7 +23,7 @@ X   indexes updated on updates and deletes
 X   index primary on all tables
 
 Build
-    order by sort
+X   order by sort
     group by
 
 Build

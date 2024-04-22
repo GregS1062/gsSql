@@ -16,10 +16,10 @@ using namespace std;
 class resultList
 {
     vector<vector<TempColumn*>> rows{};
-   // list<Column*>               orderBy;
-    static bool                 compare(vector<TempColumn*>,vector<TempColumn*>);
+	Statement*					statement;
 
 public:
+	resultList(Statement*);
 	RETURNACTION				returnAction;
     int                         rowCount = 0;
     PRESENTATION                presentation;
@@ -36,6 +36,10 @@ public:
     //ParseResult                 addOrderBy(Column*);
     
 };
+resultList::resultList(Statement* _statement)
+{
+	statement = _statement;
+}
 /******************************************************
  * Add Row
  ******************************************************/
@@ -88,24 +92,89 @@ void resultList::printRow(vector<TempColumn*> _row)
  ******************************************************/
 ParseResult resultList::Sort()
 {
-    sort(rows.begin(), rows.end(),compare); 
+
+	list<int> n;
+	for(OrderBy* order : statement->table->orderBy)
+	{
+		if(debug)
+			fprintf(traceFile,"\n sorting on column# %d", order->columnNbr);
+		n.push_back(order->columnNbr);
+	}
+
+     std::sort(rows.begin(), rows.end(),
+            [&](const vector<TempColumn*> row1,const vector<TempColumn*> row2) {
+                // compare last names first
+              int x = 0;
+				for(int nbr : n)
+				{
+					switch(row1.at(nbr)->edit)
+					{
+						case t_edit::t_char:
+						{
+							x = strcmp(row1.at(nbr)->charValue, row2.at(nbr)->charValue);
+							break;
+						}
+						case t_edit::t_int:
+						{
+							if(row1.at(nbr)->intValue == row2.at(nbr)->intValue)
+								x = 0;
+							else
+							if(row1.at(nbr)->intValue > row2.at(nbr)->intValue)
+							   x = 1;
+							else
+								x = -1;
+							break;
+						}
+						case t_edit::t_double:
+						{
+							if(row1.at(nbr)->doubleValue == row2.at(nbr)->doubleValue)
+								x = 0;
+							else
+							if(row1.at(nbr)->doubleValue > row2.at(nbr)->doubleValue)
+							   x = 1;
+							else
+								x = -1;
+							break;
+						}
+						case t_edit::t_date:
+						{
+							if(row1.at(nbr)->dateValue.yearMonthDay == row2.at(nbr)->dateValue.yearMonthDay)
+								x = 0;
+							else
+							if(row1.at(nbr)->dateValue.yearMonthDay > row2.at(nbr)->dateValue.yearMonthDay)
+							   x = 1;
+							else
+								x = -1;
+							break;
+						}
+						case t_edit::t_bool:
+							if(row1.at(nbr)->boolValue
+							&& row2.at(nbr)->boolValue)
+								x = 0;
+							else														
+							if(row1.at(nbr)->boolValue
+							&& !row2.at(nbr)->boolValue)
+								x = 1;
+							else
+								x = -1;
+					}
+					
+					if(x != 0)
+					{
+						if(x < 0)
+							return true;
+						else
+							return false;
+					}
+				}
+				if(x < 0)
+					return true;
+				else
+					return false;
+            });
     return ParseResult::SUCCESS;
 }
-/******************************************************
- * compare
- ******************************************************/
-bool resultList::compare(vector<TempColumn*> row1,vector<TempColumn*> row2)
-{
-     int x = strcmp(row1.at(4)->charValue, row2.at(4)->charValue);
-	 if(x == 0)
-	 {
-		x = strcmp(row1.at(2)->charValue, row2.at(2)->charValue);
-	 }
-     if(x < 0)
-      return true;
-     else
-        return false;
-}
+
 /******************************************************
  * Format Ouput
  ******************************************************/

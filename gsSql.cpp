@@ -155,6 +155,12 @@ int main(int argc, char* argv[])
             case 18:
                 script = "t103-delete";
                 break; 
+            case 19:
+                script = "t104-orderby-multiples";
+                break;
+            case 20:
+                script = "t105-select-order-by-orderid";
+                break;
           default:
                 fprintf(traceFile,"\n No case for this script number\n\n");
                 return 0;
@@ -194,6 +200,7 @@ int main(int argc, char* argv[])
     {
         fprintf(traceFile,"\n query parse failed");
         fprintf(traceFile,"\n error %s",errText.c_str());
+        return 0;
     };
 
     binding* bind = new binding(parser,query);
@@ -201,10 +208,14 @@ int main(int argc, char* argv[])
     {
         fprintf(traceFile,"\n bind validate failed");
         fprintf(traceFile,"\n error %s",errText.c_str());
+        return 0;
     };
 
+    fclose(traceFile);
+    return 0; 
+
     sqlEngine* engine = new sqlEngine(parser);
-    if(engine->execute(bind->statements.front()) == ParseResult::FAILURE)
+    if(engine->execute(bind->lstStatements.front()) == ParseResult::FAILURE)
     {
         fprintf(traceFile,"\n error %s",errText.c_str());
         return 0;

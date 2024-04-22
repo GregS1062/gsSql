@@ -6,8 +6,7 @@ class binding
 {
     public:
     list<sTable*>    lstTables;
-    list<Condition*> lstConditions;
-    list<Statement*> statements;
+    list<Statement*> lstStatements;
     sTable*          defaultTable;    
     sTable*          defaultSQLTable;   
     queryParser*     qp;
@@ -20,13 +19,14 @@ class binding
     ParseResult     bindColumnList();
     ParseResult     bindColumnValueList();
     ParseResult     bindColumn(char*);
-    ColumnAlias*    resolveColumnAlias(TokenPair*);
+    Column*         resolveColumnAlias(TokenPair*);
     ParseResult     editColumn(Column*,char*);
     ParseResult     editCondition(Condition*,char*);
     ParseResult     bindNonAliasedColumn(char*, char*);
     ParseResult     bindAliasedColumn(TokenPair*, char*);
     ParseResult     bindValueList();
     ParseResult     bindConditions();
+    ParseResult     bindOrderBy();
     ParseResult     populateTable(sTable*,sTable*);
     bool            valueSizeOutofBounds(char*, Column*);
 };
@@ -62,9 +62,9 @@ ParseResult binding::bind()
     {
          statement = new Statement();
          statement->table = tbl;
-         statement->plan->action = qp->sqlAction;
-         statement->plan->rowsToReturn = qp->rowsToReturn;
-         statements.push_back(statement);
+         statement->action = qp->sqlAction;
+         statement->rowsToReturn = qp->rowsToReturn;
+         lstStatements.push_back(statement);
     }
 
     if(lstTables.size() == 1)
@@ -98,6 +98,9 @@ ParseResult binding::bind()
         return ParseResult::FAILURE;
 
     if(bindConditions() == ParseResult::FAILURE)
+       return ParseResult::FAILURE;
+
+    if(bindOrderBy() == ParseResult::FAILURE)
        return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
@@ -292,7 +295,7 @@ ParseResult binding::bindNonAliasedColumn(char* _name, char* _value)
 /******************************************************
  * Resolve Column Alias
  ******************************************************/
-ColumnAlias* binding::resolveColumnAlias(TokenPair* tp)
+Column* binding::resolveColumnAlias(TokenPair* tp)
 {
     ColumnAlias* ca = new ColumnAlias();
     sTable* temp1;
@@ -325,7 +328,41 @@ ColumnAlias* binding::resolveColumnAlias(TokenPair* tp)
         ca->tableName = temp2->name;
         ca->columnName = tp->one;
     }
-    return ca;
+    sTable* lstTbl;
+    sTable* sqlTbl;
+
+    lstTbl = lookup::getTableByName(lstTables,ca->tableName);
+    if(lstTbl == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,ca->tableName);
+        return nullptr;
+    }
+    sqlTbl = lookup::getTableByName(sp->tables,ca->tableName);
+    if(sqlTbl == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,ca->tableName);
+        return nullptr;
+    }
+
+    if(strcasecmp(ca->columnName,(char*)sqlTokenAsterisk) == 0 )
+    {
+        Column* col     = new Column();
+        col->name       = ca->columnName;
+        col->tableName  = ca->tableName;
+        return col;
+    }
+
+    Column* col = lookup::getColumnByName(sqlTbl->columns,ca->columnName);
+    if(col == nullptr)
+    {
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,ca->columnName);
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," not found");
+        return nullptr;  
+    }
+    col->tableName  = ca->tableName;
+    return col;
 };
 /******************************************************
  * Bind Non-Aliased Column
@@ -336,44 +373,35 @@ ParseResult binding::bindAliasedColumn(TokenPair* tp, char* _value)
     sTable* sqlTbl;
     Column* col;
     
-    ColumnAlias* ca = resolveColumnAlias(tp);
-    if(ca == nullptr)
+    col = resolveColumnAlias(tp);
+    if(col == nullptr)
     {
         utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"cannot resolve alias table name");
         return ParseResult::FAILURE;
     }
 
-    lstTbl = lookup::getTableByName(lstTables,ca->tableName);
+    lstTbl = lookup::getTableByName(lstTables,col->tableName);
     if(lstTbl == nullptr)
     {
         utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind alias column table list null ");
         return ParseResult::FAILURE;
     }
-    sqlTbl = lookup::getTableByName(sp->tables,ca->tableName);
-    if(sqlTbl == nullptr)
-    {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
-        return ParseResult::FAILURE;
-    }
 
-    if(strcmp(ca->columnName,(char*)sqlTokenAsterisk) == 0)
+    if(strcmp(col->name,(char*)sqlTokenAsterisk) == 0)
     {
         //Since there is no alias, a single table is assumed
+        sqlTbl = lookup::getTableByName(sp->tables,col->tableName);
+        if(sqlTbl == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
+            return ParseResult::FAILURE;
+        }
         if(populateTable(lstTbl,sqlTbl) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
         return ParseResult::SUCCESS;
     }
 
-    col = lookup::getColumnByName(sqlTbl->columns,ca->columnName);
-    if(col == nullptr)
-    {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name:");
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->two);
-        return ParseResult::FAILURE;
-    }
-
-    col->tableName = lstTbl->name;
     if(editColumn(col,_value) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
@@ -494,43 +522,23 @@ ParseResult binding::bindConditions()
         //--------------------------------------
         // case alias.col
         //--------------------------------------
-        sTable* lstTbl;
-        sTable* sqlTbl;
-        ColumnAlias* ca = resolveColumnAlias(tp);
-        if(ca == nullptr)
-        {
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"could not resolve alias for column:");
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,con->name);
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," table name:");
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,defaultTable->name);
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," alias:");
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,defaultTable->alias);
-            return ParseResult::FAILURE; 
-        }
-
-        lstTbl = lookup::getTableByName(lstTables,ca->tableName);
-        if(lstTbl == nullptr)
-        {
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,ca->tableName);
-            return ParseResult::FAILURE;
-        }
-        sqlTbl = lookup::getTableByName(sp->tables,ca->tableName);
-        if(sqlTbl == nullptr)
-        {
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,ca->tableName);
-            return ParseResult::FAILURE;
-        }
-
-        Column* col = lookup::getColumnByName(sqlTbl->columns,ca->columnName);
+ 
+        Column* col = resolveColumnAlias(tp);
         if(col == nullptr)
         {
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,ca->columnName);
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," not found");
-            return ParseResult::FAILURE;  
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name: ");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->one);
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->two);
+            return ParseResult::FAILURE;
         }
         con->col  = col;
+        sTable* lstTbl = lookup::getTableByName(lstTables,col->tableName);
+        if(lstTbl == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind alias table name not found: ");
+             utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->tableName);
+        }
         con->col->tableName = lstTbl->name;
         if(editCondition(con,con->value) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
@@ -538,6 +546,75 @@ ParseResult binding::bindConditions()
         lstTbl->conditions.push_back(con);
     }
      
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Bind Order By
+ ******************************************************/
+ParseResult binding::bindOrderBy()
+{
+    if(debug)
+        fprintf(traceFile,"----------------------- bind order by -----------------------------------");
+
+    TokenPair* tp;
+    Column* col;
+    for(OrderBy* order : qp->lstOrder)
+    {
+        tp = lookup::tokenSplit(order->name,(char*)".");
+        if(tp == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition column name is null");
+            return ParseResult::FAILURE;
+        }
+        if(tp->two == nullptr)
+        {
+            col = lookup::getColumnByName(defaultSQLTable->columns,tp->one);
+        }
+        else
+        {
+            col = resolveColumnAlias(tp);
+        }
+        if(col == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name:");
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->one);
+            return ParseResult::FAILURE;
+        }
+
+        sTable* lstTable = lookup::getTableByName(lstTables,col->tableName);
+        if(lstTable == nullptr)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Order by: Cannot find table to sort on");
+            return ParseResult::FAILURE;
+        }
+        int columnNbr   = NEGATIVE;
+        int count       = 0;
+        for(Column* column : lstTable->columns)
+        {
+            if(strcasecmp(column->name, col->name) == 0)
+            {
+                columnNbr = count;
+                break;
+            }
+            count++;
+        }
+        if(columnNbr == NEGATIVE)
+        {
+            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find order by column in the list of reporting columns");
+            return ParseResult::FAILURE;
+        }
+        order->columnNbr = columnNbr;
+        order->col = col;
+        for(Statement* statement : lstStatements)
+        {
+            if(strcasecmp(statement->table->name, col->tableName) ==0)
+                statement->table->orderBy.push_back(order);
+        }
+
+        if(debug)
+            fprintf(traceFile,"\n bind order Column name:%s table: %s  sort# %d",col->name, col->tableName, order->columnNbr);
+        
+    }
     return ParseResult::SUCCESS;
 }
 /******************************************************
