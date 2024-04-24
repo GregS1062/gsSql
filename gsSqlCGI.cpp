@@ -49,7 +49,7 @@ ParseResult runQuery(string _htmlRequest)
     binding* bind = new binding(parser,query);
     if(bind->bind() == ParseResult::FAILURE)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind validate failed");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," bind validate failed ");
 		return ParseResult::FAILURE;
     };
 

@@ -88,6 +88,7 @@ using namespace std;
 #define sqlTokenOrderDescending "DESC"
 #define sqlTokenOrderAcending   "ASC"
 #define sqlTokenTrue            "T"
+#define sqlTokenCount           "COUNT"
 
 enum MESSAGETYPE
 {

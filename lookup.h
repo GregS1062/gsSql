@@ -40,6 +40,8 @@ sTable* lookup::getTableByAlias(list<sTable*> _tables, char* _alias)
     for(sTable* tbl : _tables)
     {
        // fprintf(traceFile,"\n looking for %s found %s",_alias,tbl->alias);
+       if(tbl->alias == nullptr)
+            continue;
         if(strcasecmp(tbl->alias, _alias) == 0)
             return tbl;
     }

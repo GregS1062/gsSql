@@ -29,15 +29,21 @@ public:
 	static void 	stripQuotesFromToken(char _token[]);
 };
 
-
 /*******************************************************
    String Duplicate
 *******************************************************/
 char* utilities::dupString(const char* str)
 {
-	int len = (int)strlen(str) + 1;
-	char* cpy = (char*)malloc(len);
+	int len = (int)strlen(str);
+	if(len == 0)
+	{
+		char* cpy = (char*)malloc(1);
+		cpy[len] = '\0';
+		return cpy;
+	}
+	char* cpy = (char*)malloc(len+1);
 	memcpy(cpy, str, len);
+	cpy[len] = '\0';
 	return cpy;
 }
 /*******************************************************
@@ -76,21 +82,34 @@ void utilities::messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
 {
 	string msg;
 
-	if(_newLine)
-		msg.append("<br>");
-
 	if(_type == MESSAGETYPE::ERROR)
+	{
+		if(errText.empty())
+			_newLine = false;
 		msg.append("<font color=\"crimson\">");
+	}
 	else
+	{
+		if(msgText.empty())
+			_newLine = false;
 		msg.append("<font color=\"navy\">");
+	}
 
 	msg.append(_msg);
 	msg.append("</font>");
 
 	if(_type == MESSAGETYPE::ERROR)
+	{
+		if(_newLine)
+			errText.append("<br>");
 		errText.append(msg);
+	}
 	else
+	{
+		if(_newLine)
+			msgText.append("<br>");
 		msgText.append(msg);
+	}
 };
 /*******************************************************
    Formate Date

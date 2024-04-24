@@ -44,6 +44,7 @@ class queryParser
     list<char*>             lstColName;
     list<char*>             lstValues;
     list<OrderBy*>          lstOrder;
+    list<char*>             lstGroup;
     list<Condition*>        conditions;     // where condition (operator) value
 
     Condition*              condition       = nullptr;
@@ -64,6 +65,7 @@ class queryParser
     ParseResult             parseColumnList(char*);
     ParseResult             parseValueList(char*);
     ParseResult             parseOrder(char*);
+    ParseResult             parseGroup(char*);
     ParseResult             parseConditions(char*);
     ParseResult             addCondition(char*);
     ParseResult             validateSQLString();
@@ -233,6 +235,7 @@ ParseResult queryParser::parseSelect()
     delimiterList.push_back((char*)sqlTokenOn);
     delimiterList.push_back((char*)sqlTokenJoin);
     delimiterList.push_back((char*)sqlTokenOrderBy);
+    delimiterList.push_back((char*)sqlTokenGroupBy);
     
     long signed found       = lookup::findDelimiterFromList(strTableList,delimiterList);
     
@@ -280,38 +283,57 @@ ParseResult queryParser::parseSelect()
     // Order by / Group by
     //----------------------------------------------------------
 
-    //TODO Group by  
-    
+    //Order by
+
     //Case 1: from table
     //Case 2: from table order by col
-    //Case 3: from table where col = "value"
-    //Case 4: from table where col = "value" order by col
+    //Case 3: from table group by col
+    //Case 4: from table where col = "value"
+    //Case 5: from table where col = "value" order by col
+    //Case 6: from table where col = "value" group by col
 
-    char* strOrder;
-    char* strConditionList;
+    char* strOrder          = nullptr;
+    char* strGroup          = nullptr;
+    char* strConditionList  = nullptr;
     
     signed long posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
     signed long posOrder =lookup::findDelimiter((char*)queryString, (char*)sqlTokenOrderBy);
+    signed long posGroup =lookup::findDelimiter((char*)queryString, (char*)sqlTokenGroupBy);
+
+    if(posOrder > 0
+    && posGroup > 0)
+    {
+    utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error: cannot have both 'order by' and 'group by'");
+    return ParseResult::FAILURE;
+    }
 
     if(posWhere == DELIMITERERR
     || posOrder == DELIMITERERR)
-       {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error looking for 'where' or 'order by'");
-        return ParseResult::FAILURE;
-       }
+    {
+    utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error looking for 'where' or 'order by'");
+    return ParseResult::FAILURE;
+    }
     
     // Case 1. No conditions
     if(posWhere == NEGATIVE
-    && posOrder == NEGATIVE)
+    && posOrder == NEGATIVE
+    && posGroup == NEGATIVE)
         return ParseResult::SUCCESS;
     
     //Case 2.
-    strOrder = utilities::dupString(queryString+posOrder + strlen((char*)sqlTokenOrderBy)+1);
-    
-    if(posWhere == NEGATIVE
-    && posOrder  > 0)
+    if(posOrder > 0)
     {
+        strOrder = utilities::dupString(queryString+posOrder + strlen((char*)sqlTokenOrderBy)+1);       
         if(parseOrder(strOrder) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        return ParseResult::SUCCESS;
+    }
+
+    //Case 3.
+    if(posGroup > 0)
+    {
+        strGroup = utilities::dupString(queryString+posGroup + strlen((char*)sqlTokenGroupBy)+1);       
+        if(parseGroup(strGroup) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
         return ParseResult::SUCCESS;
     }
@@ -319,35 +341,39 @@ ParseResult queryParser::parseSelect()
     //----------------------------------------------------------
     // Create conditions list
     //----------------------------------------------------------
-    strConditionList = utilities::dupString(queryString+posWhere + strlen((char*)sqlTokenWhere)+1);
 
-    //Case 3.
-    if(posOrder == NEGATIVE)
+    //posWhere is positive at this point
+    strConditionList = utilities::dupString(queryString+posWhere + strlen((char*)sqlTokenWhere)+1);
+    
+    //Case 4.
+    if(posOrder == NEGATIVE
+    && posGroup == NEGATIVE)
     {
         if(parseConditions(strConditionList) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
         return ParseResult::SUCCESS;
     }
 
-    //Case 4.
+    //Case 5.
+
+    //Trim either order by or group by from condition list
     posOrder =lookup::findDelimiter((char*)strConditionList, (char*)sqlTokenOrderBy);
-    if(posOrder == DELIMITERERR)
+    posGroup =lookup::findDelimiter((char*)strConditionList, (char*)sqlTokenGroupBy);
+    if(posOrder == DELIMITERERR
+    || posGroup == DELIMITERERR)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error finding 'order by'");
+        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error: finding 'order by' or 'group by'");
         return ParseResult::FAILURE;
     }
 
     //Terminate condition list at beginning of order by
-    strConditionList[posOrder] = '\0';
+    if(posOrder > 0)
+        strConditionList[posOrder] = '\0';
+    
+    if(posGroup > 0)
+        strConditionList[posGroup] = '\0';
 
     if(parseConditions(strConditionList) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    //----------------------------------------------------------
-    // Create order list
-    //----------------------------------------------------------
-    //Note strOrder was created in Case 2
-    if(parseOrder(strOrder) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
@@ -539,12 +565,15 @@ ParseResult queryParser::parseColumnNameValueList(char* _workingString)
         token = tok->getToken();
         if(tok->eof)
             break;
+
         if(tok == nullptr)
             break;
+
         if(strcmp(token,sqlTokenEqual) == 0)
         {
             continue;
         }
+
         if(isColumnFlag)
         {
             isColumnFlag = false;
@@ -552,6 +581,7 @@ ParseResult queryParser::parseColumnNameValueList(char* _workingString)
             colVal->name = token;
             continue;
         }
+
         isColumnFlag = true;
         colVal->value = token;
         lstColNameValue.push_back(colVal);
@@ -766,7 +796,8 @@ ParseResult queryParser::parseOrder(char* _workingString)
         token = tok->getToken();
         if(token != nullptr)
         {
-            fprintf(traceFile,"\n order by tokens %s", token);
+            if(debug)
+                fprintf(traceFile,"\n order by tokens %s", token);
             if(strcasecmp(token,(char*)sqlTokenOrderAcending) != 0
             && strcasecmp(token,(char*)sqlTokenOrderDescending) != 0)
             {
@@ -786,9 +817,35 @@ ParseResult queryParser::parseOrder(char* _workingString)
     for(OrderBy* order : lstOrder)
     {
         order->asc = asc;
-            
     }
     
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Parse Order
+ ******************************************************/
+ParseResult queryParser::parseGroup(char* _workingString)
+{
+    if(debug)
+    {
+        fprintf(traceFile,"\n\n-----------Parse Group by----------------");
+        fprintf(traceFile,"\nGroup By string:%s",_workingString);
+    }
+    
+    char* token;
+    tokenParser* tok = new tokenParser();
+    tok->parse(_workingString,true);
+
+    while(!tok->eof)
+    {
+        token = tok->getToken();
+        if(token != nullptr)
+        {
+            if(debug)
+                fprintf(traceFile,"\n order by tokens %s", token);
+            lstGroup.push_back(token);
+        }
+    }
     return ParseResult::SUCCESS;
 }
 /******************************************************

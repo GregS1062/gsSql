@@ -24,7 +24,9 @@ X   index primary on all tables
 
 Build
 X   order by sort
-    group by
+X   group by
+    having
+    asc/dsc
 
 Build
     index on concatenated columns

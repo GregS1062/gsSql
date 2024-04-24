@@ -70,8 +70,6 @@ class sqlEngine
 		string 			searchForward	(Search*, char*, int, SEARCH);
 		string 			searchBack		(Search*, char*, int);
 		string 			indexRead		(searchIndexes*);
-		string  		htmlHeader		(list<Column*>,int32_t);
-		string  		textHeader		(list<Column*>);
 		bool			isRecordDeleted (bool);
 		vector<TempColumn*>	outputLine	(list<Column*>);
 
@@ -207,97 +205,26 @@ ParseResult sqlEngine::update()
 	return ParseResult::SUCCESS;
 }
 /******************************************************
- * HTML Header
- ******************************************************/
-string sqlEngine::htmlHeader(list<Column*> _columns, int32_t _sumOfColumnSize)
-{
-	double percentage = 0;
-	string header;
-	header.append(rowBegin);
-	for (Column* col : _columns) 
-	{
-		header.append("\n\t");
-		header.append(hdrBegin);
-		header.append(" style="" width:");
-		if(col->edit == t_edit::t_date)
-		{
-			percentage = 12 / _sumOfColumnSize * 100;
-		}
-		else
-			percentage = (double)col->length / _sumOfColumnSize * 100;
-		header.append(to_string((int)percentage));
-		header.append("%"">");
-		header.append(col->name);
-		header.append(hdrEnd);
-	}
-	header.append(rowEnd);
-	return header;
-}
-/******************************************************
- * Text Header
- ******************************************************/
-string sqlEngine::textHeader(list<Column*> _columns)
-{
-	size_t pad = 0;
-	string header;
-	header.append("\n");
-	for (Column* col : _columns) 
-	{
-		if((size_t)col->length > strlen(col->name))
-		{
-			header.append(col->name);
-			pad = col->length - strlen(col->name);
-			for(size_t i =0;i<pad;i++)
-			{
-				header.append(" ");
-			}
-		}
-		else
-		{
-			char* name = col->name;
-			name[col->length] = '\0';
-			header.append(name);
-			header.append(" ");
-		}
-	}
-
-	return header;
-}
-/******************************************************
  * Select
  ******************************************************/
 ParseResult sqlEngine::select()
 {
 	fprintf(traceFile,"\n------------------------Select-----------------------------");
-	string header;
 
-	int sumOfColumnSize = 0;
 
 	list<Column*> columns = statement->table->columns;
-	for( Column* col: columns)
-	{
-		if(col->edit == t_edit::t_date)
-		{
-			sumOfColumnSize = sumOfColumnSize + 16;
-		}
-		else
-		{
-			sumOfColumnSize = sumOfColumnSize + col->length;
-		}
-    }
-	if(presentationType == PRESENTATION::HTML)
-		header = htmlHeader(columns,sumOfColumnSize);
-	else
-		header = textHeader(columns);
-
-	returnResult.resultTable.append(header);
 
 	//No conditions
 	if(statement->table->conditions.size() == 0)
 	{
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
-		results->Sort();
+		if(statement->table->orderBy.size() > 0)
+			results->orderBy();
+		if(statement->table->groupBy.size() > 0)
+		{
+			results->groupBy();
+		}
 		results->print();
 		return ParseResult::SUCCESS;
 	}
@@ -310,7 +237,12 @@ ParseResult sqlEngine::select()
 	{
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
-		results->Sort();
+		if(statement->table->orderBy.size() > 0)
+			results->orderBy();
+		if(statement->table->groupBy.size() > 0)
+		{
+			results->groupBy();
+		}
 		results->print();
 		return ParseResult::SUCCESS;
 	}
@@ -438,7 +370,7 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 
 		recordPosition = recordPosition + statement->table->recordLength;
 	}
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,"Table scan: rows scanned ");
+	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Table scan: rows scanned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(resultCount).c_str());
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
@@ -617,7 +549,11 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		searchResults = searchResults->next;
 	}
 	if(statement->table->orderBy.size() > 0)
-		results->Sort();
+		results->orderBy();
+	if(statement->table->groupBy.size() > 0)
+	{
+		results->groupBy();
+	}
 	results->print();
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
@@ -663,7 +599,11 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 		}
 	}
 	if(statement->table->orderBy.size() > 0)
-		results->Sort();
+		results->orderBy();
+	if(statement->table->groupBy.size() > 0)
+	{
+		results->groupBy();
+	}
 	results->print();
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());

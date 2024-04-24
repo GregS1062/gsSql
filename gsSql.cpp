@@ -182,6 +182,9 @@ int main(int argc, char* argv[])
     std::ifstream ifq(scriptFileName);
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
+
+    queryStr.clear();
+    queryStr.append("select top 500 * from customers group by surname");
     
     fprintf(traceFile,"\n query=%s \n",queryStr.c_str());
     presentationType = PRESENTATION::TEXT;
@@ -210,9 +213,6 @@ int main(int argc, char* argv[])
         fprintf(traceFile,"\n error %s",errText.c_str());
         return 0;
     };
-
-    fclose(traceFile);
-    return 0; 
 
     sqlEngine* engine = new sqlEngine(parser);
     if(engine->execute(bind->lstStatements.front()) == ParseResult::FAILURE)

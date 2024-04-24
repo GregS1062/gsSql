@@ -1,55 +1,566 @@
 
- query=select top 50 * from orders where orderid = "SO43697"
- 
+ query=select top 500 * from customers group by surname 
 
 
 -------------------------BEGIN QUERY PARSE-------------------------------------------
- query=select top 50 * from orders where orderid = "SO43697"
+ query=select top 500 * from customers group by surname
  validateSQLString
  determine action
 
 -------------------------BEGIN PARSE SELECT-------------------------------------------
-Query String = select top 50 * from orders where orderid = "SO43697"
-Find delimiter buffer:SELECT TOP 50 * FROM ORDERS WHERE ORDERID =         " delimiter=FROM
-delimiter s:FROM ORDERS WHERE ORDERID =         " result = 16
-Query string after top select top 50 * from orders where orderid = "SO43697"
-Find delimiter buffer:ORDERS WHERE ORDERID =         " delimiter=WHERE
-delimiter s:WHERE ORDERID =         " result = 7
-Find delimiter buffer:ORDERS WHERE ORDERID =         " delimiter=ON
+Query String = select top 500 * from customers group by surname
+Find delimiter buffer:SELECT TOP 500 * FROM CUSTOMERS GROUP BY SURNAME delimiter=FROM
+delimiter s:FROM CUSTOMERS GROUP BY SURNAME result = 17
+Query string after top select top 500 * from customers group by surname
+Find delimiter buffer:CUSTOMERS GROUP BY SURNAME delimiter=WHERE
 delimiter s:(null)
-Find delimiter buffer:ORDERS WHERE ORDERID =         " delimiter=JOIN
+Find delimiter buffer:CUSTOMERS GROUP BY SURNAME delimiter=ON
 delimiter s:(null)
-Find delimiter buffer:ORDERS WHERE ORDERID =         " delimiter=ORDER BY
+Find delimiter buffer:CUSTOMERS GROUP BY SURNAME delimiter=JOIN
 delimiter s:(null)
-delimiter found:7
+Find delimiter buffer:CUSTOMERS GROUP BY SURNAME delimiter=ORDER BY
+delimiter s:(null)
+Find delimiter buffer:CUSTOMERS GROUP BY SURNAME delimiter=GROUP BY
+delimiter s:GROUP BY SURNAME result = 10
+delimiter found:10
 
 -----------Parse Table List----------------
-tableString:orders 
-token orders 
-Find delimiter buffer:* FROM ORDERS WHERE ORDERID =         " delimiter=FROM
-delimiter s:FROM ORDERS WHERE ORDERID =         " result = 2
+tableString:customers 
+token customers 
+Find delimiter buffer:* FROM CUSTOMERS GROUP BY SURNAME delimiter=FROM
+delimiter s:FROM CUSTOMERS GROUP BY SURNAME result = 2
 
 -----------Parse Column List----------------
 tableString:*
- token = *
-Find delimiter buffer:SELECT TOP 50 * FROM ORDERS WHERE ORDERID =         " delimiter=WHERE
-delimiter s:WHERE ORDERID =         " result = 28
-Find delimiter buffer:SELECT TOP 50 * FROM ORDERS WHERE ORDERID =         " delimiter=ORDER BY
+Find delimiter buffer:SELECT TOP 500 * FROM CUSTOMERS GROUP BY SURNAME delimiter=WHERE
 delimiter s:(null)
+Find delimiter buffer:SELECT TOP 500 * FROM CUSTOMERS GROUP BY SURNAME delimiter=ORDER BY
+delimiter s:(null)
+Find delimiter buffer:SELECT TOP 500 * FROM CUSTOMERS GROUP BY SURNAME delimiter=GROUP BY
+delimiter s:GROUP BY SURNAME result = 32
 
------------Parse Conditions----------------
-tableString:orderid = "SO43697"
-token=orderid
- token = =
-token==
-token="SO43697"
-Find delimiter buffer:        " delimiter="
-delimiter s:" result = 8
+-----------Parse Group by----------------
+Group By string:surname
+ order by tokens surname
 
 -------------------------BEGIN BIND-------------------------------------------
- table name orders || 
+ table name customers || 
 
- tp1:orders| tp2:(null)|
+ tp1:customers| tp2:(null)|
  binding column *
 
------------Bind Column Value List--------------------------------------- bind order by -----------------------------------
+-----------Bind Column Value List--------------------------------------- bind order by ---------------------------------------------------------- bind group by -----------------------------------
+ bind group Column name:surname table: customers  sort# 4
+
+-------------------------BEGIN ENGINE-------------------------------------------
+------------------------Select-----------------------------
+ group by sorting count at 2
+ 
+d custid     givenname            mi surname              phone                email                                    street1                        street2                        city                 stat coun zipcode    Morris               1
+Rivera               1
+Gill                 1
+Bailey               1
+Torres               1
+Murphy               1
+Gutierrez            1
+Blue                 1
+Moyer                1
+Morgan               1
+Romero               1
+Cook                 1
+Ferrier              1
+Reed                 1
+Rogers               1
+Luo                  1
+Cooper               1
+Moreno               1
+Jimenez              1
+Sanchez              1
+Alvarez              1
+Guo                  1
+Stewart              1
+Liang                1
+Ma                   1
+Gao                  1
+Diaz                 1
+Zhu                  1
+Sun                  1
+Xu                   1
+Lu                   1
+Zhao                 1
+Suarez               1
+Jenkins              1
+Coleman              1
+Hernandez            1
+Diaz                 1
+Henderson            1
+Ross                 1
+Barnes               1
+Gomez                1
+Martin               1
+Sanders              1
+Ortega               1
+Rubio                1
+Kelly                1
+Brooks               1
+Sanz                 1
+Griffin              1
+Watson               1
+James                1
+Ramirez              1
+Gray                 1
+Peterson             1
+Torres               1
+Serrano              1
+Yuan                 1
+Blanco               1
+Ward                 1
+Howard               1
+Cox                  1
+Vazquez              1
+Richardson           1
+Martin               1
+Lin                  1
+Wu                   1
+Foster               1
+Huang                1
+Yang                 1
+Gomez                1
+Li                   1
+Chen                 1
+Wang                 1
+Zhang                1
+Becker               1
+Goel                 1
+Nath                 1
+Rai                  1
+Nara                 1
+Zhou                 1
+Raje                 1
+Andersen             1
+Pal                  1
+Jai                  1
+Lal                  1
+Kumar                1
+Ortega               1
+Luo                  1
+Xu                   1
+Tang                 1
+Xie                  1
+Deng                 1
+She                  1
+Ferrier              1
+Bryant               1
+Ye                   1
+Hernandez            1
+Zhou                 1
+Lin                  1
+Wycoff               1
+Russell              1
+Huang                1
+Yang                 1
+Alexander            1
+Liu                  1
+Li                   1
+Chen                 1
+Wang                 1
+Zhang                1
+Zeng                 1
+Perry                1
+Cai                  1
+Gonzales             1
+Hu                   1
+Zheng                1
+He                   1
+Liang                1
+Ma                   1
+Gao                  1
+Zhu                  1
+Ruiz                 1
+Sun                  1
+Xu                   1
+Lu                   1
+Zhao                 1
+Perry                1
+Alexander            1
+Bryant               1
+Gonzales             1
+Serrano              1
+Jai                  1
+Blanco               1
+Foster               1
+Washington           1
+Gill                 1
+Flores               1
+Hughes               1
+Dominguez            1
+Patterson            1
+Torres               1
+Powell               1
+Ramos                1
+Gutierrez            1
+Jenkins              1
+Coleman              1
+Navarro              1
+Henderson            1
+Ross                 1
+Barnes               1
+Romero               1
+Wood                 1
+Alonso               1
+Bennett              1
+Munoz                1
+Shan                 1
+Price                1
+Sanders              1
+Martin               1
+Malhotra             1
+Ward                 1
+Howard               1
+Patel                1
+Cooper               1
+Rivera               1
+Bailey               1
+Chandra              1
+Murphy               1
+Diaz                 1
+Andersen             1
+Ruiz                 1
+Bell                 1
+Morgan               1
+Gomez                1
+Brooks               1
+Cook                 1
+Reed                 1
+Ortega               1
+Rogers               1
+Morris               1
+Rubio                1
+Sandberg             1
+Sanchez              1
+Stewart              1
+Suarez               1
+Diaz                 1
+Griffin              1
+Carlson              1
+Russell              1
+Dominguez            1
+Sanchez              1
+Stewart              1
+Diaz                 1
+Griffin              1
+Serrano              1
+Russell              1
+Blanco               1
+Alexander            1
+Bryant               1
+Gonzales             1
+Vazquez              1
+Foster               1
+Simmons              1
+Gill                 1
+Butler               1
+Morris               1
+Torres               1
+Lal                  1
+Gutierrez            1
+Navarro              1
+Romero               1
+Flores               1
+Alonso               1
+Hughes               1
+Patterson            1
+Munoz                1
+Long                 1
+Jim  nez             1
+Powell               1
+Alvarez              1
+Richardson           1
+Moreno               1
+Jim  nez             1
+Watson               1
+James                1
+Ramirez              1
+Gray                 1
+Hernandez            1
+Truempy              1
+Diaz                 1
+Wagner               1
+Ruiz                 1
+Howard               1
+Cox                  1
+Gomez                1
+Martin               1
+Raji                 1
+Cooper               1
+Ortega               1
+Rivera               1
+Bailey               1
+Rubio                1
+Sharma               1
+Murphy               1
+Rogers               1
+Bell                 1
+Morgan               1
+Suarez               1
+Cook                 1
+Reed                 1
+Carlson              1
+Guo                  1
+Zhou                 1
+Lin                  1
+Alonso               1
+Wu                   1
+Huang                1
+Yang                 1
+Liu                  1
+Li                   1
+Chow                 1
+Wagner               1
+Zhang                1
+Zeng                 1
+Cai                  1
+Hu                   1
+Zheng                1
+Ye                   1
+Liang                1
+Ma                   1
+Gao                  1
+Zhu                  1
+Xu                   1
+Moreno               1
+Lu                   1
+Zhao                 1
+Ye                   1
+Zhou                 1
+Lin                  1
+Wu                   1
+Huang                1
+Yang                 1
+Liu                  1
+Kelly                1
+Lin                  1
+Wu                   1
+Huang                1
+Yang                 1
+Liu                  1
+Navarro              1
+Chen                 1
+Price                1
+Wang                 1
+Zhang                1
+Zeng                 1
+Cai                  1
+Hu                   1
+Zheng                1
+Sandberg             1
+Li                   1
+Harrison             1
+Guo                  1
+Brooks               1
+Liang                1
+Romero               1
+Ma                   1
+West                 1
+Gao                  1
+Zhu                  1
+Sun                  1
+Xu                   1
+James                1
+Lu                   1
+Zhao                 1
+Simmons              1
+Zhang                1
+Zeng                 1
+Cai                  1
+Xie                  1
+Pal                  1
+Tang                 1
+Green                1
+Shan                 1
+Xu                   1
+Martinez             1
+Reed                 1
+Sanchez              1
+Cook                 1
+Miller               1
+Murphy               1
+Wang                 1
+Patterson            1
+Alexander            1
+Miller               1
+Chen                 1
+Chander              1
+Alexander            1
+Hayes                1
+Lee                  1
+Agbonile             1
+Miller               1
+Jackson              1
+Xie                  1
+Wu                   1
+Raji                 1
+Gao                  1
+Jimenez              1
+Chen                 1
+Gray                 1
+Wang                 1
+Peterson             1
+Cai                  1
+Hu                   1
+Zheng                1
+Torres               1
+He                   1
+Guo                  1
+Liang                1
+Alvarez              1
+Ma                   1
+Ward                 1
+Zhou                 1
+Zhu                  1
+Howard               1
+Xu                   1
+Cox                  1
+Zhao                 1
+Ye                   1
+Zhou                 1
+Lin                  1
+Hernandez            1
+Wu                   1
+Huang                1
+Liu                  1
+Li                   1
+Chen                 1
+Ramos                1
+Nath                 1
+Rai                  1
+Nara                 1
+Carlson              1
+Chander              1
+Chande               1
+Raje                 1
+Andersen             1
+Pal                  1
+Jai                  1
+Shan                 1
+Sharma               1
+Long                 1
+Lal                  1
+Kumar                1
+Goldstein            1
+Yuan                 1
+Luo                  1
+Xu                   1
+Xie                  1
+Shen                 1
+Deng                 1
+She                  1
+Powell               1
+Zeng                 1
+Cai                  1
+Serrano              1
+Hu                   1
+Zheng                1
+He                   1
+Guo                  1
+Jai                  1
+Xu                   1
+Becker               1
+Goel                 1
+Simmons              1
+Nath                 1
+Rai                  1
+Nara                 1
+Chander              1
+Butler               1
+Chande               1
+Raje                 1
+Andersen             1
+Pal                  1
+Sanz                 1
+Washington           1
+Liang                1
+Flores               1
+Shan                 1
+Kumar                1
+Yuan                 1
+Luo                  1
+Xu                   1
+Tang                 1
+Xie                  1
+Suarez               1
+Shen                 1
+She                  1
+Hughes               1
+Anand                1
+Raji                 1
+Cai                  1
+Xu                   1
+Lu                   1
+Zhao                 1
+Ye                   1
+Zhou                 1
+Dominguez            1
+Wu                   1
+Huang                1
+Bennett              1
+Liu                  1
+Li                   1
+Chen                 1
+Wang                 1
+Zhang                1
+Zeng                 1
+Sun                  1
+Torres               1
+Tang                 1
+Hu                   1
+Zheng                1
+He                   1
+Liang                1
+Gao                  1
+Zhu                  1
+Sun                  1
+Xu                   1
+Gutierrez            1
+Lu                   1
+Zhao                 1
+Ye                   1
+Liu                  1
+Gao                  1
+Perry                1
+Zhu                  1
+Sun                  1
+Blanco               1
+Zhao                 1
+Coleman              1
+Ye                   1
+Henderson            1
+Ross                 1
+Zhou                 1
+Lin                  1
+Wu                   1
+Huang                1
+Yang                 1
+Raji                 1
+Li                   1
+Vazquez              1
+Chow                 1
+Barnes               1
+Wang                 1
+Zeng                 1
+Wood                 1
+Cai                  1
+Hu                   1
+Zheng                1
+Guo                  1
+Gill                 1
+Ma                   1
+Gao                  1
+
+ 
+ group by column: surname
+ 
+Table scan: rows scanned 500
+rows returned 500
+ 
+

@@ -16,6 +16,7 @@ using namespace std;
 class resultList
 {
     vector<vector<TempColumn*>> rows{};
+	vector<vector<TempColumn*>> tempRows{};
 	Statement*					statement;
 
 public:
@@ -23,17 +24,19 @@ public:
 	RETURNACTION				returnAction;
     int                         rowCount = 0;
     PRESENTATION                presentation;
-    ParseResult                 addRow(vector<TempColumn*>);
-	void						printRow(vector<TempColumn*>);
-    string                      formatColumn(TempColumn*);
-	void						printColumn(TempColumn*);
-
+	list<int>					lstSort;
+    ParseResult                 addRow			(vector<TempColumn*>);
+	void						printRow		(vector<TempColumn*>);
+    string                      formatColumn	(TempColumn*);
+	void						printColumn		(TempColumn*);
+	TempColumn*					getCountColumn	(int);
+	ParseResult					printHeader		(vector<TempColumn*>);
+	string  					htmlHeader		(vector<TempColumn*>,int32_t);
+	string  					textHeader		(vector<TempColumn*>);
+    ParseResult                 Sort			(list<int>,bool);
+	ParseResult					orderBy();
+	ParseResult					groupBy();
 	void						print();
-    ParseResult                 Sort();
-
-
-	//vector<vector<Column*>>     getResults();
-    //ParseResult                 addOrderBy(Column*);
     
 };
 resultList::resultList(Statement* _statement)
@@ -54,10 +57,12 @@ ParseResult resultList::addRow(vector<TempColumn*> _row)
  ******************************************************/
 void resultList::print()
 {
-
+	vector<TempColumn*> row = rows.front();
+	printHeader(row);
 	for (size_t i = 0; i < rows.size(); i++) { 
-		vector<TempColumn*> row = (vector<TempColumn*>)rows[i];
-		printRow(row);
+		row = (vector<TempColumn*>)rows[i];
+		if(row.size() > 0)
+			printRow(row);
 	}
 }
 
@@ -77,7 +82,8 @@ void resultList::printRow(vector<TempColumn*> _row)
 	 for (auto it = begin (_row); it != end (_row); ++it) 
 	 {
  		TempColumn* col = (TempColumn*)*it;
-		printColumn(col);
+		if(col != nullptr)
+			printColumn(col);
     }
 
 	if(presentationType == PRESENTATION::HTML)
@@ -90,22 +96,16 @@ void resultList::printRow(vector<TempColumn*> _row)
 /******************************************************
  * sort
  ******************************************************/
-ParseResult resultList::Sort()
+ParseResult resultList::Sort(list<int> _n, bool _ascending)
 {
-
-	list<int> n;
-	for(OrderBy* order : statement->table->orderBy)
-	{
-		if(debug)
-			fprintf(traceFile,"\n sorting on column# %d", order->columnNbr);
-		n.push_back(order->columnNbr);
-	}
+	if(_n.size() == 0)
+		return ParseResult::FAILURE;
 
      std::sort(rows.begin(), rows.end(),
             [&](const vector<TempColumn*> row1,const vector<TempColumn*> row2) {
                 // compare last names first
               int x = 0;
-				for(int nbr : n)
+				for(int nbr : _n)
 				{
 					switch(row1.at(nbr)->edit)
 					{
@@ -161,27 +161,156 @@ ParseResult resultList::Sort()
 					
 					if(x != 0)
 					{
-						if(x < 0)
-							return true;
+						if(_ascending)
+						{
+							if(x < 0)
+								return true;
+							else
+								return false;
+						}
 						else
-							return false;
+						{
+							if(x > 0)
+								return true;
+							else
+								return false;
+						}
 					}
+
+					
 				}
-				if(x < 0)
-					return true;
+				if(_ascending)
+				{
+					if(x < 0)
+						return true;
+					else
+						return false;
+				}
 				else
-					return false;
+				{
+					if(x > 0)
+						return true;
+					else
+						return false;
+				}
             });
     return ParseResult::SUCCESS;
 }
-
 /******************************************************
- * Format Ouput
+ * Order By
+ ******************************************************/
+ParseResult resultList::orderBy()
+{
+	list<int> n;
+	for(OrderBy* order : statement->table->orderBy)
+	{
+		if(debug)
+			fprintf(traceFile,"\n sorting on column# %d", order->columnNbr);
+		n.push_back(order->columnNbr);
+	}
+	Sort(n,true);
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Group By
+ ******************************************************/
+ParseResult resultList::groupBy()
+{
+
+	list<int> n;
+	bool sortByCount = true;
+	for(GroupBy* group : statement->table->groupBy)
+	{
+		if(strcasecmp(group->col->name,(char*)sqlTokenCount) == 0)
+		{
+			sortByCount = true;
+		}
+		else
+			n.push_back(group->columnNbr);
+	}
+
+	Sort(n,true);
+
+	vector<TempColumn*> priorRow;
+	vector<TempColumn*> sortRow;
+	bool first = true;
+	bool controlBreak = true;
+	int count = 0;
+	int newRowSize = 0;
+	
+	for (size_t i = 0; i < rows.size(); i++) { 
+		vector<TempColumn*> row = (vector<TempColumn*>)rows[i];
+		if(first)
+		{
+			priorRow = row;
+			first = false;
+		}
+		for(GroupBy* group : statement->table->groupBy)
+		{	
+			count++;
+			if(row.at(group->columnNbr)->edit == t_edit::t_char)
+			{
+				if(strcasecmp(row.at(group->columnNbr)->charValue,priorRow.at(group->columnNbr)->charValue ) != 0)
+					controlBreak = true;
+			}
+			else
+			if(row.at(group->columnNbr) != priorRow.at(group->columnNbr))
+				controlBreak = true;
+
+			if(controlBreak)
+			{
+				sortRow.push_back(getCountColumn(count));
+				for(int i2 : n)
+				{
+					sortRow.push_back(priorRow.at(i2));
+				}
+				tempRows.push_back(sortRow);
+
+				//Get position of count in the row for sorting by count
+				if(newRowSize == 0)
+					newRowSize = (int)sortRow.size();
+				sortRow.clear();
+				count = 0;
+				controlBreak = false;
+			}
+		}	
+		priorRow = row;
+	}
+	rows = tempRows;
+	if(sortByCount)
+	{
+		list<int> c;
+		c.push_back(0);
+		if(debug)
+			fprintf(traceFile,"\n group by sorting count at %d", newRowSize);
+		Sort(c,false);
+	}
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Get Group Row
+ ******************************************************/
+TempColumn* resultList::getCountColumn(int count)
+{
+	TempColumn* countCol = new TempColumn();
+	countCol->name 		= (char*)"Count";
+	countCol->edit 		= t_edit::t_int;
+	countCol->intValue 	= count;
+	countCol->length	= sizeof(int);
+	return countCol;
+}
+/******************************************************
+ * print Column
  ******************************************************/
 void resultList::printColumn(TempColumn* col)
 {
 	size_t pad = 0;
-	string result;
+	string result = "";
+
+	if(col == nullptr)
+	{
+		return;
+	}
 
 	if(presentationType == PRESENTATION::HTML)
 	{
@@ -201,6 +330,7 @@ void resultList::printColumn(TempColumn* col)
 				result.append(" ");
 			}
 		}
+		
 	}
 
 	returnResult.resultTable.append(result);
@@ -215,11 +345,15 @@ string resultList::formatColumn(TempColumn* _col)
 	std::stringstream ss;
 	string formatString;
 
+	if(_col == nullptr)
+		return "";
 
 	switch(_col->edit)
 	{
 		case t_edit::t_char:
 		{
+			if(_col->charValue == nullptr)
+				return "";
 			return formatString.append(_col->charValue);
 			break;
 		}
@@ -257,6 +391,110 @@ string resultList::formatColumn(TempColumn* _col)
 		}
 		
 	}
-	return "e";
+	return "";
 }
+/******************************************************
+ * Pring Header
+ ******************************************************/
+ParseResult resultList::printHeader(vector<TempColumn*> _cols)
+{
+	string header;
+	int sumOfColumnSize = 0;
+	for( TempColumn* col: _cols)
+	{
+		if(col->edit == t_edit::t_date)
+		{
+			sumOfColumnSize = sumOfColumnSize + 16;
+		}
+		else
+		{
+			sumOfColumnSize = sumOfColumnSize + col->length;
+		}
+    }
+	if(presentationType == PRESENTATION::HTML)
+		header = htmlHeader(_cols,sumOfColumnSize);
+	else
+		header = textHeader(_cols);
+
+	returnResult.resultTable.append(header);
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * HTML Header
+ ******************************************************/
+string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumnSize)
+{
+	double percentage = 0;
+	int pad = 0;
+	string header;
+	header.append(rowBegin);
+
+	if(_sumOfColumnSize < 100)
+	{
+		pad = 100 - _sumOfColumnSize;
+		fprintf(traceFile,"\n pad = %d",pad);
+		_sumOfColumnSize = _sumOfColumnSize + pad;
+	}
+	for (Column* col : _columns) 
+	{
+		header.append("\n\t");
+		header.append(hdrBegin);
+		header.append(" style="" width:");
+		if(col->edit == t_edit::t_date)
+		{
+			percentage = 12 / _sumOfColumnSize * 100;
+		}
+		else
+			percentage = (double)col->length / _sumOfColumnSize * 100;
+		header.append(to_string((int)percentage));
+		header.append("%"">");
+		header.append(col->name);
+		header.append(hdrEnd);
+	}
+	if(pad > 0)
+	{
+		header.append("\n\t");
+		header.append(hdrBegin);
+		header.append(" style="" width:");
+		percentage = (double)pad / _sumOfColumnSize * 100;
+		fprintf(traceFile,"\n sum of col = %d",_sumOfColumnSize);
+		fprintf(traceFile,"\n pad percent = %f",percentage);
+		header.append(to_string((int)percentage));
+		header.append("%"">");
+		header.append(hdrEnd);
+	}
+	header.append(rowEnd);
+	return header;
+}
+/******************************************************
+ * Text Header
+ ******************************************************/
+string resultList::textHeader(vector<TempColumn*> _columns)
+{
+	size_t pad = 0;
+	string header;
+	header.append("\n");
+	for (Column* col : _columns) 
+	{
+		if((size_t)col->length > strlen(col->name))
+		{
+			header.append(col->name);
+			pad = col->length - strlen(col->name);
+			for(size_t i =0;i<pad;i++)
+			{
+				header.append(" ");
+			}
+		}
+		else
+		{
+			char* name = col->name;
+			name[col->length] = '\0';
+			header.append(name);
+			header.append(" ");
+		}
+	}
+
+	return header;
+}
+
 

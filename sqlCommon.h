@@ -66,15 +66,29 @@ class TempColumn : public Column
     t_tm    dateValue       = {};
 };
 /******************************************************
- * Order By
+ * Base Order/Group
  ******************************************************/
-class OrderBy
+class OrderGroup
 {
     public:
         Column* col         {};
         char*   name       = nullptr;
-        bool    asc        = true;
         int     columnNbr   = 0;        //Tells the sort routing which column to sort on
+};
+/******************************************************
+ * Order By
+ ******************************************************/
+class OrderBy : public OrderGroup
+{
+    public:
+        bool    asc        = true;
+};
+/******************************************************
+ * Group By
+ ******************************************************/
+class GroupBy : public OrderGroup
+{
+
 };
 /******************************************************
  * Condition
@@ -193,7 +207,7 @@ class sTable : public BaseData
         list<sIndex*>    indexes{};
         list<Condition*> conditions{};
         list<OrderBy*>   orderBy{};
-        list<Condition*> groupBy{};
+        list<GroupBy*>   groupBy{};
         int              recordLength = 0;
         char*            alias;
 };

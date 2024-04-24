@@ -29,7 +29,7 @@ char* tokenParser::cleanString(char* _string)
 {
     // ABC  DEF
     size_t  len = strlen(_string);
-    char*   newString = (char*)malloc(len+1);
+    char*   newString = utilities::dupString(_string);
     char    c;
     size_t  posNewString = 0;
     bool    betweenQuotes = false;
@@ -124,7 +124,6 @@ char* tokenParser::getToken()
     char c = ' ';                           //character in question
     int  t = 0;                             //token character pointer
     token[0] = '\0';
-    char* retToken;
 
     //read string loop
     while(pos <= parseStringLength)
@@ -145,11 +144,10 @@ char* tokenParser::getToken()
         && parseString[pos] == EQUAL)
         {
            pos++; 
-           retToken = (char*)malloc(3); 
-           retToken[0] = c;
-           retToken[1] = EQUAL;
-           retToken[2] = '\0';
-           return retToken;
+           token[0] = c;
+           token[1] = EQUAL;
+           token[2] = '\0';
+           return utilities::dupString(token);
         }
 
         if(c == QUOTE)
@@ -167,9 +165,7 @@ char* tokenParser::getToken()
                 if(!delimiterAhead())
                 {
                     token[t] = '\0';
-                    retToken = (char*)malloc(t+1);
-                    strcpy(retToken,token);
-                    return retToken;
+                    return utilities::dupString(token);
                 }
             }
             else
@@ -213,11 +209,8 @@ char* tokenParser::getToken()
         {
             if(t > 0)
             {
-                
                 token[t] = '\0';
-                retToken = (char*)malloc(t+1);
-                strcpy(retToken,token);
-                return retToken;
+                return utilities::dupString(token);
             }
             continue;
         }
@@ -230,22 +223,13 @@ char* tokenParser::getToken()
             {
                 pos = pos -1;
                 token[t] = '\0';
-                retToken = (char*)malloc(t+1);
-                strcpy(retToken,token);
-                if(debug)
-                   fprintf(traceFile,"\n token = %s",retToken);
-                return retToken;
+                return utilities::dupString(token);
             }
             else
             {
                 token[0] = c;
                 token[1] = '\0';
-                t = 1;
-                retToken = (char*)malloc(t+1);
-                strcpy(retToken,token);
-                if(debug)
-                   fprintf(traceFile,"\n token = %s",retToken);
-                return retToken;
+                return utilities::dupString(token);
             }
          }
         
@@ -255,11 +239,7 @@ char* tokenParser::getToken()
     if(t > 0)
     {
         token[t] = '\0';
-        retToken = (char*)malloc(t+1);
-        strcpy(retToken,token);
-        if(debug)
-            fprintf(traceFile,"\n token = %s",retToken);
-        return retToken;
+        return utilities::dupString(token);
     }
     eof = true;
     return nullptr;

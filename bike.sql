@@ -92,4 +92,7 @@ CREATE TABLE items as "/home/greg/projects/test/testData/Items.dat"
 	PRIMARY KEY (orderid,productid)
 )
 
+CREATE INDEX orderid as "/home/greg/projects/test/testIndex/itemOrder.idx"
+ON orders (orderid)
+
 
