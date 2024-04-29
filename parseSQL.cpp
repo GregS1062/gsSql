@@ -6,14 +6,12 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
-#include <map>
 #include <cstdio>
 #include <fstream>
+#include "interfaces.h"
 #include "sqlCommon.h"
-#include "index.h"
-#include "tokenParser.h"
-#include "utilities.h"
-#include "lookup.h"
+#include "tokenParser.cpp"
+#include "lookup.cpp"
 
 using namespace std;
 
@@ -25,9 +23,9 @@ class sqlParser
     signed long     sqlStringLength;
     tokenParser*    tok;
     sTable*         table;
-    list<sTable*>   tables;
+    iSQLTables*     isqlTables;
 
-    sqlParser(char*);
+    sqlParser(char*,iSQLTables*);
     ParseResult parse();
     ParseResult createTable();
     ParseResult createIndex();
@@ -40,8 +38,9 @@ class sqlParser
 /******************************************************
  * SQL Parser Constructor
  ******************************************************/
-sqlParser::sqlParser(char* _sqlString)
+sqlParser::sqlParser(char* _sqlString, iSQLTables* _isqlTables)
 {
+    isqlTables         = _isqlTables;
     sqlString         = _sqlString;
     sqlStringLength   = strlen(sqlString);
     tok               = new tokenParser(sqlString);
@@ -123,7 +122,7 @@ ParseResult sqlParser::createTable()
 
     calculateTableColumnValues(table);
 
-    tables.push_back(table);
+    isqlTables->tables.push_back(table);
 
     return ParseResult::SUCCESS;
     
@@ -282,7 +281,7 @@ ParseResult sqlParser::parseColumnEdit(Column* _col)
         }
 
         token = tok->getToken();
-        if(!utilities::isNumeric(token))
+        if(!isNumeric(token))
         {
             errText.append("sql parser expecting a number for column length. See ");
             errText.append(_col->name);
@@ -344,7 +343,7 @@ ParseResult sqlParser::createIndex()
     //This must be table name
     token = tok->getToken();
 
-    table = lookup::getTableByName(tables,token); 
+    table = lookup::getTableByName(isqlTables->tables,token); 
     if(table == nullptr)
     {
         errText.append(" Index table ");

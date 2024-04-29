@@ -1,11 +1,22 @@
 #pragma once
 #include <string>
+#include <index.h>
+#include <universal.h>
 #include "defines.h"
-#include "utilities.h"
-#include "universal.h"
-#include "index.h"
+#include "utilities.cpp"
 
 using namespace std;
+
+class ColumnNameValue
+{
+    //Note: all that is needed for update parsing is the column name
+    //      the column and all of its edits are added in the sqlEngine
+    public:
+    char*   name;
+    char*   value;
+};
+
+
 
 /******************************************************
  * Result
@@ -47,6 +58,7 @@ class Column
     public:
     char*   tableName;
     char*   name;
+    char*   alias;
     bool    primary = false;
     t_edit  edit;
     int     length = 0;
@@ -135,8 +147,8 @@ fstream* BaseData::open()
         fileStream = new fstream{};
 		fileStream->open(fileName, ios::in | ios::out | ios::binary);
 		if (!fileStream->is_open()) {
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,fileName);
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,fileName);
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
 			return nullptr;
 		}
         return fileStream;
@@ -184,12 +196,12 @@ bool sIndex::openIndex()
 {
     if(strlen(name) == 0)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index name not set");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index name not set");
         return false;
     }
     if(strlen(fileName) == 0)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index filename not set");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index filename not set");
         return false;
     }
     fileStream = open();
@@ -213,41 +225,15 @@ class sTable : public BaseData
 };
 
 /******************************************************
- * Results
- ******************************************************/
-class Results
-{
-
-};
-
-/******************************************************
- * Plan
- ******************************************************/
-class Plan
-{
-    public:
-
-};
-
-/******************************************************
  * Statement
  ******************************************************/
 class Statement
 {
     public:
-        SQLACTION       action;
-        list<OrderBy*>   orderList;        
-        int             rowsToReturn;
-        sTable*         table;
-        Results*        results = new Results();
-};
-
-/******************************************************
- * Execution
- ******************************************************/
-class Execution
-{
-    public:
+        SQLACTION           action;
+        list<OrderBy*>      orderList;        
+        int                 rowsToReturn;
+        sTable*             table;
 };
 
 FILE* traceFile;

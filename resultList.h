@@ -57,6 +57,9 @@ ParseResult resultList::addRow(vector<TempColumn*> _row)
  ******************************************************/
 void resultList::print()
 {
+	if(rows.size() == 0)
+		return;
+
 	vector<TempColumn*> row = rows.front();
 	printHeader(row);
 	for (size_t i = 0; i < rows.size(); i++) { 
@@ -71,6 +74,9 @@ void resultList::print()
  ******************************************************/
 void resultList::printRow(vector<TempColumn*> _row)
 {
+	if(_row.size() == 0)
+		return;
+		
 	string result;
 	result.append("\n");
 	if(presentationType == PRESENTATION::HTML)
@@ -488,7 +494,7 @@ string resultList::textHeader(vector<TempColumn*> _columns)
 		else
 		{
 			char* name = col->name;
-			name[col->length] = '\0';
+			//name[col->length] = '\0';
 			header.append(name);
 			header.append(" ");
 		}

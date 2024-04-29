@@ -1,7 +1,7 @@
 #include <fstream>
 #include <string.h>
 #include "conversion.h"
-#include "sqlParser.h"
+#include "parseSQL.cpp"
 int main()
 {
     fprintf(traceFile,"\n customers %d",sizeof(Customers));

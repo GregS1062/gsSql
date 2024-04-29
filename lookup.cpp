@@ -1,14 +1,12 @@
 #pragma once
-#include "sqlParser.h"
+#include "parseSQL.cpp"
 #include "sqlCommon.h"
-#include "utilities.h"
+#include "utilities.cpp"
 
 class lookup
 {
     public:
 
-    static sTable*     scrollTableList(map<char*,sTable*>, size_t);
-    static Column*     scrollColumnList(list<Column*>, size_t);
     static Column*     getColumnByName(list<Column*>, char*);
     static sTable*     getTableByAlias(list<sTable*>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
@@ -17,21 +15,7 @@ class lookup
     static signed long findDelimiterFromList(char*, list<char*>);
     static SQLACTION   determineAction(char* _token);
 };
-/******************************************************
- * Get Query Table
- ******************************************************/
-sTable* lookup::scrollTableList(map<char*,sTable*> _tables, size_t _index)
-{
-    if(_tables.size() == 0)
-        return nullptr;
-    
-    if(_tables.size() < _index+1)
-        return nullptr;
 
-    auto it = _tables.begin();
-    std::advance(it, _index);
-    return (sTable*)it->second;
-}
 /******************************************************
  * Get Table By Alias
  ******************************************************/
@@ -77,21 +61,7 @@ Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
     }
     return nullptr;
 }
-/******************************************************
- * ScrollColumns (returns nth column)
- ******************************************************/
-Column* lookup::scrollColumnList(list<Column*> _columns, size_t _index)
-{
 
-    size_t count = 0;
-    for(Column* col : _columns)
-    {
-        if(count == _index)
-            return col;
-        count++;
-    }
-    return nullptr;
-}
 /******************************************************
  * Find Delimiter
  ******************************************************/
@@ -103,7 +73,7 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
 
     char buff[MAXSQLSTRINGSIZE];
     bool betweenQuotes = false;
-    char* str = utilities::dupString(_string);
+    char* str = dupString(_string);
 
     //if the delimeter is enclosed in quotes, ignore it.
     // To do so, blank out everything between quotes in the search buffer
@@ -141,6 +111,13 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
     if (s != NULL)                     // if successful then s now points at "hassasin"
     {
         long int result = s - buff;
+
+        //Need to make sure this is an actual delimiter rather than a keyword embedded in another word.  example "DELETE" found in DELETED
+        if(result+1 < (int)strlen(str))
+        {
+            if(str[result+1] != SPACE)
+                return NEGATIVE;
+        }
         if(debug)
             fprintf(traceFile," result = %ld",result);
         return result;
@@ -221,9 +198,9 @@ TokenPair* lookup::tokenSplit(char* _token, char* delimiter)
     size_t len = strlen(_token);
     if(len > 1)
     {
-        utilities::lTrim(_token,' ');
-        utilities::rTrim(_token);
-        utilities::scrub(_token);
+        lTrim(_token,' ');
+        rTrim(_token);
+        scrub(_token);
     }
     
     

@@ -7,8 +7,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <syslog.h>
-#include "sqlParser.h"
-#include "queryParser.h"
+#include "parseSQL.cpp"
+#include "ParseQuery.h"
 #include "sqlEngine.h"
 #include "sqlCommon.h"
 
@@ -38,18 +38,18 @@ ParseResult runQuery(string _htmlRequest)
 	
 	debug = true;
 	
-	queryParser* query = new queryParser();
+	ParseQuery* query = new ParseQuery();
 
     if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," query parse failed");
+       // sendMessage(MESSAGETYPE::ERROR,presentationType,false," query parse failed");
 		return ParseResult::FAILURE;
     };
 
-    binding* bind = new binding(parser,query);
+    Binding* bind = new Binding(parser,query);
     if(bind->bind() == ParseResult::FAILURE)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," bind validate failed ");
+       // sendMessage(MESSAGETYPE::ERROR,presentationType,true," bind validate failed ");
 		return ParseResult::FAILURE;
     };
 

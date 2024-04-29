@@ -13,13 +13,14 @@
 #include <vector>
 #include <algorithm>
 #include <filesystem>
+#include <insert.h>
+#include <search.h>
+#include "plan.cpp"
 #include "sqlCommon.h"
-#include "binding.h"
-#include "conditions.h"
-#include "utilities.h"
-#include "insert.h"
-#include "search.h"
-#include "lookup.h"
+#include "binding.cpp"
+#include "compare.cpp"
+#include "utilities.cpp"
+#include "lookup.cpp"
 #include "defines.h"
 #include "resultList.h"
 
@@ -45,7 +46,7 @@ class sqlEngine
 	fstream* 		tableStream;
 	fstream* 		indexStream;
 	list<sIndex*>	sIndexes;
-	binding* 		bind;
+	Binding* 		bind;
 	char* 			line;
 	sqlParser* 		sp;
 	Statement*		statement;
@@ -92,7 +93,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 	statement = _statement;
 	if(statement == nullptr)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Statement is null");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Statement is null");
 	}
 	if(open() == ParseResult::FAILURE)
 	{
@@ -102,7 +103,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 	{
 		case SQLACTION::CREATE:
 		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Not implemented at this time");
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Not implemented at this time");
 			return ParseResult::FAILURE;
 			break;
 		}
@@ -113,7 +114,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 		}
 		case SQLACTION::NOACTION:
 		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
 			return ParseResult::FAILURE;
 			break;
 		}
@@ -129,7 +130,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 		}
 		case SQLACTION::INVALID:
 		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
 			return ParseResult::FAILURE;
 			break;
 		}
@@ -150,9 +151,9 @@ ParseResult sqlEngine::open()
         tableStream = new fstream{};
 		tableStream->open(statement->table->fileName, ios::in | ios::out | ios::binary);
 		if (!tableStream->is_open()) {
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,statement->table->fileName);
-            utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,strerror(errno));
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,statement->table->fileName);
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,strerror(errno));
 			return ParseResult::FAILURE;
 		}
 
@@ -163,8 +164,8 @@ ParseResult sqlEngine::open()
 				//TODO test that file
 				if(idx->open() == nullptr)
 				{
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to open index: ");
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,idx->fileName);
+					sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to open index: ");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,false,idx->fileName);
 					return ParseResult::FAILURE;
 				}
 				idx->index = new Index(idx->fileStream);
@@ -198,7 +199,7 @@ ParseResult sqlEngine::update()
 
 	if(tableScan(statement->table->columns,SQLACTION::UPDATE) == ParseResult::FAILURE)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Failed to update record");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false," Failed to update record");
 		return ParseResult::FAILURE;
 	};
 
@@ -322,7 +323,7 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 			break;
 		}
 
-		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
+		if(queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
 
 			resultCount++;
@@ -345,7 +346,7 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 			{
 				if(updateIndexes(recordPosition,_action)== ParseResult::FAILURE)
 				{
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," Failed to update indexes");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,true," Failed to update indexes");
 					return ParseResult::FAILURE;
 				}
 
@@ -353,13 +354,13 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 				{
 					if(formatInput(line,col) == ParseResult::FAILURE)
 					{
-						utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"format input failure");
+						sendMessage(MESSAGETYPE::ERROR,presentationType,true,"format input failure");
 						return ParseResult::FAILURE;
 					}
 				}
 				if(!writeRecord(line,recordPosition,tableStream,statement->table->recordLength))
 				{
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true," Failed to write record");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,true," Failed to write record");
 					return ParseResult::FAILURE;
 				}
 				
@@ -370,10 +371,10 @@ ParseResult sqlEngine::tableScan(list<Column*> _columns, SQLACTION _action)
 
 		recordPosition = recordPosition + statement->table->recordLength;
 	}
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Table scan: rows scanned ");
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(resultCount).c_str());
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"rows returned ");
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Table scan: rows scanned ");
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(resultCount).c_str());
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"rows returned ");
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -402,7 +403,7 @@ vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
 				char buff[60];
 				strncpy(buff, line+col->position, col->length);
 				buff[col->length] = '\0';
-				temp->charValue = utilities::dupString(buff);
+				temp->charValue = dupString(buff);
 				break;
 			}
 			case t_edit::t_int:
@@ -475,19 +476,19 @@ string sqlEngine::indexRead(searchIndexes* _searchOn)
 
 	Search* search = new Search(_searchOn->index->fileStream);
 
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,"indexed read on ");
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,_searchOn->index->name);
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,"indexed read on ");
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,_searchOn->index->name);
 
 	//TODO using one column
 	Column* col = _searchOn->col.front();
 
 	if(col == nullptr)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column is null ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column is null ");
 		return "";
 	}
 
-	utilities::upperCase(col->value);
+	upperCase(col->value);
 
 	if(strcasecmp(_searchOn->op,(char*)sqlTokenEqual) == 0)
 	{
@@ -540,7 +541,7 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		if(rowCount >= _rowsToReturn)
 			break;
 		
-		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
+		if(queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
 			results->addRow(outputLine(statement->table->columns));
 			rowCount++;
@@ -555,8 +556,8 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		results->groupBy();
 	}
 	results->print();
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return "";
 }
 /******************************************************
@@ -592,7 +593,7 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 		if(rowCount >= _rowsToReturn)
 			break;
 
-		if(compareToCondition::queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
+		if(queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
 		{
 			results->addRow(outputLine(statement->table->columns));
 			rowCount++;
@@ -605,8 +606,8 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 		results->groupBy();
 	}
 	results->print();
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
-	utilities::sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return "";
 }
 /******************************************************
@@ -636,7 +637,7 @@ ParseResult sqlEngine::insert()
 		returnResult.message.append(std::to_string(recordNumber));
 		return ParseResult::SUCCESS;
 	};
-	utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," location 0 - insert failed");
+	sendMessage(MESSAGETYPE::ERROR,presentationType,false," location 0 - insert failed");
 	return ParseResult::FAILURE;
 }
 /******************************************************
@@ -646,14 +647,14 @@ ParseResult sqlEngine::formatInput(char* _buff, Column* _col)
 {
 	if(_col->value == nullptr)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," is null");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false," is null");
 		return ParseResult::FAILURE;
 	}
 	if(((size_t)_col->position + strlen(_col->value)) > (size_t)statement->table->recordLength)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"buffer overflow on ");
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,"buffer overflow on ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
 		return ParseResult::FAILURE;
 	}
 	switch(_col->edit)
@@ -683,7 +684,7 @@ ParseResult sqlEngine::formatInput(char* _buff, Column* _col)
 		}
 		case t_edit::t_date:
 		{
-			t_tm _d = utilities::parseDate(_col->value);
+			t_tm _d = parseDate(_col->value);
 			memmove(&_buff[_col->position], &_d, _col->length);
 			break;
 		}
@@ -708,7 +709,7 @@ ParseResult sqlEngine::updateIndexes(long _location, SQLACTION _action)
 
 		if(idx->columns.size() == 0)
 		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"index has no columns");
+			sendMessage(MESSAGETYPE::ERROR,presentationType,true,"index has no columns");
 			return ParseResult::FAILURE;
 		}
 
@@ -727,9 +728,9 @@ ParseResult sqlEngine::updateIndexes(long _location, SQLACTION _action)
 			{
 				if(!idx->index->insertIndex->insert(qColumn->value,_location))
 				{
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+					sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
 					return ParseResult::FAILURE;
 				};
 			}
@@ -752,16 +753,16 @@ ParseResult sqlEngine::updateIndexes(long _location, SQLACTION _action)
 					{
 						if(!idx->index->deleteIndex->deleteEntry(buffBeforValue,_location))
 						{
-							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Delete on ");
-							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
-							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+							sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Delete on ");
+							sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+							sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
 							return ParseResult::FAILURE;
 						};
 						if(!idx->index->insertIndex->insert(qColumn->value,_location))
 						{
-							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
-							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
-							utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+							sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
+							sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+							sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
 							return ParseResult::FAILURE;
 						};
 					}
@@ -771,9 +772,9 @@ ParseResult sqlEngine::updateIndexes(long _location, SQLACTION _action)
 			{
 				if(!idx->index->deleteIndex->deleteEntry(qColumn->value,_location))
 				{
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Delete on ");
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
-					utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Delete on ");
+					sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+					sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
 					return ParseResult::FAILURE;
 				};
 			}
@@ -813,7 +814,7 @@ char* sqlEngine::getRecord(long _address, fstream* _file, int _size)
 	}
     catch(const std::exception& e)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false, e.what());
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false, e.what());
         return nullptr;
     } 
 }
@@ -829,7 +830,7 @@ long sqlEngine::appendRecord(void* _ptr, fstream* _file, int _size)
 		long eof = _file->tellg();
 		if (!_file->write((char*)_ptr, _size))
 		{
-			utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Write to file failed");
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Write to file failed");
 			eof = 0;
 		}
 			
@@ -840,7 +841,7 @@ long sqlEngine::appendRecord(void* _ptr, fstream* _file, int _size)
 	}
 	catch(const std::exception& e)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false, e.what());
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false, e.what());
         return 0;
     } 
 }
@@ -871,7 +872,7 @@ bool sqlEngine::writeRecord(void* _ptr, long _address, fstream* _file, int _size
 	}
 	catch(const std::exception& e)
     {
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false, e.what());
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false, e.what());
         return 0;
     } 
 	

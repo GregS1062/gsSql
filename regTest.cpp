@@ -5,8 +5,8 @@
 #include <iostream>
 #include <filesystem>
 #include <list>
-#include "sqlParser.h"
-#include "queryParser.h"
+#include "parseSQL.cpp"
+#include "ParseQuery.h"
 #include "sqlEngine.h"
 #include "global.h"
 

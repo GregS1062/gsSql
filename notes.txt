@@ -1,0 +1,30 @@
+structure of a column
+    column name
+    full table name/column name
+    alias table name/column name
+
+SELECT, FROM, WHERE, GROUP BY, HAVING, and ORDER BY
+
+---------------------------------------------------------
+select top 5 * from customers where custid in select custid from orders where tax > 100
+
+-----------------------------------------------------------
+SELECT Book.title AS Title,
+       count(*) AS Authors
+ FROM  Book
+ JOIN  Book_author
+   ON  Book.isbn = Book_author.isbn  GROUP BY Book.title;
+
+-----------------------------------------------------------
+ SELECT b.id, b.title, b.type, t.last_name AS translator
+FROM books b
+JOIN translators t
+ON b.translator_id = t.id ORDER BY b.id;
+-----------------------------------------------------------
+SELECT *
+FROM Orders
+LEFT JOIN OrderLines ON OrderLines.OrderID=Orders.ID
+WHERE Orders.ID = 12345
+-----------------------------------------------------------
+check list of functions as valid column names
+

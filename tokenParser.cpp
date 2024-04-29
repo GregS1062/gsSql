@@ -29,7 +29,7 @@ char* tokenParser::cleanString(char* _string)
 {
     // ABC  DEF
     size_t  len = strlen(_string);
-    char*   newString = utilities::dupString(_string);
+    char*   newString = dupString(_string);
     char    c;
     size_t  posNewString = 0;
     bool    betweenQuotes = false;
@@ -43,8 +43,11 @@ char* tokenParser::cleanString(char* _string)
         || c == RETURN
         || c == FORMFEED
         || c == TAB
-        || c == VTAB)
-            continue;
+        || c == VTAB)  
+        {
+            c =  SPACE;
+        }
+            
         
         if(c == QUOTE)
         {
@@ -54,6 +57,25 @@ char* tokenParser::cleanString(char* _string)
                 betweenQuotes = true;
         }
 
+
+        if(c == EQUAL)
+        {
+            if(_string[posString-1] != SPACE)
+            {
+                newString[posNewString] = SPACE;
+                posNewString++;
+            }
+            newString[posNewString] = c;
+            posNewString++;
+            if(_string[posString+1] != SPACE)
+            {
+                newString[posNewString] = SPACE;
+                posNewString++;
+                priorSpace = false;
+            }
+            continue;
+        }
+        
         if(!betweenQuotes
         && c == SPACE)
         {
@@ -147,7 +169,7 @@ char* tokenParser::getToken()
            token[0] = c;
            token[1] = EQUAL;
            token[2] = '\0';
-           return utilities::dupString(token);
+           return dupString(token);
         }
 
         if(c == QUOTE)
@@ -165,7 +187,7 @@ char* tokenParser::getToken()
                 if(!delimiterAhead())
                 {
                     token[t] = '\0';
-                    return utilities::dupString(token);
+                    return dupString(token);
                 }
             }
             else
@@ -210,7 +232,7 @@ char* tokenParser::getToken()
             if(t > 0)
             {
                 token[t] = '\0';
-                return utilities::dupString(token);
+                return dupString(token);
             }
             continue;
         }
@@ -223,13 +245,13 @@ char* tokenParser::getToken()
             {
                 pos = pos -1;
                 token[t] = '\0';
-                return utilities::dupString(token);
+                return dupString(token);
             }
             else
             {
                 token[0] = c;
                 token[1] = '\0';
-                return utilities::dupString(token);
+                return dupString(token);
             }
          }
         
@@ -239,7 +261,7 @@ char* tokenParser::getToken()
     if(t > 0)
     {
         token[t] = '\0';
-        return utilities::dupString(token);
+        return dupString(token);
     }
     eof = true;
     return nullptr;

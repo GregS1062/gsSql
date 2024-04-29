@@ -85,6 +85,10 @@ using namespace std;
 #define sqlTokenLeft            "LEFT"
 #define sqlTokenRight           "RIGHT"
 #define sqlTokenOuter           "OUTER"
+#define sqlTokenInnerJoin       "INNER JOIN"
+#define sqlTokenLeftJoin        "LEFT JOIN"
+#define sqlTokenRightJoin       "RIGHT JOIN"
+#define sqlTokenOuterJoin       "OUTER JOIN"
 #define sqlTokenOrderDescending "DESC"
 #define sqlTokenOrderAcending   "ASC"
 #define sqlTokenTrue            "T"
@@ -104,7 +108,8 @@ enum PRESENTATION
 enum ParseResult
 {
     SUCCESS,
-    FAILURE
+    FAILURE,
+    CONTINUE 
 };
 
 enum class SQLACTION{
@@ -115,6 +120,17 @@ enum class SQLACTION{
     SELECT,
     UPDATE,
     DELETE
+};
+
+enum class JOINType
+{
+    INNER,
+    OUTER,
+    LEFT,
+    RIGHT,
+    NATURAL,
+    CROSS,
+    FULL
 };
 
 enum class RETURNACTION

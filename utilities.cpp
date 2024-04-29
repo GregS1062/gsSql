@@ -8,31 +8,10 @@
 
 using namespace std;
 
-class utilities {
-public:
-	static void 	sendMessage(MESSAGETYPE,PRESENTATION,bool, const char*);
-	static void		messageHTML(MESSAGETYPE,bool, const char*);
-	static void		messageTEXT(MESSAGETYPE,bool, const char*);
-	static void 	formatDate(char[], t_tm);
-	static char* 	padLeft(char[], int);
-	static void 	lTrim(char[], char);
-	static void 	rTrim(char[]);
-	static void 	scrub(char[]);
-	static void 	subString(char target[], int start, int end);
-	static bool		isNumeric(char*);
-	static void 	upperCase(char[]);
-	static void 	terminateString(char[], int, int);
-	static t_tm 	parseDate(char[]);
-	static string   findAndReplace(string s,string _target, string _text);
-	static bool		isDateValid(char* _date);
-	static char*	dupString(const char*);
-	static void 	stripQuotesFromToken(char _token[]);
-};
-
 /*******************************************************
    String Duplicate
 *******************************************************/
-char* utilities::dupString(const char* str)
+char* dupString(const char* str)
 {
 	int len = (int)strlen(str);
 	if(len == 0)
@@ -46,23 +25,11 @@ char* utilities::dupString(const char* str)
 	cpy[len] = '\0';
 	return cpy;
 }
-/*******************************************************
-   Send Message
-*******************************************************/
-void utilities::sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, const char* _msg)
-{
-	if(_msg == nullptr)
-		_msg = "trying to send null message";
 
-	if(_presentation == PRESENTATION::HTML)
-		utilities::messageHTML(_type,_newLine,_msg);
-	else
-		utilities::messageTEXT(_type,_newLine,_msg);
-}
 /*******************************************************
    Message TEXT
 *******************************************************/
-void utilities::messageTEXT(MESSAGETYPE _type, bool _newLine, const char* _msg)
+void messageTEXT(MESSAGETYPE _type, bool _newLine, const char* _msg)
 {
 	string msg;
 	if(_newLine)
@@ -78,7 +45,7 @@ void utilities::messageTEXT(MESSAGETYPE _type, bool _newLine, const char* _msg)
 /*******************************************************
    Message HTML
 *******************************************************/
-void utilities::messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
+void messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
 {
 	string msg;
 
@@ -112,63 +79,22 @@ void utilities::messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
 	}
 };
 /*******************************************************
-   Formate Date
+   Send Message
 *******************************************************/
-void utilities::formatDate(char s[], t_tm _date)
+void sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, const char* _msg)
 {
-	//Has time structure been initialized (conversion issue)
-	if (_date.year < 1)
-	{
-		strcpy(s, "");
-		return;
-	}
+	if(_msg == nullptr)
+		_msg = "";
 
-	char str[11] = "";
-
-	sprintf(str,"%d", _date.month);
-
-	strcpy(s, padLeft(str, 2));
-	strcat(s, "/");
-
-	sprintf(str,"%d", _date.day);
-
-	strcat(s, padLeft(str, 2));
-
-	strcat(s, "/");
-
-	sprintf(str, "%d", _date.year);
-
-	strcat(s, str);
+	if(_presentation == PRESENTATION::HTML)
+		messageHTML(_type,_newLine,_msg);
+	else
+		messageTEXT(_type,_newLine,_msg);
 }
-
-
-/*******************************************************
-   upperCase  Convert lower to upper case
-*******************************************************/
-void utilities::upperCase(char s[])
-{
-	for (int i = 0; s[i] != '\0'; i++) {
-		if (s[i] >= 'a' && s[i] <= 'z') {
-			s[i] = (char)(s[i] - 32);
-		}
-	}
-}
-/*******************************************************
-   SubString
-*******************************************************/
-void utilities::terminateString(char target[], int start, int end)
-{
-	for (int i = 0; i < end - start; i++)
-	{
-		target[i] = target[i + start];
-	}
-	target[end - start] = '\0';
-}
-
 /*******************************************************
    Pad Left
 *******************************************************/
-char* utilities::padLeft(char target[], int max)
+char* padLeft(char target[], int max)
 {
     char buff[60];
 	if (target == nullptr)
@@ -195,12 +121,63 @@ char* utilities::padLeft(char target[], int max)
 	tmp = strdup(buff);
 	return tmp;
 }
+/*******************************************************
+   Formate Date
+*******************************************************/
+void formatDate(char s[], t_tm _date)
+{
+	//Has time structure been initialized (conversion issue)
+	if (_date.year < 1)
+	{
+		strcpy(s, "");
+		return;
+	}
 
+	char str[11] = "";
+
+	sprintf(str,"%d", _date.month);
+
+	strcpy(s, padLeft(str, 2));
+	strcat(s, "/");
+
+	sprintf(str,"%d", _date.day);
+
+	strcat(s, padLeft(str, 2));
+
+	strcat(s, "/");
+
+	sprintf(str, "%d", _date.year);
+
+	strcat(s, str);
+}
+
+/*******************************************************
+   upperCase  Convert lower to upper case
+*******************************************************/
+void upperCase(char s[])
+{
+	for (int i = 0; s[i] != '\0'; i++) {
+		if (s[i] >= 'a' && s[i] <= 'z') {
+			s[i] = (char)(s[i] - 32);
+		}
+	}
+}
+/*******************************************************
+   SubString
+*******************************************************/
+void terminateString(char target[], int start, int end)
+{
+	for (int i = 0; i < end - start; i++)
+	{
+		target[i] = target[i + start];
+	}
+	target[end - start] = '\0';
+}
 
 /*******************************************************
    Left Trim
 *******************************************************/
-void utilities::lTrim(char _target[], char _ch)
+void lTrim(char _target[], char _ch)
 {
 	if(_target[0] != _ch)
 		return;
@@ -225,7 +202,7 @@ void utilities::lTrim(char _target[], char _ch)
 /*******************************************************
    SubString
 *******************************************************/
-void utilities::subString(char target[], int start, int end)
+void subString(char target[], int start, int end)
 {
 	for (int i = 0; i < end - start; i++)
 	{
@@ -236,7 +213,7 @@ void utilities::subString(char target[], int start, int end)
 /*******************************************************
    Scrub token
 *******************************************************/
-void utilities::scrub(char _target[])
+void scrub(char _target[])
 {
 	char c;
 	size_t len = strlen(_target);
@@ -261,7 +238,7 @@ void utilities::scrub(char _target[])
 /*******************************************************
    Right Trim
 -*******************************************************/
-void utilities::rTrim(char _target[])
+void rTrim(char _target[])
 {
 	int len = (int)strlen(_target)-1;
 	char ch = ' ';
@@ -283,7 +260,7 @@ void utilities::rTrim(char _target[])
 /*******************************************************
    Parse Date
 *******************************************************/
-t_tm utilities::parseDate(char _date[])
+t_tm parseDate(char _date[])
 {
 	// pre-condition:	date has been validated
 	//					date is in the form MM/DD/YYYY
@@ -334,7 +311,7 @@ t_tm utilities::parseDate(char _date[])
 /********************************************************
 	Find and replace
  ******************************************************/
-string utilities::findAndReplace(string s,string _target, string _text)
+string findAndReplace(string s,string _target, string _text)
 {
 	if(s.find(_target) < s.length())
 	{
@@ -345,7 +322,7 @@ string utilities::findAndReplace(string s,string _target, string _text)
 /*******************************************************
    Is Date Valid
 *******************************************************/
-bool utilities::isDateValid(char* _cdate)
+bool isDateValid(char* _cdate)
 {
 	//Blank date is valid
 	if(_cdate == nullptr)
@@ -360,8 +337,8 @@ bool utilities::isDateValid(char* _cdate)
 
 	if (_date.length() != 10)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
 	char digits[10];
@@ -378,8 +355,8 @@ bool utilities::isDateValid(char* _cdate)
 
 	if (strlen(digits) != 8)
 	{
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
 
@@ -390,20 +367,20 @@ bool utilities::isDateValid(char* _cdate)
     const int lookup_table[12] = {31,29,31,30,31,30,31,31,30,31,30,31};
     if ((month < 1 || month > 12))
     {
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Month is invalid ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Month is invalid ");
         return false;
     }
     if (!(day >= 1 && day <= lookup_table[month-1]))
     {
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Day is invalid ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Day is invalid ");
         return false;
     }
     if (year < 1900 || year > 2033)
     {
-		utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
-        utilities::sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Year is invalid ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Year is invalid ");
         return false;
     }
 
@@ -412,7 +389,7 @@ bool utilities::isDateValid(char* _cdate)
 /******************************************************
  * Is Numeric
  ******************************************************/
-bool utilities::isNumeric(char* _token)
+bool isNumeric(char* _token)
 {
 
     if(_token == nullptr)
@@ -431,7 +408,7 @@ bool utilities::isNumeric(char* _token)
 /*******************************************************
    Strip quotes from token
 *******************************************************/
-void utilities::stripQuotesFromToken(char _token[])
+void stripQuotesFromToken(char _token[])
 {
 	//strip quotes from value
 	size_t s = 0;

@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <fstream>
 #include <string.h>
-#include "sqlParser.h"
-#include "queryParser.h"
-#include "indexBase.h"
-#include "lookup.h"
-#include "binding.h"
-#include "sqlEngine.h"
+#include "parseSQL.cpp"
+#include "parseQuery.cpp"
+#include "lookup.cpp"
+#include "binding.cpp"
+#include "sqlEngine.cpp"
+#include "plan.cpp"
 
 
 using namespace std;
@@ -43,7 +43,7 @@ void printTable(sTable* tbl)
     }
 }
 
-void printQuery(queryParser* qp,binding* bind)
+void printQuery(iElements* _it,Binding* bind)
 {
     fprintf(traceFile,"\n*******************************************");
     fprintf(traceFile,"\n Query Tables");
@@ -56,25 +56,25 @@ void printQuery(queryParser* qp,binding* bind)
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n column names");
     fprintf(traceFile,"\n\n--------------------------------------------");
-    for(char* c : qp->lstColName)
+    for(char* c : _it->lstColName)
     {
         fprintf(traceFile,"\n column:%s",c);
     }
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n column values");
     fprintf(traceFile,"\n\n--------------------------------------------");
-    for(char* c : qp->lstValues)
+    for(char* c : _it->lstValues)
     {
         fprintf(traceFile,"\n value:%s",c);
     }
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n Column Name Values");
     fprintf(traceFile,"\n\n--------------------------------------------");
-    for(ColumnNameValue* nv : qp->lstColNameValue)
+    for(ColumnNameValue* nv : _it->lstColNameValue)
     {
         fprintf(traceFile,"\n column:%s value:%s",nv->name,nv->value);
     }
-    if(qp->conditions.size() == 0)
+    if(_it->lstConditions.size() == 0)
     {
         fprintf(traceFile,"\n No conditions");
         return;
@@ -82,7 +82,7 @@ void printQuery(queryParser* qp,binding* bind)
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n Conditions");
     fprintf(traceFile,"\n\n--------------------------------------------");
-    for(Condition* con : qp->conditions)
+    for(Condition* con : _it->lstConditions)
     {
         fprintf(traceFile,"\n\t condition name      %s", con->name);
         fprintf(traceFile,"\n\t condition condition %s", con->condition);
@@ -161,6 +161,12 @@ int main(int argc, char* argv[])
             case 20:
                 script = "t105-select-order-by-orderid";
                 break;
+            case 21:
+                script = "t200-Join-Books-on-Author";
+                break;
+            case 22:
+                script = "t201-Join-Books-on-Translator";
+                break;
           default:
                 fprintf(traceFile,"\n No case for this script number\n\n");
                 return 0;
@@ -176,37 +182,45 @@ int main(int argc, char* argv[])
 
     std::string sqlFileName = "bike.sql";
     std::ifstream ifs(sqlFileName);
-    std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
+    std::string sqlFile ( (std::istreambuf_iterator<char>(ifs) ),
                        (std::istreambuf_iterator<char>()    ) );
     
     std::ifstream ifq(scriptFileName);
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
 
-    queryStr.clear();
-    queryStr.append("select top 500 * from customers group by surname");
+   // queryStr.clear();
+   // queryStr.append("select top 50 custid, surname, givenname from customers where custid > \"1\"");
     
     fprintf(traceFile,"\n query=%s \n",queryStr.c_str());
-    presentationType = PRESENTATION::TEXT;
-    sqlParser* parser = new sqlParser((char*)sql.c_str());
 
-    if(parser->parse() == ParseResult::FAILURE)
+    presentationType = PRESENTATION::TEXT;
+    
+    Plan* plan = new Plan();
+    sqlParser* sql = new sqlParser((char*)sqlFile.c_str(),plan->isqlTables);
+
+    if(sql->parse() == ParseResult::FAILURE)
     {
-        fprintf(traceFile,"\n sql=%s",sql.c_str());
+        fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
         fprintf(traceFile,"\n %s",errText.c_str());
         return 0;
     }
-    debug = true;
-    queryParser* query = new queryParser();
 
-    if(query->parse((char*)queryStr.c_str(),parser) == ParseResult::FAILURE)
+    debug = true;
+
+    plan->prepare((char*)queryStr.c_str());
+
+    return 0;
+
+    ParseQuery* query = new ParseQuery();
+    if(query->parse((char*)queryStr.c_str()) == ParseResult::FAILURE)
     {
         fprintf(traceFile,"\n query parse failed");
         fprintf(traceFile,"\n error %s",errText.c_str());
         return 0;
     };
 
-    binding* bind = new binding(parser,query);
+    Binding* bind = new Binding(plan->isqlTables,query->iElement);
     if(bind->bind() == ParseResult::FAILURE)
     {
         fprintf(traceFile,"\n bind validate failed");
@@ -214,7 +228,7 @@ int main(int argc, char* argv[])
         return 0;
     };
 
-    sqlEngine* engine = new sqlEngine(parser);
+    sqlEngine* engine = new sqlEngine(sql);
     if(engine->execute(bind->lstStatements.front()) == ParseResult::FAILURE)
     {
         fprintf(traceFile,"\n error %s",errText.c_str());
