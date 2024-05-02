@@ -9,7 +9,6 @@ class ParseClause
     public:
         iClauses* iClause = new iClauses();
         list<char*> queries;
-        ParseResult split(char*);
         ParseResult process(char*);
         ParseResult parseSelect(char*);
         ParseResult parseJoin(char*);
@@ -57,7 +56,14 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         case 5: variations on join INNER, OUTER, LEFT, RIGHT - NATURAL
     */
 
+    if(debug)
+    {
+        fprintf(traceFile,"\n\n-------------------------PARSE CLAUSES - SELECT -------------------------------------------");
+        fprintf(traceFile,"\nQuery String = %s",_queryString);
+    }
+
     signed long positionSelect = lookup::findDelimiter(_queryString, (char*)sqlTokenSelect);
+
     if(positionSelect == DELIMITERERR)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error: delimiter error searching for SELECT ");
@@ -75,9 +81,9 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         queryString = dupString(_queryString+positionSelect+strlen(sqlTokenSelect));
     }
 
+
     if(parseOrderByGroup(queryString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
-
 
     //----------------------------------------------------------
     // Conditions
@@ -108,7 +114,6 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         queryString[positionOfWhere] = '\0';
     }
     
-
     signed long positionOfFrom = lookup::findDelimiter(queryString, (char*)sqlTokenFrom);
     if( positionOfFrom == DELIMITERERR
     && positionOfFrom == NEGATIVE)
@@ -156,6 +161,7 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         }
     }
 
+
     free (queryString);
 
     return ParseResult::SUCCESS;
@@ -193,6 +199,7 @@ ParseResult ParseClause::parseJoin(char* _queryString)
 
     if(positionOfWhere > 0)
     {
+        
         iClause->strConditions = dupString(_queryString+positionOfWhere+strlen(sqlTokenWhere));
         _queryString[positionOfWhere] = '\0';  // truncate string for next operation  - this one leave tables in the string
     }
@@ -237,41 +244,69 @@ signed long ParseClause::isJoin(char* _string)
  ******************************************************/
 ParseResult ParseClause::parseOrderByGroup(char* _queryString)
 {
+
     //----------------------------------------------------------
     // Order by / Group by
     //----------------------------------------------------------
+
     signed long positionOfOrderBy = lookup::findDelimiter(_queryString, (char*)sqlTokenOrderBy);
     signed long positionOfGroupBy = lookup::findDelimiter(_queryString, (char*)sqlTokenGroupBy);
+    signed long positionOfHaving  = lookup::findDelimiter(_queryString, (char*)sqlTokenHaving);
+
+    //No order by or group by clause
+    if(positionOfGroupBy == NEGATIVE
+    && positionOfHaving  == NEGATIVE
+    && positionOfOrderBy == NEGATIVE)
+    {
+        return ParseResult::SUCCESS;
+    }
+
     if(positionOfGroupBy == DELIMITERERR
+    || positionOfHaving  == DELIMITERERR
     || positionOfOrderBy == DELIMITERERR)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error: looking for Group By or OrderBy ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error: looking for Group By, OrderBy or Having");
         return ParseResult::FAILURE;
     }
 
-    //case 1: group by custid, order by city
-    //case 2: order by city
-    if(positionOfOrderBy > positionOfGroupBy)
-    {
-        iClause->strOrderBy = dupString(_queryString+positionOfOrderBy+strlen(sqlTokenOrderBy));
-        _queryString[positionOfOrderBy] = '\0';
-        if(positionOfGroupBy > 0)
-        {
-            iClause->strGroupBy = dupString(_queryString+positionOfGroupBy+strlen(sqlTokenGroupBy));
-            _queryString[positionOfGroupBy] = '\0';
-        }
-    }
+    list<signed long> stack;
+    stack.push_back(positionOfGroupBy);
+    stack.push_back(positionOfOrderBy);
+    stack.push_back(positionOfHaving);
 
-    //case 3: order by city group by sales
-    //case 4: order by city
-    if(positionOfOrderBy < positionOfGroupBy)
+    stack.sort();
+    stack.reverse();
+
+    for(long signed found : stack)
     {
-        iClause->strGroupBy = dupString(_queryString+positionOfGroupBy+strlen(sqlTokenGroupBy));
-        _queryString[positionOfGroupBy] = '\0';
-        if(positionOfOrderBy > 0)
+        if(found == NEGATIVE)
+            continue;
+
+        if(debug)
+            fprintf(traceFile,"\nStack: %ld",found);
+
+        if(positionOfOrderBy == found)
         {
             iClause->strOrderBy = dupString(_queryString+positionOfOrderBy+strlen(sqlTokenOrderBy));
+            if(debug)
+                fprintf(traceFile,"\nOrder by clause: %s",iClause->strOrderBy);
             _queryString[positionOfOrderBy] = '\0';
+        }
+
+        if(positionOfGroupBy == found)
+        {
+            iClause->strGroupBy = dupString(_queryString+positionOfGroupBy+strlen(sqlTokenGroupBy));
+            if(debug)
+                fprintf(traceFile,"\nGroup by clause: %s",iClause->strGroupBy);
+            _queryString[positionOfGroupBy] = '\0';
+        }
+
+        if(positionOfHaving == found)
+        {
+            iClause->strHaving = dupString(_queryString+positionOfHaving+strlen(sqlTokenHaving));
+            if(debug)
+                fprintf(traceFile,"\nHaving clause: %s",iClause->strHaving);
+            _queryString[positionOfHaving] = '\0';
         }
     }
     return ParseResult::SUCCESS;

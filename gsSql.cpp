@@ -3,10 +3,7 @@
 #include <fstream>
 #include <string.h>
 #include "parseSQL.cpp"
-#include "parseQuery.cpp"
 #include "lookup.cpp"
-#include "binding.cpp"
-#include "sqlEngine.cpp"
 #include "plan.cpp"
 
 
@@ -167,6 +164,9 @@ int main(int argc, char* argv[])
             case 22:
                 script = "t201-Join-Books-on-Translator";
                 break;
+            case 23:
+                script = "t202-Group-By";
+                break;
           default:
                 fprintf(traceFile,"\n No case for this script number\n\n");
                 return 0;
@@ -189,8 +189,6 @@ int main(int argc, char* argv[])
     std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
 
-   // queryStr.clear();
-   // queryStr.append("select top 50 custid, surname, givenname from customers where custid > \"1\"");
     
     fprintf(traceFile,"\n query=%s \n",queryStr.c_str());
 
@@ -209,31 +207,8 @@ int main(int argc, char* argv[])
     debug = true;
 
     plan->prepare((char*)queryStr.c_str());
+    plan->execute();
 
-    return 0;
-
-    ParseQuery* query = new ParseQuery();
-    if(query->parse((char*)queryStr.c_str()) == ParseResult::FAILURE)
-    {
-        fprintf(traceFile,"\n query parse failed");
-        fprintf(traceFile,"\n error %s",errText.c_str());
-        return 0;
-    };
-
-    Binding* bind = new Binding(plan->isqlTables,query->iElement);
-    if(bind->bind() == ParseResult::FAILURE)
-    {
-        fprintf(traceFile,"\n bind validate failed");
-        fprintf(traceFile,"\n error %s",errText.c_str());
-        return 0;
-    };
-
-    sqlEngine* engine = new sqlEngine(sql);
-    if(engine->execute(bind->lstStatements.front()) == ParseResult::FAILURE)
-    {
-        fprintf(traceFile,"\n error %s",errText.c_str());
-        return 0;
-    }
 
     fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
     fprintf(traceFile,"\n %s",msgText.c_str());

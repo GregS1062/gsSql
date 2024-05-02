@@ -208,13 +208,13 @@ ParseResult resultList::Sort(list<int> _n, bool _ascending)
 ParseResult resultList::orderBy()
 {
 	list<int> n;
-	for(OrderBy* order : statement->table->orderBy)
+	for(OrderOrGroup order : statement->orderBy->order)
 	{
 		if(debug)
-			fprintf(traceFile,"\n sorting on column# %d", order->columnNbr);
-		n.push_back(order->columnNbr);
+			fprintf(traceFile,"\n sorting on column# %d", order.columnNbr);
+		n.push_back(order.columnNbr);
 	}
-	Sort(n,true);
+	Sort(n,statement->orderBy->asc);
 	return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -223,16 +223,22 @@ ParseResult resultList::orderBy()
 ParseResult resultList::groupBy()
 {
 
+		if(debug)
+			fprintf(traceFile,"\n Group by ");
 	list<int> n;
 	bool sortByCount = true;
-	for(GroupBy* group : statement->table->groupBy)
+	for(OrderOrGroup group : statement->groupBy->group)
 	{
-		if(strcasecmp(group->col->name,(char*)sqlTokenCount) == 0)
+		if(strcasecmp(group.col->name,(char*)sqlTokenCount) == 0)
 		{
 			sortByCount = true;
 		}
 		else
-			n.push_back(group->columnNbr);
+		{
+			if(debug)
+				fprintf(traceFile,"\n grouping on column# %d", group.columnNbr);
+			n.push_back(group.columnNbr);
+		}
 	}
 
 	Sort(n,true);
@@ -251,16 +257,16 @@ ParseResult resultList::groupBy()
 			priorRow = row;
 			first = false;
 		}
-		for(GroupBy* group : statement->table->groupBy)
+		for(OrderOrGroup group : statement->groupBy->group)
 		{	
 			count++;
-			if(row.at(group->columnNbr)->edit == t_edit::t_char)
+			if(row.at(group.columnNbr)->edit == t_edit::t_char)
 			{
-				if(strcasecmp(row.at(group->columnNbr)->charValue,priorRow.at(group->columnNbr)->charValue ) != 0)
+				if(strcasecmp(row.at(group.columnNbr)->charValue,priorRow.at(group.columnNbr)->charValue ) != 0)
 					controlBreak = true;
 			}
 			else
-			if(row.at(group->columnNbr) != priorRow.at(group->columnNbr))
+			if(row.at(group.columnNbr) != priorRow.at(group.columnNbr))
 				controlBreak = true;
 
 			if(controlBreak)

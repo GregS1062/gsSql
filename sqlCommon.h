@@ -46,8 +46,10 @@ class TokenPair
 class ColumnAlias
 {
     public:
-    char* columnName;
+    char* Name;
+    char* alias;
     char* tableName;
+    char* tableAlias;
 };
 
 /******************************************************
@@ -78,31 +80,6 @@ class TempColumn : public Column
     t_tm    dateValue       = {};
 };
 /******************************************************
- * Base Order/Group
- ******************************************************/
-class OrderGroup
-{
-    public:
-        Column* col         {};
-        char*   name       = nullptr;
-        int     columnNbr   = 0;        //Tells the sort routing which column to sort on
-};
-/******************************************************
- * Order By
- ******************************************************/
-class OrderBy : public OrderGroup
-{
-    public:
-        bool    asc        = true;
-};
-/******************************************************
- * Group By
- ******************************************************/
-class GroupBy : public OrderGroup
-{
-
-};
-/******************************************************
  * Condition
  ******************************************************/
 class Condition
@@ -123,6 +100,35 @@ class Condition
         Column* compareToColumn {};
         list<char*> valueList   {};
 };
+/******************************************************
+ * Base Order/Group
+ ******************************************************/
+class OrderOrGroup
+{
+    public:
+        Column* col         {};
+        char*   name       = nullptr;
+        int     columnNbr   = 0;        //Tells the sort routing which column to sort on
+};
+/******************************************************
+ * Order By
+ ******************************************************/
+class OrderBy
+{
+    public:
+        list<OrderOrGroup>      order{};
+        bool    asc             = true;
+};
+/******************************************************
+ * Group By
+ ******************************************************/
+class GroupBy
+{
+    public:
+        list<OrderOrGroup>      group{}; 
+        list<Condition>         having{};
+};
+
 
 /******************************************************
  * Base
@@ -218,8 +224,6 @@ class sTable : public BaseData
     public:
         list<sIndex*>    indexes{};
         list<Condition*> conditions{};
-        list<OrderBy*>   orderBy{};
-        list<GroupBy*>   groupBy{};
         int              recordLength = 0;
         char*            alias;
 };
@@ -231,7 +235,8 @@ class Statement
 {
     public:
         SQLACTION           action;
-        list<OrderBy*>      orderList;        
+        OrderBy*            orderBy {};
+        GroupBy*            groupBy {};     
         int                 rowsToReturn;
         sTable*             table;
 };

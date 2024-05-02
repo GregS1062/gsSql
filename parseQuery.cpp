@@ -31,8 +31,7 @@ class ParseQuery
 
     public:
 
-    iElements*              iElement;
-    iClauses*               iclause;
+    iElements*              iElement = new iElements();
 
     Condition*              condition       = nullptr;
     int                     rowsToReturn    = 0;
@@ -49,8 +48,8 @@ class ParseQuery
     ParseResult             parseColumnNameValueList(char*);
     ParseResult             parseColumnList(char*);
     ParseResult             parseValueList(char*);
-    ParseResult             parrseOrderByList(char*);
-    ParseResult             parrseGroupByList(char*);
+    ParseResult             parseOrderByList(char*);
+    ParseResult             parseGroupByList(char*);
     ParseResult             parseConditionList(char*, bool);
     ParseResult             addCondition(char*,bool);
 };
@@ -68,6 +67,7 @@ ParseResult ParseQuery::parse(const char* _queryString)
     
     if(debug)
      fprintf(traceFile,"\n query=%s",queryString);;
+    
     queryStringLength = strlen(queryString);
     
     tok->parse(queryString);
@@ -109,6 +109,30 @@ ParseResult ParseQuery::parse(const char* _queryString)
         case SQLACTION::DELETE:
             return parseDelete();
             break;
+        case SQLACTION::JOIN:
+            return parseSelect();
+            break;
+        case SQLACTION::INNER:
+            return parseSelect();
+            break;
+        case SQLACTION::OUTER:
+            return parseSelect();
+            break;
+        case SQLACTION::LEFT:
+            return parseSelect();
+            break;        
+        case SQLACTION::RIGHT:
+            return parseSelect();
+            break;        
+        case SQLACTION::NATURAL:
+            return parseSelect();
+            break;
+        case SQLACTION::FULL:
+            return parseSelect();
+            break;
+        case SQLACTION::CROSS:
+            return parseSelect();
+            break;
     }
 
     return ParseResult::FAILURE;
@@ -125,6 +149,14 @@ ParseResult ParseQuery::parseSelect()
         fprintf(traceFile,"\n\n-------------------------BEGIN PROCESS SELECT-------------------------------------------");
         fprintf(traceFile,"\nQuery String = %s",queryString);
     }
+
+    ParseClause* parseClause = new ParseClause();
+    parseClause->parseSelect((char*)queryString);
+    iClauses* iclause = parseClause->iClause;
+
+    iElement = new iElements();
+    iElement->sqlAction = sqlAction;
+    iElement->rowsToReturn = iclause->topRows;
         
     if(parseTableList(iclause->strTables) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
@@ -138,10 +170,10 @@ ParseResult ParseQuery::parseSelect()
     if(parseConditionList(iclause->strJoinConditions,join) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    if(parrseOrderByList(iclause->strOrderBy) == ParseResult::FAILURE)
+    if(parseOrderByList(iclause->strOrderBy) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    if(parrseGroupByList(iclause->strGroupBy) == ParseResult::FAILURE)
+    if(parseGroupByList(iclause->strGroupBy) == ParseResult::FAILURE)
         return ParseResult::FAILURE; 
 
     if(iclause->topRows > 0)
@@ -557,7 +589,7 @@ ParseResult ParseQuery::addCondition(char* _token, bool isJoin)
 /******************************************************
  * Parse Order
  ******************************************************/
-ParseResult ParseQuery::parrseOrderByList(char* _workingString)
+ParseResult ParseQuery::parseOrderByList(char* _workingString)
 {
     if(debug)
     {
@@ -569,11 +601,10 @@ ParseResult ParseQuery::parrseOrderByList(char* _workingString)
         return ParseResult::SUCCESS;
 
     char* token;
-    tokenParser* tok = new tokenParser();
+    tokenParser*    tok = new tokenParser();
+    OrderBy*        orderBy = new OrderBy();
     tok->parse(_workingString,true);
-    OrderBy*    orderBy    {};
 
-    bool asc = true;
     while(!tok->eof)
     {
         token = tok->getToken();
@@ -581,33 +612,31 @@ ParseResult ParseQuery::parrseOrderByList(char* _workingString)
         {
             if(debug)
                 fprintf(traceFile,"\n order by tokens %s", token);
+                
             if(strcasecmp(token,(char*)sqlTokenOrderAcending) != 0
             && strcasecmp(token,(char*)sqlTokenOrderDescending) != 0)
             {
-                orderBy = new OrderBy();
-                orderBy->name   = token;
-                iElement->lstOrder.push_back(orderBy);
+                OrderOrGroup    order;
+                order.name      = token;
+                orderBy->order.push_back(order);
             }
             else
             {
                 if(strcasecmp(token,(char*)sqlTokenOrderDescending) == 0)
-                    asc = false;
+                    orderBy->asc = false;
             }
         }
     }
-
-    
-    for(OrderBy* order : iElement->lstOrder)
-    {
-        order->asc = asc;
-    }
-    
+    if(orderBy->order.size() > 0)
+        iElement->orderBy = orderBy;
+    else    
+        iElement->orderBy = nullptr;
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Parse Order
  ******************************************************/
-ParseResult ParseQuery::parrseGroupByList(char* _workingString)
+ParseResult ParseQuery::parseGroupByList(char* _workingString)
 {
     if(debug)
     {
@@ -620,6 +649,7 @@ ParseResult ParseQuery::parrseGroupByList(char* _workingString)
     
     char* token;
     tokenParser* tok = new tokenParser();
+    GroupBy* groupBy = new GroupBy();
     tok->parse(_workingString,true);
 
     while(!tok->eof)
@@ -629,9 +659,17 @@ ParseResult ParseQuery::parrseGroupByList(char* _workingString)
         {
             if(debug)
                 fprintf(traceFile,"\n order by tokens %s", token);
-            iElement->lstGroup.push_back(token);
+                
+            OrderOrGroup    order;
+            order.name      = token;
+            groupBy->group.push_back(order);
         }
     }
+    if(groupBy->group.size() > 0)
+        iElement->groupBy = groupBy;
+    else    
+        iElement->groupBy = nullptr;
+
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -671,7 +709,7 @@ ParseResult ParseQuery::parseColumnList(char* _workingString)
     if(debug)
     {
         fprintf(traceFile,"\n\n-----------Parse Column List----------------");
-        fprintf(traceFile,"\ntableString:%s",_workingString);
+        fprintf(traceFile,"\nColumn string:%s",_workingString);
     }
 
     if(_workingString == nullptr)
@@ -686,7 +724,10 @@ ParseResult ParseQuery::parseColumnList(char* _workingString)
     {
         token = tok->getToken();
         if(token != nullptr)
+        {
+            fprintf(traceFile,"\nColumn: :%s",token);
             iElement->lstColName.push_back(token);
+        }
     }
 
     return ParseResult::SUCCESS;

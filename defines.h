@@ -85,6 +85,9 @@ using namespace std;
 #define sqlTokenLeft            "LEFT"
 #define sqlTokenRight           "RIGHT"
 #define sqlTokenOuter           "OUTER"
+#define sqlTokenNatural         "NATURAL"
+#define sqlTokenCross           "CROSS"
+#define sqlTokenFull            "FULL"
 #define sqlTokenInnerJoin       "INNER JOIN"
 #define sqlTokenLeftJoin        "LEFT JOIN"
 #define sqlTokenRightJoin       "RIGHT JOIN"
@@ -119,18 +122,24 @@ enum class SQLACTION{
     CREATE,
     SELECT,
     UPDATE,
-    DELETE
+    DELETE,
+    JOIN,
+    INNER,      //Join
+    OUTER,      //Join
+    LEFT,       //Join
+    RIGHT,      //Join
+    NATURAL,    //Join
+    CROSS,      //Join
+    FULL        //Join
 };
 
-enum class JOINType
+enum class AGGREGATEType
 {
-    INNER,
-    OUTER,
-    LEFT,
-    RIGHT,
-    NATURAL,
-    CROSS,
-    FULL
+    COUNT,
+    MAX,
+    MIN,
+    AVG,
+    SUM
 };
 
 enum class RETURNACTION

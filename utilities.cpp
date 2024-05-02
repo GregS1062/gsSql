@@ -156,6 +156,9 @@ void formatDate(char s[], t_tm _date)
 *******************************************************/
 void upperCase(char s[])
 {
+	if(strlen(s) == 0)
+		return;
+		
 	for (int i = 0; s[i] != '\0'; i++) {
 		if (s[i] >= 'a' && s[i] <= 'z') {
 			s[i] = (char)(s[i] - 32);
@@ -210,31 +213,7 @@ void subString(char target[], int start, int end)
 	}
 	target[end - start] = '\0';
 }
-/*******************************************************
-   Scrub token
-*******************************************************/
-void scrub(char _target[])
-{
-	char c;
-	size_t len = strlen(_target);
-	size_t itr = 0;
-	for(size_t i = 0;i<len;i++)
-	{		
-		c = _target[i];
-		if((int)c == 0	//null
-		|| c == NEWLINE
-        || c == RETURN
-        || c == FORMFEED
-        || c == TAB
-        || c == VTAB)
-        {
-            continue;
-        }
-		_target[itr] = c;
-		itr++;
-	}
-	_target[itr] = '\0';
-}
+
 /*******************************************************
    Right Trim
 -*******************************************************/

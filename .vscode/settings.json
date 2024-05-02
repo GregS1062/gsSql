@@ -53,6 +53,8 @@
         "list": "cpp",
         "ratio": "cpp",
         "bitset": "cpp",
-        "cstring": "cpp"
+        "cstring": "cpp",
+        "typeindex": "cpp",
+        "regex": "cpp"
     }
 }

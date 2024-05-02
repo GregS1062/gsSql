@@ -5,16 +5,16 @@ class iElements
 {
     public:
 
-    SQLACTION               sqlAction {};           // Statement action
-    list<char*>             lstTables {};           // tables
-    list<ColumnNameValue*>  lstColNameValue {};     // used in update to set list of column/values
-    list<char*>             lstColName{};           // column names
-    list<char*>             lstValues{};            // value lists - found in insert and select IN (...)
-    list<OrderBy*>          lstOrder{};             // order by
-    list<char*>             lstGroup{};             // group by
-    list<Condition*>        lstConditions{};        // where condition (operator) value
-    list<Condition*>        lstJoinConditions{};    // join ON conditions
-    int                     rowsToReturn = 0;       // max result rows
+    SQLACTION               sqlAction {};               // Statement action
+    list<char*>             lstTables {};               // tables
+    list<ColumnNameValue*>  lstColNameValue {};         // used in update to set list of column/values
+    list<char*>             lstColName{};               // column names
+    list<char*>             lstValues{};                // value lists - found in insert and select IN (...)
+    OrderBy*                orderBy         = nullptr;  // order by
+    GroupBy*                groupBy         = nullptr;  // group by
+    list<Condition*>        lstConditions{};            // where condition (operator) value
+    list<Condition*>        lstJoinConditions{};        // join ON conditions
+    int                     rowsToReturn = 0;           // max result rows
 
     ParseResult             clear();
 };
@@ -31,6 +31,9 @@ ParseResult iElements::clear()
     lstConditions.clear();
     lstJoinConditions.clear();
     lstColNameValue.clear();
+    orderBy->order.clear();
+    groupBy->group.clear();
+    groupBy->having.clear();
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -40,9 +43,8 @@ class iClauses
 {
     public:
         iClauses(){};
-        iClauses( const iClauses& );            // Declare copy constructor.
-        iClauses& operator=(const iClauses& x);
         char*       strGroupBy          {};
+        char*       strHaving           {};
         char*       strOrderBy          {};
         char*       strTables           {};
         char*       strColumns          {};

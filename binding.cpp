@@ -1,21 +1,15 @@
 #pragma once
 #include "sqlCommon.h"
 #include "interfaces.h"
-#include "plan.cpp"
 #include "lookup.cpp"
 class Binding
 {
-    public:
-    list<sTable*>    lstTables;
-    list<Statement*> lstStatements;
+    private:
+
     sTable*          defaultTable;    
     sTable*          defaultSQLTable;   
-    iElements*       elements;
     tokenParser*     tok;
-    iSQLTables*      isqlTables;
-
-    Binding(iSQLTables*,iElements*);
-    ParseResult     bind();
+    
     ParseResult     bindTableList();
     ParseResult     bindColumnList();
     ParseResult     bindColumnValueList();
@@ -31,14 +25,26 @@ class Binding
     bool            valueSizeOutofBounds(char*, Column*);
     ParseResult     editColumn(Column*,char*);
     ParseResult     editCondition(Condition*,char*);
+
+    public:
+
+    iSQLTables*      isqlTables;
+    iElements*       ielements;
+    list<Statement*> lstStatements;
+    OrderBy*         orderBy    = new OrderBy();
+    GroupBy*         groupBy    = new GroupBy();  
+
+    list<sTable*>    lstTables;  //public for diagnostic purposes
+
+    Binding();
+    ParseResult     bind();
 };
 /******************************************************
  * Constructor
  ******************************************************/
-Binding::Binding(iSQLTables* _isqlTables,iElements* _elements) 
+Binding::Binding() 
 {
-    elements                = _elements;
-    isqlTables              = _isqlTables;
+
 };
 /******************************************************
  * Bind
@@ -64,8 +70,8 @@ ParseResult Binding::bind()
     {
          statement = new Statement();
          statement->table = tbl;
-         statement->action = elements->sqlAction;
-         statement->rowsToReturn = elements->rowsToReturn;
+         statement->action = ielements->sqlAction;
+         statement->rowsToReturn = ielements->rowsToReturn;
          lstStatements.push_back(statement);
     }
 
@@ -118,7 +124,7 @@ ParseResult Binding::bindTableList()
     TokenPair* tp;
     sTable* temp;
     sTable* table;
-    for(char* token : elements->lstTables)
+    for(char* token : ielements->lstTables)
     {
         if(debug)
             fprintf(traceFile,"\n table name %s|| \n",token);
@@ -214,15 +220,15 @@ ParseResult Binding::bindColumn(char* colName)
 ParseResult Binding::bindColumnList()
 {
     //case Insert into table values(....)
-    if(elements->lstColName.size() == 0
-    && elements->lstColNameValue.size() == 0)
+    if(ielements->lstColName.size() == 0
+    && ielements->lstColNameValue.size() == 0)
     {
         if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
         return ParseResult::SUCCESS;
     }
 
-    for(char* token : elements->lstColName)
+    for(char* token : ielements->lstColName)
     {
         if(debug)
             fprintf(traceFile,"\n Binding column %s",token);
@@ -242,7 +248,7 @@ ParseResult Binding::bindColumnValueList()
     {
         fprintf(traceFile,"\n\n-----------Bind Column Value List----------------");
     }
-    for(ColumnNameValue* cv : elements->lstColNameValue)
+    for(ColumnNameValue* cv : ielements->lstColNameValue)
     {
         if(debug)
         {
@@ -428,7 +434,7 @@ ParseResult Binding::bindAliasedColumn(TokenPair* tp, char* _value)
  ******************************************************/
 ParseResult Binding::bindValueList()
 {
-    if(elements->lstValues.size() == 0)
+    if(ielements->lstValues.size() == 0)
         return ParseResult::SUCCESS;
 
     //TODO account for case: update customer c OR insert into customer c ....select..
@@ -438,21 +444,21 @@ ParseResult Binding::bindValueList()
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind value list table null ");
         return ParseResult::FAILURE;
     }
-    if(table->columns.size() != elements->lstValues.size())
+    if(table->columns.size() != ielements->lstValues.size())
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"The count of columns ");
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(table->columns.size()).c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," and values ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(elements->lstValues.size()).c_str());
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(ielements->lstValues.size()).c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," do not match ");
         return ParseResult::FAILURE;
     }
 
     for(Column* col : table->columns)
     {
-        if(editColumn(col,elements->lstValues.front()) == ParseResult::FAILURE)
+        if(editColumn(col,ielements->lstValues.front()) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-        elements->lstValues.pop_front();
+        ielements->lstValues.pop_front();
     }
     return ParseResult::SUCCESS;
 }
@@ -509,7 +515,7 @@ ParseResult Binding::bindConditions()
 {
     TokenPair* tp;
     Column* col;
-    for(Condition* con : elements->lstConditions)
+    for(Condition* con : ielements->lstConditions)
     {
         tp = lookup::tokenSplit(con->name,(char*)".");
         if(tp == nullptr)
@@ -562,14 +568,18 @@ ParseResult Binding::bindConditions()
 ParseResult Binding::bindOrderBy()
 {
     if(debug)
-        fprintf(traceFile,"----------------------- bind order by -----------------------------------");
+        fprintf(traceFile,"\n----------------------- bind order by -----------------------------------");
 
     TokenPair* tp;
     Column* col;
-    for(OrderBy* order : elements->lstOrder)
+
+    if (ielements->orderBy == nullptr)
+        return ParseResult::SUCCESS;
+
+    for(OrderOrGroup order : ielements->orderBy->order)
     {
 
-        tp = lookup::tokenSplit(order->name,(char*)".");
+        tp = lookup::tokenSplit(order.name,(char*)".");
         col = resolveColumn(tp);
         if(col == nullptr)
         {
@@ -598,18 +608,17 @@ ParseResult Binding::bindOrderBy()
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find order by column in the list of reporting columns ");
             return ParseResult::FAILURE;
         }
-        order->columnNbr = columnNbr;
-        order->col = col;
-        for(Statement* statement : lstStatements)
-        {
-            if(strcasecmp(statement->table->name, col->tableName) ==0)
-                statement->table->orderBy.push_back(order);
-        }
-
+        order.columnNbr = columnNbr;
+        order.col = col;
+        orderBy->order.push_back(order);
+        
         if(debug)
-            fprintf(traceFile,"\n bind order Column name:%s table: %s  sort# %d",col->name, col->tableName, order->columnNbr);
+            fprintf(traceFile,"\n bind order Column name:%s table: %s  sort# %d",col->name, col->tableName, order.columnNbr);
         
     }
+
+
+
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -618,23 +627,29 @@ ParseResult Binding::bindOrderBy()
 ParseResult Binding::bindGroupBy()
 {
     if(debug)
-        fprintf(traceFile,"----------------------- bind group by -----------------------------------");
+        fprintf(traceFile,"\n----------------------- bind group by -----------------------------------");
+
+    if(ielements->groupBy == nullptr)
+        return ParseResult::SUCCESS;
 
     TokenPair* tp;
     Column* col;
-    for(char* name : elements->lstGroup)
+
+    for(OrderOrGroup group : ielements->groupBy->group)
     {
-        tp = lookup::tokenSplit(name,(char*)".");
+        tp = lookup::tokenSplit(group.name,(char*)".");
         col = resolveColumn(tp);
         if(col == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Group by: Cannot find table to group on ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Group by: Cannot resolve column name. See:");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,group.name);
             return ParseResult::FAILURE;
         }
         sTable* lstTable = lookup::getTableByName(lstTables,col->tableName);
         if(lstTable == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Group by: Cannot find table to group on ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Group by: Cannot find table to group on. See:");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->tableName);
             return ParseResult::FAILURE;
         }
         int columnNbr   = NEGATIVE;
@@ -653,22 +668,25 @@ ParseResult Binding::bindGroupBy()
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find group by column in the list of reporting columns ");
             return ParseResult::FAILURE;
         }
-        GroupBy* group = new GroupBy();
-        group->columnNbr = columnNbr;
-        group->col = col;
+        group.columnNbr = columnNbr;
+        group.col = col;
+        group.name = col->name;
+        groupBy->group.push_back(group);
         sendMessage(MESSAGETYPE::INFORMATION,presentationType,true," group by column: ");
         sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,col->name);
         sendMessage(MESSAGETYPE::INFORMATION,presentationType,true," ");
-        for(Statement* statement : lstStatements)
-        {
-            if(strcasecmp(statement->table->name, col->tableName) == 0)
-                statement->table->groupBy.push_back(group);
-        }
 
         if(debug)
-            fprintf(traceFile,"\n bind group Column name:%s table: %s  sort# %d",col->name, col->tableName, group->columnNbr);
+            fprintf(traceFile,"\n bind group Column name:%s table: %s  sort# %d",col->name, col->tableName, group.columnNbr);
         
     }
+    //TODO Do count properly
+    OrderOrGroup groupCount;
+    Column* count = new Column();
+    groupCount.name = (char*)sqlTokenCount;
+    col->name       = (char*)sqlTokenCount;
+    groupCount.col  = count;
+    groupBy->group.push_back(groupCount);
     return ParseResult::SUCCESS;
 }
 

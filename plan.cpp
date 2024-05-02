@@ -4,90 +4,95 @@
 #include "defines.h"
 #include "interfaces.h"
 #include "sqlCommon.h"
+#include "prepareQuery.cpp"
 #include "parseQuery.cpp"
 #include "binding.cpp"
+#include "sqlEngine.cpp"
 
 /******************************************************
  * Plan
  ******************************************************/
 class Plan
 {
-    vector<Statement*>  statements;
+    list<Statement*>    lstStatements;
     list<char*>         queries;
+    iElements*          ielements = new iElements();
+    OrderBy*            orderBy     = new OrderBy;
+    GroupBy*            groupBy     = new GroupBy; 
     
     public:
         iSQLTables*     isqlTables = new iSQLTables();
         ParseResult     split(char*);
         ParseResult     prepare(char*);
+        ParseResult     execute();
         ParseResult     validateSQLString(char*);
 };
 /******************************************************
- * Analyze
+ * Prepare
  ******************************************************/
-
 ParseResult Plan::prepare(char* _queryString)
 {
     /*---------------------------------------------------
     1) Validates if query is well-formed
-    2) Breaks query into subqueries
-    3) Breaks subqueries into clauses
+    2) Query is divided into subqueries
+    3) Subqueries divided into clauses
+    4) Clauses divided into elements
+    5) Elements are bound into columns and values
  ------------------------------------------------------*/
-    if(validateSQLString(_queryString) == ParseResult::FAILURE)
+    char* querystr = sanitizeQuery(_queryString);
+    if( querystr == nullptr)
         return ParseResult::FAILURE;
+
+    sendMessage(MESSAGETYPE::ERROR,presentationType,true,querystr); 
+    return ParseResult::FAILURE;
 
     if(split(_queryString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    ParseQuery* parseQuery;
+    ParseQuery* parseQuery = new ParseQuery();
     for(char* query : queries)
     {
-
-        parseQuery  = new ParseQuery();
         parseQuery->parse(query);
-        iElements* elements = parseQuery->iElement;
-        for(char* element : elements->lstColName)
+        ielements = parseQuery->iElement;
+        if(ielements->lstColName.size() == 0)
         {
-            printf("\n element %s",element);
-        } 
+            printf("\n parse query produced no no elements ");
+            break;
+        }
+        Binding* binding = new Binding();
+        binding->isqlTables     = isqlTables;
+        binding->ielements      = ielements;
+        binding->bind();
+        lstStatements           = binding->lstStatements;
+        orderBy                 = binding->orderBy;
+        groupBy                 = binding->groupBy;
+
     }
         
     return ParseResult::SUCCESS;
 }
 /******************************************************
- * Validate SQL String
+ * Prepare
  ******************************************************/
-ParseResult Plan::validateSQLString(char* _queryString)
+ParseResult Plan::execute()
 {
-    //---------------------------------
-    //  Is queryString well formed?
-    //---------------------------------
-
-    if(debug)
-      fprintf(traceFile,"\n validateSQLString");
-
-    string sql;
-    sql.append(_queryString);
-
-    // Do open and close parenthesis match?
-    if(std::count(sql.begin(), sql.end(), '(')
-    != std::count(sql.begin(), sql.end(), ')'))
+    sqlEngine* engine = new sqlEngine(isqlTables);
+    if(lstStatements.size() == 0)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch of parenthesis");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Bind produced no statements");
         return ParseResult::FAILURE;
     }
-
-    //Do quotes match?
-    bool even = std::count(sql.begin(), sql.end(), '"') % 2 == 0;
-    if(!even)
+    for(Statement* statement : lstStatements)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing quotes.");
-        return ParseResult::FAILURE;
+        statement->orderBy  = orderBy;
+        statement->groupBy  = groupBy;
+        engine->execute(statement);
     }
-
     return ParseResult::SUCCESS;
 }
+
 /******************************************************
- * Process Select
+ * Process Split
  ******************************************************/
 ParseResult Plan::split(char* _queryString)
 {
@@ -118,13 +123,6 @@ ParseResult Plan::split(char* _queryString)
         queries.push_back(query);
         _queryString = dupString(_queryString+found+offset);
         found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
-        if(tries > 4)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Runaway ParseClause split");
-            break;
-        }
-            
-        tries++;
     }
     if(strlen(_queryString) > 0)
     {
@@ -132,6 +130,4 @@ ParseResult Plan::split(char* _queryString)
     }
     return ParseResult::SUCCESS;
 }
-
-
 

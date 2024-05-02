@@ -26,11 +26,18 @@ Build
 X   order by sort
 X   group by
     having
-    asc/dsc
+X    asc/dsc
+    column alias
 
 Build
+    reject duplicates on primary key
     index on concatenated columns
-    all secondary indexes
-    multi-column indexe inserts, updates and deletes
+    Secondary indexes
     simple join on primary key condition
+
+Build   
+    multi-column indexe inserts, updates and deletes
+
+Build
+    tables stored in pages
 

@@ -48,12 +48,12 @@ class sqlEngine
 	list<sIndex*>	sIndexes;
 	Binding* 		bind;
 	char* 			line;
-	sqlParser* 		sp;
+	iSQLTables* 	iSQL;
 	Statement*		statement;
 	resultList*		results;
 
 	public:
-		sqlEngine						(sqlParser*);
+		sqlEngine						(iSQLTables*);
 		ParseResult 	execute			(Statement*);
 		ParseResult 	open			();
 		ParseResult 	close			();
@@ -78,9 +78,9 @@ class sqlEngine
 /******************************************************
  * SQL Engine Constuctor
  ******************************************************/
-sqlEngine::sqlEngine(sqlParser* _sp)
+sqlEngine::sqlEngine(iSQLTables* _iSQL)
 {
-	sp = _sp;
+	iSQL = _iSQL;
 }
 /******************************************************
  * Execute
@@ -137,6 +137,54 @@ ParseResult sqlEngine::execute(Statement* _statement)
 		case SQLACTION::UPDATE:
 		{
 			update();
+			break;
+		}
+		case SQLACTION::JOIN:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::LEFT:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::RIGHT:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::INNER:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::OUTER:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::FULL:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::NATURAL:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
+			break;
+		}
+		case SQLACTION::CROSS:
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+			return ParseResult::FAILURE;
 			break;
 		}
 	}
@@ -219,14 +267,19 @@ ParseResult sqlEngine::select()
 	if(statement->table->conditions.size() == 0)
 	{
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
-			return ParseResult::FAILURE;
-		if(statement->table->orderBy.size() > 0)
-			results->orderBy();
-		if(statement->table->groupBy.size() > 0)
 		{
-			results->groupBy();
+			fprintf(traceFile,"\n table scan failed ");
+			return ParseResult::FAILURE;
 		}
+		if(statement->orderBy != nullptr)
+			if(statement->orderBy->order.size() > 0)
+				results->orderBy();
+		if(statement->groupBy != nullptr)
+			if(statement->groupBy->group.size() > 0)
+				results->groupBy();
+
 		results->print();
+		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 		return ParseResult::SUCCESS;
 	}
 
@@ -238,13 +291,17 @@ ParseResult sqlEngine::select()
 	{
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
-		if(statement->table->orderBy.size() > 0)
-			results->orderBy();
-		if(statement->table->groupBy.size() > 0)
-		{
+
+		if(statement->orderBy != nullptr)
+			if(statement->orderBy->order.size() > 0)
+				results->orderBy();
+
+		if(statement->groupBy != nullptr)
+		if(statement->groupBy->group.size() > 0)
 			results->groupBy();
-		}
+			
 		results->print();
+		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 		return ParseResult::SUCCESS;
 	}
 	
@@ -487,7 +544,11 @@ string sqlEngine::indexRead(searchIndexes* _searchOn)
 		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column is null ");
 		return "";
 	}
-
+	if(col->value == nullptr)
+	{
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column value is null ");
+		return "";
+	}
 	upperCase(col->value);
 
 	if(strcasecmp(_searchOn->op,(char*)sqlTokenEqual) == 0)
@@ -549,13 +610,14 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		}
 		searchResults = searchResults->next;
 	}
-	if(statement->table->orderBy.size() > 0)
-		results->orderBy();
-	if(statement->table->groupBy.size() > 0)
-	{
-		results->groupBy();
-	}
+	if(statement->orderBy != nullptr)
+		if(statement->orderBy->order.size() > 0)
+			results->orderBy();
+	if(statement->groupBy != nullptr)
+		if(statement->groupBy->group.size() > 0)
+			results->groupBy();
 	results->print();
+	fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return "";
@@ -599,13 +661,15 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 			rowCount++;
 		}
 	}
-	if(statement->table->orderBy.size() > 0)
+
+	if(statement->orderBy->order.size() > 0)
 		results->orderBy();
-	if(statement->table->groupBy.size() > 0)
+	if(statement->groupBy->group.size() > 0)
 	{
 		results->groupBy();
 	}
 	results->print();
+	fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return "";

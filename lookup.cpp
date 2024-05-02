@@ -101,25 +101,26 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
             
     }
     buff[strlen(str)] = '\0';
-    if(debug)
-        fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
+   // if(debug)
+    //    fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
 
     char *s;
     s = strstr(buff, _delimiter);      // search for string "hassasin" in buff
-    if(debug)
-        fprintf(traceFile,"\ndelimiter s:%s",s);
+
     if (s != NULL)                     // if successful then s now points at "hassasin"
     {
         long int result = s - buff;
 
         //Need to make sure this is an actual delimiter rather than a keyword embedded in another word.  example "DELETE" found in DELETED
-        if(result+1 < (int)strlen(str))
+        // in short, a space must follow a keyword
+
+        size_t expectingSpace = strlen(_delimiter) + result;
+        if(expectingSpace < strlen(str))
         {
-            if(str[result+1] != SPACE)
+            if(str[expectingSpace] != SPACE)
                 return NEGATIVE;
         }
-        if(debug)
-            fprintf(traceFile," result = %ld",result);
+
         return result;
     }                                  
 
@@ -181,6 +182,48 @@ SQLACTION lookup::determineAction(char* _token)
         return  SQLACTION::CREATE;
     }
 
+
+    if(strcasecmp(_token,sqlTokenJoin) == 0)
+    {
+        return  SQLACTION::JOIN;
+    }
+
+    if(strcasecmp(_token,sqlTokenInner) == 0)
+    {
+        return  SQLACTION::INNER;
+    }
+
+    if(strcasecmp(_token,sqlTokenOuter) == 0)
+    {
+        return  SQLACTION::OUTER;
+    }
+
+    if(strcasecmp(_token,sqlTokenLeft) == 0)
+    {
+        return  SQLACTION::LEFT;
+    }
+
+    if(strcasecmp(_token,sqlTokenRight) == 0)
+    {
+        return  SQLACTION::RIGHT;
+    }
+
+    if(strcasecmp(_token,sqlTokenNatural) == 0)
+    {
+        return  SQLACTION::NATURAL;
+    }
+
+    if(strcasecmp(_token,sqlTokenCross) == 0)
+    {
+        return  SQLACTION::CROSS;
+    }
+
+    if(strcasecmp(_token,sqlTokenFull) == 0)
+    {
+        return  SQLACTION::FULL;
+    }
+
+
     return  SQLACTION::INVALID;
 
 }
@@ -200,7 +243,7 @@ TokenPair* lookup::tokenSplit(char* _token, char* delimiter)
     {
         lTrim(_token,' ');
         rTrim(_token);
-        scrub(_token);
+       //TODO scrub(_token);
     }
     
     

@@ -8,9 +8,7 @@
 #include <unistd.h>
 #include <syslog.h>
 #include "parseSQL.cpp"
-#include "ParseQuery.h"
-#include "sqlEngine.h"
-#include "sqlCommon.h"
+#include "plan.cpp"
 
 #include <cgicc/CgiDefs.h> 
 #include <cgicc/Cgicc.h> 
@@ -25,40 +23,24 @@ ParseResult runQuery(string _htmlRequest)
 
 	std::string sqlFileName = "bike.sql";
 	std::ifstream ifs(sqlFileName);
-	std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
+	std::string sqlFile ( (std::istreambuf_iterator<char>(ifs) ),
 					(std::istreambuf_iterator<char>()    ) );
 
-	sqlParser* parser = new sqlParser((char*)sql.c_str());
-
-	if(parser->parse() == ParseResult::FAILURE)
-	{
-		errText.append("SQL CREATE syntax error");
-		return ParseResult::FAILURE;
-	}
-	
 	debug = true;
-	
-	ParseQuery* query = new ParseQuery();
+	Plan* plan = new Plan();
+    sqlParser* sql = new sqlParser((char*)sqlFile.c_str(),plan->isqlTables);
 
-    if(query->parse((char*)_htmlRequest.c_str(),parser) == ParseResult::FAILURE)
+    if(sql->parse() == ParseResult::FAILURE)
     {
-       // sendMessage(MESSAGETYPE::ERROR,presentationType,false," query parse failed");
-		return ParseResult::FAILURE;
-    };
-
-    Binding* bind = new Binding(parser,query);
-    if(bind->bind() == ParseResult::FAILURE)
-    {
-       // sendMessage(MESSAGETYPE::ERROR,presentationType,true," bind validate failed ");
-		return ParseResult::FAILURE;
-    };
-
-    sqlEngine* engine = new sqlEngine(parser);
-    if(engine->execute(bind->lstStatements.front()) == ParseResult::FAILURE)
-    {
+        fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
+        fprintf(traceFile,"\n %s",errText.c_str());
         return ParseResult::FAILURE;
     }
 
+
+    if(plan->prepare((char*)_htmlRequest.c_str())== ParseResult::FAILURE)
+		return ParseResult::FAILURE;
+	plan->execute();
 	return ParseResult::SUCCESS;
 }
 /*---------------------------------------

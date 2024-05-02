@@ -58,7 +58,10 @@ char* tokenParser::cleanString(char* _string)
         }
 
 
-        if(c == EQUAL)
+        if(c == EQUAL
+        && (_string[posString-1] != GTR
+        &&  _string[posString-1] != LST)
+        )
         {
             if(_string[posString-1] != SPACE)
             {
