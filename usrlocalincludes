@@ -116,7 +116,7 @@ struct t_tm
 };
 
 ReturnResult returnResult;
-signed long pos   = 0; //pointer to position in string being parsed
+signed int pos   = 0; //pointer to position in string being parsed
 bool debug        = false;
 string debugText;
 string errText;

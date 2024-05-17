@@ -1,0 +1,85 @@
+
+ query=Select top 5 custid, givenname, surname from customers
+ 
+
+
+-------------------------BEGIN QUERY PARSE-------------------------------------------
+ query=Select top 5 custid, givenname, surname from customers
+ determine action
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = Select top 5 custid, givenname, surname from customers
+
+-------------------------PARSE CLAUSES - SELECT -------------------------------------------
+Query String = Select top 5 custid, givenname, surname from customers
+
+-----------Parse Table List----------------
+tableString: customers
+token  customers
+
+-----------Parse Column List----------------
+Column string:custid, givenname, surname 
+Column: :custid
+Column: : givenname
+Column: : surname 
+
+-----------Parse Conditions----------------
+Condition:(null)
+
+-----------Parse Conditions----------------
+Join Condition:(null)
+
+-----------Parse Order by----------------
+OrderBy string:(null)
+
+-----------Parse Group by----------------
+Group By string:(null)
+ table name  customers|| 
+
+ tp1:customers| tp2:(null)|
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name customers
+ Binding column custid
+bound column name:custid value:(null)
+ Binding column  givenname
+bound column name:givenname value:(null)
+ Binding column  surname 
+bound column name:surname value:(null)
+
+-----------Bind Column Value List----------------
+----------------------- bind order by -----------------------------------
+----------------------- bind group by -----------------------------------
+*******************************************
+ Statement Table
+*******************************************
+ table name customers alias (null)
+	 column name custid alias customers value (null) PRIMARY
+	 column name givenname alias customers value (null)
+	 column name surname alias customers value (null)
+
+ Conditions
+	 index name customerid  file name /home/greg/projects/test/testIndex/custid.idx
+		 index column name custid
+
+-------------------------BEGIN ENGINE-------------------------------------------
+------------------------Select-----------------------------
+ 
+custid     givenname            surname              000009196  Calvin               Raji                 
+000017400  Karen                Wu                   
+000005124  Karl                 Xie                  
+000017691  Jonathan             Jackson              
+000004073  Miguel               Miller               
+
+ 
+custid     givenname            surname              000009196  Calvin               Raji                 
+000017400  Karen                Wu                   
+000005124  Karl                 Xie                  
+000017691  Jonathan             Jackson              
+000004073  Miguel               Miller               
+
+ 
+Table scan: rows scanned 5
+rows returned 5
+ 
+

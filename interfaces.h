@@ -6,7 +6,7 @@ class iElements
     public:
 
     SQLACTION               sqlAction {};               // Statement action
-    list<char*>             lstTables {};               // tables
+    char*                   tableName = nullptr;        // tables
     list<ColumnNameValue*>  lstColNameValue {};         // used in update to set list of column/values
     list<char*>             lstColName{};               // column names
     list<char*>             lstValues{};                // value lists - found in insert and select IN (...)
@@ -25,7 +25,7 @@ ParseResult iElements::clear()
 {
     sqlAction       = SQLACTION::NOACTION;
     rowsToReturn    = 0;
-    lstTables.clear();
+    tableName       = nullptr;
     lstColName.clear();
     lstColNameValue.clear();
     lstConditions.clear();

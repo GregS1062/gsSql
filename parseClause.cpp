@@ -13,14 +13,14 @@ class ParseClause
         ParseResult parseSelect(char*);
         ParseResult parseJoin(char*);
         ParseResult parseOrderByGroup(char*);
-        signed long isJoin(char*);
+        signed int isJoin(char*);
 };
 /******************************************************
  * Process Select
  ******************************************************/
 ParseResult ParseClause::process(char* _queryString)
 {
-    signed long positionJoin = isJoin(_queryString);
+    signed int positionJoin = isJoin(_queryString);
     if(positionJoin == DELIMITERERR)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Error: delimiter error searching for JOIN ");
@@ -62,7 +62,7 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         fprintf(traceFile,"\nQuery String = %s",_queryString);
     }
 
-    signed long positionSelect = lookup::findDelimiter(_queryString, (char*)sqlTokenSelect);
+    signed int positionSelect = lookup::findDelimiter(_queryString, (char*)sqlTokenSelect);
 
     if(positionSelect == DELIMITERERR)
     {
@@ -90,7 +90,7 @@ ParseResult ParseClause::parseSelect(char* _queryString)
     //----------------------------------------------------------
     //case 5: select custid from customers where custid = 123
     //case 6: select custid from customers
-    signed long positionOfWhere = lookup::findDelimiter(queryString, (char*)sqlTokenWhere);
+    signed int positionOfWhere = lookup::findDelimiter(queryString, (char*)sqlTokenWhere);
     
     // Testing the presence of WHERE and ON
     // 1. Was there a parsing error
@@ -114,7 +114,7 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         queryString[positionOfWhere] = '\0';
     }
     
-    signed long positionOfFrom = lookup::findDelimiter(queryString, (char*)sqlTokenFrom);
+    signed int positionOfFrom = lookup::findDelimiter(queryString, (char*)sqlTokenFrom);
     if( positionOfFrom == DELIMITERERR
     && positionOfFrom == NEGATIVE)
     {
@@ -128,8 +128,8 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         queryString[positionOfFrom] = '\0';
     }
 
-    signed long positionEqual = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenEqual);
-    signed long positionQuote = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenQuote);
+    signed int positionEqual = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenEqual);
+    signed int positionQuote = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenQuote);
 
     if(positionEqual > 0
     || positionQuote > 0)
@@ -138,7 +138,7 @@ ParseResult ParseClause::parseSelect(char* _queryString)
         return ParseResult::FAILURE;
     }
 
-    signed long positionTop = lookup::findDelimiter(queryString, (char*)sqlTokenTop);
+    signed int positionTop = lookup::findDelimiter(queryString, (char*)sqlTokenTop);
     if(positionTop == NEGATIVE)
         iClause->strColumns = dupString(queryString);
     
@@ -185,7 +185,7 @@ ParseResult ParseClause::parseJoin(char* _queryString)
 
         NOTE: presence of both WHERE condition and JOIN condition
  */
-    signed long positionOfWhere = lookup::findDelimiter(_queryString, (char*)sqlTokenWhere);
+    signed int positionOfWhere = lookup::findDelimiter(_queryString, (char*)sqlTokenWhere);
     
     // Testing the presence of WHERE and ON
     // 1. Was there a parsing error
@@ -204,7 +204,7 @@ ParseResult ParseClause::parseJoin(char* _queryString)
         _queryString[positionOfWhere] = '\0';  // truncate string for next operation  - this one leave tables in the string
     }
 
-    signed long positionOfOn   = lookup::findDelimiter(_queryString, (char*)sqlTokenOn);
+    signed int positionOfOn   = lookup::findDelimiter(_queryString, (char*)sqlTokenOn);
     if(positionOfOn > 0)
     {
         iClause->strJoinConditions = dupString(_queryString+positionOfOn+strlen(sqlTokenOn));
@@ -212,8 +212,8 @@ ParseResult ParseClause::parseJoin(char* _queryString)
     }
 
 
-    signed long positionEqual = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenEqual);
-    signed long positionQuote = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenQuote);
+    signed int positionEqual = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenEqual);
+    signed int positionQuote = lookup::findDelimiter(iClause->strTables, (char*)sqlTokenQuote);
 
     if(positionEqual > 0
     || positionQuote > 0)
@@ -229,7 +229,7 @@ ParseResult ParseClause::parseJoin(char* _queryString)
 /******************************************************
  * Is Join
  ******************************************************/
-signed long ParseClause::isJoin(char* _string)
+signed int ParseClause::isJoin(char* _string)
 {
     list<char*> lstJoin;
     lstJoin.push_back((char*)sqlTokenJoin);
@@ -249,9 +249,9 @@ ParseResult ParseClause::parseOrderByGroup(char* _queryString)
     // Order by / Group by
     //----------------------------------------------------------
 
-    signed long positionOfOrderBy = lookup::findDelimiter(_queryString, (char*)sqlTokenOrderBy);
-    signed long positionOfGroupBy = lookup::findDelimiter(_queryString, (char*)sqlTokenGroupBy);
-    signed long positionOfHaving  = lookup::findDelimiter(_queryString, (char*)sqlTokenHaving);
+    signed int positionOfOrderBy = lookup::findDelimiter(_queryString, (char*)sqlTokenOrderBy);
+    signed int positionOfGroupBy = lookup::findDelimiter(_queryString, (char*)sqlTokenGroupBy);
+    signed int positionOfHaving  = lookup::findDelimiter(_queryString, (char*)sqlTokenHaving);
 
     //No order by or group by clause
     if(positionOfGroupBy == NEGATIVE
@@ -269,7 +269,7 @@ ParseResult ParseClause::parseOrderByGroup(char* _queryString)
         return ParseResult::FAILURE;
     }
 
-    list<signed long> stack;
+    list<signed int> stack;
     stack.push_back(positionOfGroupBy);
     stack.push_back(positionOfOrderBy);
     stack.push_back(positionOfHaving);

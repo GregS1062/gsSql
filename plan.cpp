@@ -8,15 +8,31 @@
 #include "parseQuery.cpp"
 #include "binding.cpp"
 #include "sqlEngine.cpp"
+#include "printDiagnostics.cpp"
 
 /******************************************************
  * Plan
  ******************************************************/
 class Plan
 {
+    /*--------------------------------------------------------------------------------------------
+        Rules and logic
+        1) A query will be broken into statements
+            Example: 
+                statement 1) Select c.*, o.orderid o.totalAmount from customers c 
+                statement 2 join on orders o where c.custid = o.custid group by c.zipCode
+        2) Each statement will have one and only one table
+        3) A given statement may contain columns for another statement, these must be resolved
+    ----------------------------------------------------------------------------------------------*/
+    // This will be a merged list of tables in the query including selects and joins
+    //      It is required by bind because column names in the select may belong to one of the join
+    //      tables
+    list<char*>         lstDeclaredTables;
+    //
+    ParseQuery*         parseQuery;
     list<Statement*>    lstStatements;
     list<char*>         queries;
-    iElements*          ielements = new iElements();
+    list<iElements*>    lstElements;
     OrderBy*            orderBy     = new OrderBy;
     GroupBy*            groupBy     = new GroupBy; 
     
@@ -25,7 +41,6 @@ class Plan
         ParseResult     split(char*);
         ParseResult     prepare(char*);
         ParseResult     execute();
-        ParseResult     validateSQLString(char*);
 };
 /******************************************************
  * Prepare
@@ -43,31 +58,46 @@ ParseResult Plan::prepare(char* _queryString)
     if( querystr == nullptr)
         return ParseResult::FAILURE;
 
-    sendMessage(MESSAGETYPE::ERROR,presentationType,true,querystr); 
-    return ParseResult::FAILURE;
-
-    if(split(_queryString) == ParseResult::FAILURE)
+    if(split(querystr) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    ParseQuery* parseQuery = new ParseQuery();
+    parseQuery = new ParseQuery();
+
+    /*
+        All tables and all columns
+    */
     for(char* query : queries)
     {
-        parseQuery->parse(query);
-        ielements = parseQuery->iElement;
-        if(ielements->lstColName.size() == 0)
+        if(parseQuery->parse(query) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(parseQuery->iElement->tableName != nullptr)
+            lstDeclaredTables.push_back(parseQuery->iElement->tableName);
+        
+        if(parseQuery->iElement->lstColName.size() == 0
+        && parseQuery->iElement->lstColNameValue.size() == 0)
         {
-            printf("\n parse query produced no no elements ");
+            fprintf(traceFile,"\n nothing in column list ");
             break;
         }
-        Binding* binding = new Binding();
-        binding->isqlTables     = isqlTables;
-        binding->ielements      = ielements;
-        binding->bind();
-        lstStatements           = binding->lstStatements;
-        orderBy                 = binding->orderBy;
-        groupBy                 = binding->groupBy;
-
+        
+        lstElements.push_back(parseQuery->iElement);
     }
+            
+    Binding* binding            = new Binding(isqlTables);
+    binding->bindTableList(lstDeclaredTables);
+    for(iElements* ielement : lstElements)
+    {
+
+        Statement* statement = binding->bind(ielement);
+        if(statement != nullptr)
+            lstStatements.push_back(statement);
+        if(binding->orderBy != nullptr)
+            orderBy                 = binding->orderBy;
+        if(binding->groupBy != nullptr)
+            groupBy                 = binding->groupBy;
+
+    } 
         
     return ParseResult::SUCCESS;
 }
@@ -82,11 +112,36 @@ ParseResult Plan::execute()
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Bind produced no statements");
         return ParseResult::FAILURE;
     }
+
+    resultList*		results;
+
     for(Statement* statement : lstStatements)
     {
-        statement->orderBy  = orderBy;
-        statement->groupBy  = groupBy;
-        engine->execute(statement);
+        if(debug)
+            if(statement->table != nullptr)
+                printTable(statement->table);
+        
+        if(engine->execute(statement) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        
+        results = engine->results;
+
+        if(results == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Results = null");
+            return ParseResult::FAILURE;
+        }
+        
+        if(orderBy != nullptr)
+			if(orderBy->order.size() > 0)
+				results->orderBy(orderBy);
+
+		if(groupBy != nullptr)
+			if(groupBy->group.size() > 0)
+				results->groupBy(groupBy);
+
+		results->print();
+		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
     }
     return ParseResult::SUCCESS;
 }
@@ -96,7 +151,7 @@ ParseResult Plan::execute()
  ******************************************************/
 ParseResult Plan::split(char* _queryString)
 {
-    int tries= 0;
+
     int offset = 6;
     list<char*>lstDelimiters;
     char* query;
@@ -109,7 +164,7 @@ ParseResult Plan::split(char* _queryString)
     lstDelimiters.push_back((char*)sqlTokenLeftJoin);
     lstDelimiters.push_back((char*)sqlTokenRightJoin);
     lstDelimiters.push_back((char*)sqlTokenJoin);
-    signed long found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
+    signed int found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
     if(found == NEGATIVE)
     {
         queries.push_back(_queryString);

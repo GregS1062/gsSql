@@ -96,6 +96,7 @@ using namespace std;
 #define sqlTokenOrderAcending   "ASC"
 #define sqlTokenTrue            "T"
 #define sqlTokenCount           "COUNT"
+#define sqlTokenSysTables       "SYSTABLES"
 
 enum MESSAGETYPE
 {

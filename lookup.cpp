@@ -11,8 +11,8 @@ class lookup
     static sTable*     getTableByAlias(list<sTable*>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
     static TokenPair*  tokenSplit(char*,char*);
-    static signed long findDelimiter(char*, char*);
-    static signed long findDelimiterFromList(char*, list<char*>);
+    static signed int  findDelimiter(char*, char*);
+    static signed int  findDelimiterFromList(char*, list<char*>);
     static SQLACTION   determineAction(char* _token);
 };
 
@@ -65,7 +65,7 @@ Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
 /******************************************************
  * Find Delimiter
  ******************************************************/
-signed long lookup::findDelimiter(char* _string, char* _delimiter)
+signed int lookup::findDelimiter(char* _string, char* _delimiter)
 {
     if(_string == nullptr
     || _delimiter == nullptr)
@@ -102,14 +102,14 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
     }
     buff[strlen(str)] = '\0';
    // if(debug)
-    //    fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
+   //    fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
 
     char *s;
     s = strstr(buff, _delimiter);      // search for string "hassasin" in buff
 
     if (s != NULL)                     // if successful then s now points at "hassasin"
     {
-        long int result = s - buff;
+        size_t result = s - buff;
 
         //Need to make sure this is an actual delimiter rather than a keyword embedded in another word.  example "DELETE" found in DELETED
         // in short, a space must follow a keyword
@@ -121,7 +121,7 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
                 return NEGATIVE;
         }
 
-        return result;
+        return (signed int)result;
     }                                  
 
     return NEGATIVE;
@@ -130,11 +130,11 @@ signed long lookup::findDelimiter(char* _string, char* _delimiter)
  * Find Delimiter From List
  ******************************************************/
 //Returns the first delimiter to appear in the string
-signed long lookup::findDelimiterFromList(char* _string, list<char*> _list)
+signed int lookup::findDelimiterFromList(char* _string, list<char*> _list)
 {
-    signed long len = strlen(_string);
-    signed long found = len;
-    signed long result;
+    signed int len = (signed int)strlen(_string);
+    signed int found = len;
+    signed int result;
     for(char* delimiter : _list)
     {
         result = findDelimiter(_string,delimiter);

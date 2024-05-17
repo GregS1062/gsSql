@@ -21,8 +21,8 @@ class tokenParser
     bool        delimiterAhead();
     bool        eof = false;
     const char* parseString;
-    signed long parseStringLength;
-    signed long pos;
+    signed int parseStringLength;
+    signed int pos;
 };
 
 char* tokenParser::cleanString(char* _string)
@@ -100,25 +100,25 @@ char* tokenParser::cleanString(char* _string)
 tokenParser::tokenParser(const char* _parseString)
 {
     parseString         = _parseString;
-    parseStringLength   = (signed long)strlen(parseString);
+    parseStringLength   = (signed int)strlen(parseString);
     pos = 0;
 }
 void tokenParser::parse(const char* _parseString)
 {
     parseString         = _parseString;
-    parseStringLength   = (signed long)strlen(parseString);
+    parseStringLength   = (signed int)strlen(parseString);
     pos = 0;
 }
 void tokenParser::parse(const char* _parseString, bool _keepQuotes)
 {
     parseString         = _parseString;
-    parseStringLength   = (signed long)strlen(parseString);
+    parseStringLength   = (signed int)strlen(parseString);
     keepQuotes          = _keepQuotes;
     pos                 = 0;
 }
 bool tokenParser::delimiterAhead()
 {
-    signed long lookAhead   = pos; // Look ahead position
+    signed int lookAhead   = pos; // Look ahead position
     char c = ' ';
     while(lookAhead < parseStringLength)
     {

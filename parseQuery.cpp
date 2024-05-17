@@ -25,7 +25,7 @@ using namespace std;
 class ParseQuery
 {
     const char*             queryString;
-    signed long             queryStringLength   = 0;
+    signed int             queryStringLength   = 0;
     bool join               = true;
     bool notJoin            = false;
 
@@ -52,7 +52,15 @@ class ParseQuery
     ParseResult             parseGroupByList(char*);
     ParseResult             parseConditionList(char*, bool);
     ParseResult             addCondition(char*,bool);
+    void                    clear();
 };
+/******************************************************
+ * Clear
+ ******************************************************/
+void ParseQuery::clear()
+{
+    iElement->clear();
+}
 
 /******************************************************
  * Parse
@@ -64,11 +72,13 @@ ParseResult ParseQuery::parse(const char* _queryString)
    
     tokenParser* tok = new tokenParser();
     queryString       = tok->cleanString((char*)_queryString);
+
+    iElement = new iElements();
     
     if(debug)
      fprintf(traceFile,"\n query=%s",queryString);;
     
-    queryStringLength = strlen(queryString);
+    queryStringLength = (signed int)strlen(queryString);
     
     tok->parse(queryString);
     
@@ -188,11 +198,13 @@ ParseResult ParseQuery::parseSelect()
 ParseResult ParseQuery::parseInsert()
 {
 
+    iElement = new iElements();
+    iElement->sqlAction = sqlAction;
     //----------------------------------------------------------
     // Create table list
     //----------------------------------------------------------
 
-    signed long startTable = lookup::findDelimiter((char*)queryString, (char*)sqlTokenInto);
+    signed int startTable = lookup::findDelimiter((char*)queryString, (char*)sqlTokenInto);
     if(startTable == NEGATIVE
     || startTable == DELIMITERERR)
     {
@@ -202,17 +214,31 @@ ParseResult ParseQuery::parseInsert()
 
     char* strTableList = dupString(queryString+startTable+strlen((char*)sqlTokenInto)+1);
     
-    list<char*> delimiterList;
-    delimiterList.push_back((char*)sqlTokenValues);
-    delimiterList.push_back((char*)sqlTokenOpenParen);
+    // Distinguishing between  Insert into theTable (..column list..) and Insert into theTable Values(..value list list..)
+    signed int posValues       =lookup::findDelimiter(strTableList, (char*)sqlTokenValues);
+    signed int posOpenParen    =lookup::findDelimiter(strTableList, (char*)sqlTokenOpenParen);
 
-    long signed endTable = lookup::findDelimiterFromList(strTableList,delimiterList);
-    
-    if(endTable == NEGATIVE
-    || endTable == DELIMITERERR)
+    if(posValues    == DELIMITERERR
+    || posOpenParen == DELIMITERERR)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
         return ParseResult::FAILURE;
+    }
+
+    signed int endTable = 0;
+
+    if(posOpenParen < posValues)
+    {
+        endTable = posOpenParen;
+    }
+    else
+        endTable = posValues;
+    
+    if(debug)
+    {
+        fprintf(traceFile,"\n posOpenParen %d",posOpenParen);
+        fprintf(traceFile,"\n posValues %d",posValues);
+        fprintf(traceFile,"\n endTable %d",endTable);
     }
     
     //Terminate table list
@@ -221,21 +247,10 @@ ParseResult ParseQuery::parseInsert()
     if(parseTableList(strTableList) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    //----------------------------------------------------------
-    // Create table list
-    //----------------------------------------------------------
+    signed int posCloseParen = 0;
 
-    // Distinguishing between  Insert into theTable (..column list..) and Insert into theTable Values(..value list list..)
-    signed long posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
-    signed long posOpenParen    =lookup::findDelimiter((char*)queryString, (char*)sqlTokenOpenParen);
-    signed long posCloseParen = 0;
-
-    if(posValues    == DELIMITERERR
-    || posOpenParen == DELIMITERERR)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
-        return ParseResult::FAILURE;
-    }
+    posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
+    posOpenParen    =lookup::findDelimiter((char*)queryString, (char*)sqlTokenOpenParen);
 
     if(posValues > posOpenParen)
     {
@@ -289,12 +304,14 @@ ParseResult ParseQuery::parseInsert()
 ParseResult ParseQuery::parseUpdate()
 {
 
+    iElement = new iElements();
+    iElement->sqlAction = sqlAction;
     //---------------------------------------------------------
     // Create table list
     //---------------------------------------------------------
     char* strTableList = dupString(queryString+strlen((char*)sqlTokenUpdate)+1);
    
-    signed long posSet = lookup::findDelimiter(strTableList, (char*)sqlTokenSet);
+    signed int posSet = lookup::findDelimiter(strTableList, (char*)sqlTokenSet);
      
     if(posSet < 1)
     {
@@ -318,7 +335,7 @@ ParseResult ParseQuery::parseUpdate()
     //create string
     char* strColumnValues = dupString(queryString+posSet+strlen((char*)sqlTokenSet) +1);
 
-    signed long posEndOfColumnValues =lookup::findDelimiter(strColumnValues, (char*)sqlTokenWhere);
+    signed int posEndOfColumnValues =lookup::findDelimiter(strColumnValues, (char*)sqlTokenWhere);
 
     if(posEndOfColumnValues != NEGATIVE)
         strColumnValues[posEndOfColumnValues] = '\0';
@@ -332,7 +349,7 @@ ParseResult ParseQuery::parseUpdate()
     //---------------------------------------------------------
     
     //find where clause in the original query string
-    signed long posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
+    signed int posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
     if(posWhere == DELIMITERERR)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"delimiter error finding the token 'where' in string");
@@ -405,14 +422,14 @@ ParseResult ParseQuery::parseDelete()
     //----------------------------------------------------------
     // Parse Table List
     //----------------------------------------------------------
-    signed long posFrom     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenFrom);
+    signed int posFrom     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenFrom);
     
     if(debug)
         fprintf(traceFile,"\nQuery string after top %s",queryString);
     
     char* strTableList = dupString(queryString+posFrom+1+strlen(sqlTokenFrom));
 
-    signed long posWhere =lookup::findDelimiter(strTableList, (char*)sqlTokenWhere);
+    signed int posWhere =lookup::findDelimiter(strTableList, (char*)sqlTokenWhere);
 
     if(posWhere == NEGATIVE)
     {
@@ -715,19 +732,13 @@ ParseResult ParseQuery::parseColumnList(char* _workingString)
     if(_workingString == nullptr)
         return ParseResult::SUCCESS;
 
-    // sample template   
-    // t.col1, t.col2
-    char* token;
-    tokenParser* tok = new tokenParser(_workingString);
-    
-    while(!tok->eof)
+    char * token;
+    token = strtok (_workingString,",");
+    while (token != NULL)
     {
-        token = tok->getToken();
-        if(token != nullptr)
-        {
-            fprintf(traceFile,"\nColumn: :%s",token);
-            iElement->lstColName.push_back(token);
-        }
+        fprintf(traceFile,"\nColumn: :%s",token);
+        iElement->lstColName.push_back(token);
+        token = strtok (NULL, ",");
     }
 
     return ParseResult::SUCCESS;
@@ -772,20 +783,22 @@ ParseResult ParseQuery::parseTableList(char* _workingString)
         return ParseResult::SUCCESS;
 
     char* token;
-    char* tableName;
 
     token = strtok (_workingString,",");
 	while(token != NULL)
     {
         if(debug)
             fprintf(traceFile,"\ntoken %s",token);
-
-        tableName = dupString(token);
-        iElement->lstTables.push_back(tableName);
+        if(iElement->tableName != nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting only one table");
+            return ParseResult::FAILURE;
+        }
+        iElement->tableName = dupString(token);
         token = strtok (NULL, ",");
     }
 
-    if(iElement->lstTables.size() == 0)
+    if(iElement->tableName == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting at least one table");
         return ParseResult::FAILURE;

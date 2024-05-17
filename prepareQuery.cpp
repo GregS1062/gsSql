@@ -89,6 +89,24 @@ char* sanitizeQuery(char _target[])
         && prior == SPACE)
             continue;
 
+        if(c == OPENPAREN
+        || c == CLOSEPAREN)
+        {
+            if(prior != SPACE)
+            {
+                str[itr] = SPACE;
+		        itr++;
+            }
+            str[itr] = c;
+		    itr++;
+            if(next != SPACE)
+            {
+                str[itr] = SPACE;
+		        itr++;
+            }
+            continue;
+        }
+
         if(c == GTR
         || c == LST)
         {
@@ -158,7 +176,7 @@ char* sanitizeQuery(char _target[])
     }
 
 
-    if((openParen   % 2 == 0))
+    if(!(openParen   % 2 == 0))
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing '('.");
         free(str);
@@ -167,7 +185,7 @@ char* sanitizeQuery(char _target[])
 
 
 
-    if((closeParen   % 2 == 0))
+    if(!(closeParen   % 2 == 0))
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing ')'.");
         free(str);

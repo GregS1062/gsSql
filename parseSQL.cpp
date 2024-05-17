@@ -20,7 +20,7 @@ class sqlParser
 {
     public:
     char*           sqlString;
-    signed long     sqlStringLength;
+    signed int      sqlStringLength;
     tokenParser*    tok;
     sTable*         table;
     iSQLTables*     isqlTables;
@@ -42,7 +42,7 @@ sqlParser::sqlParser(char* _sqlString, iSQLTables* _isqlTables)
 {
     isqlTables         = _isqlTables;
     sqlString         = _sqlString;
-    sqlStringLength   = strlen(sqlString);
+    sqlStringLength   = (signed int)strlen(sqlString);
     tok               = new tokenParser(sqlString);
 }
 /******************************************************
@@ -102,6 +102,8 @@ ParseResult sqlParser::createTable()
     //Get table name
     token           = tok->getToken();
     table->name     = token;
+
+    if(strcasecmp(table->name,(char*)sqlTokenSysTables))
 
     //Get AS statement
     token           = tok->getToken();

@@ -17,10 +17,9 @@ class resultList
 {
     vector<vector<TempColumn*>> rows{};
 	vector<vector<TempColumn*>> tempRows{};
-	Statement*					statement;
 
 public:
-	resultList(Statement*);
+	resultList();
 	RETURNACTION				returnAction;
     int                         rowCount = 0;
     PRESENTATION                presentation;
@@ -34,14 +33,14 @@ public:
 	string  					htmlHeader		(vector<TempColumn*>,int32_t);
 	string  					textHeader		(vector<TempColumn*>);
     ParseResult                 Sort			(list<int>,bool);
-	ParseResult					orderBy();
-	ParseResult					groupBy();
+	ParseResult					orderBy(OrderBy*);
+	ParseResult					groupBy(GroupBy*);
 	void						print();
     
 };
-resultList::resultList(Statement* _statement)
+resultList::resultList()
 {
-	statement = _statement;
+
 }
 /******************************************************
  * Add Row
@@ -205,29 +204,29 @@ ParseResult resultList::Sort(list<int> _n, bool _ascending)
 /******************************************************
  * Order By
  ******************************************************/
-ParseResult resultList::orderBy()
+ParseResult resultList::orderBy(OrderBy* _orderBy)
 {
 	list<int> n;
-	for(OrderOrGroup order : statement->orderBy->order)
+	for(OrderOrGroup order : _orderBy->order)
 	{
 		if(debug)
 			fprintf(traceFile,"\n sorting on column# %d", order.columnNbr);
 		n.push_back(order.columnNbr);
 	}
-	Sort(n,statement->orderBy->asc);
+	Sort(n,_orderBy->asc);
 	return ParseResult::SUCCESS;
 }
 /******************************************************
  * Group By
  ******************************************************/
-ParseResult resultList::groupBy()
+ParseResult resultList::groupBy(GroupBy* _groupBy)
 {
 
 		if(debug)
 			fprintf(traceFile,"\n Group by ");
 	list<int> n;
 	bool sortByCount = true;
-	for(OrderOrGroup group : statement->groupBy->group)
+	for(OrderOrGroup group : _groupBy->group)
 	{
 		if(strcasecmp(group.col->name,(char*)sqlTokenCount) == 0)
 		{
@@ -257,7 +256,7 @@ ParseResult resultList::groupBy()
 			priorRow = row;
 			first = false;
 		}
-		for(OrderOrGroup group : statement->groupBy->group)
+		for(OrderOrGroup group : _groupBy->group)
 		{	
 			count++;
 			if(row.at(group.columnNbr)->edit == t_edit::t_char)

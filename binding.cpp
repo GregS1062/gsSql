@@ -2,21 +2,27 @@
 #include "sqlCommon.h"
 #include "interfaces.h"
 #include "lookup.cpp"
+
+/******************************************************
+ * Binding
+ ******************************************************/
 class Binding
 {
     private:
 
     sTable*          defaultTable;    
-    sTable*          defaultSQLTable;   
+    sTable*          defaultSQLTable;
     tokenParser*     tok;
+    iSQLTables*      isqlTables;
+    iElements*       ielements;
     
-    ParseResult     bindTableList();
     ParseResult     bindColumnList();
     ParseResult     bindColumnValueList();
     ParseResult     bindColumn(char*);
-    Column*         resolveColumn(TokenPair*);
+    Column*         resolveColumnName(char*);
+    Column*         bindAggregateColumn(char*);
     ParseResult     bindNonAliasedColumn(char*, char*);
-    ParseResult     bindAliasedColumn(TokenPair*, char*);
+    ParseResult     bindAliasedColumn(char*, TokenPair*, char*);
     ParseResult     bindValueList();
     ParseResult     bindConditions();
     ParseResult     bindOrderBy();
@@ -28,67 +34,71 @@ class Binding
 
     public:
 
-    iSQLTables*      isqlTables;
-    iElements*       ielements;
-    list<Statement*> lstStatements;
     OrderBy*         orderBy    = new OrderBy();
     GroupBy*         groupBy    = new GroupBy();  
-
+    ParseResult      bindTableList(list<char*>);
     list<sTable*>    lstTables;  //public for diagnostic purposes
 
-    Binding();
-    ParseResult     bind();
+    Binding(iSQLTables*);
+    Statement*     bind(iElements*);
 };
 /******************************************************
  * Constructor
  ******************************************************/
-Binding::Binding() 
+Binding::Binding(iSQLTables* _isqlTables) 
 {
-
+    isqlTables = _isqlTables;
 };
 /******************************************************
  * Bind
  ******************************************************/
-ParseResult Binding::bind()
+Statement* Binding::bind(iElements* _ielements)
 {
 
     if(debug)
         fprintf(traceFile,"\n\n-------------------------BEGIN BIND-------------------------------------------");
     
-    Statement* statement;
-
-    if(bindTableList() == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+    ielements = _ielements;
 
     if(lstTables.size() == 0)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind empty table list ");
-        return ParseResult::FAILURE;
+        return nullptr;
+    }
+    
+    if(debug)
+            fprintf(traceFile,"\nstatement table name %s",ielements->tableName);
+
+    TokenPair* tp = lookup::tokenSplit(ielements->tableName,(char*)" ");
+
+    if(tp == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Table name is null");
+        return nullptr;
     }
 
-    for(sTable* tbl : lstTables)
+    Statement* statement = new Statement();
+    statement->table = lookup::getTableByName(lstTables,tp->one);
+    if(statement->table == nullptr)
     {
-         statement = new Statement();
-         statement->table = tbl;
-         statement->action = ielements->sqlAction;
-         statement->rowsToReturn = ielements->rowsToReturn;
-         lstStatements.push_back(statement);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"statement table name is null");
+        return nullptr;
     }
+    statement->action = ielements->sqlAction;
+    statement->rowsToReturn = ielements->rowsToReturn;
 
-    if(lstTables.size() == 1)
+
+    defaultTable = statement->table;
+    if(defaultTable == nullptr)
     {
-        defaultTable = lstTables.front();
-        if(defaultTable == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default table");
-            return ParseResult::FAILURE;
-        }
-        defaultSQLTable = lookup::getTableByName(isqlTables->tables,defaultTable->name);
-        if(defaultSQLTable == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default SQL table");
-            return ParseResult::FAILURE;
-        }
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default table");
+        return nullptr;
+    }
+    defaultSQLTable = lookup::getTableByName(isqlTables->tables,defaultTable->name);
+    if(defaultSQLTable == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default SQL table");
+        return nullptr;
     }
 
 
@@ -96,35 +106,35 @@ ParseResult Binding::bind()
     {
         if(debug)
             fprintf(traceFile,"\n column Binding failure");
-        return ParseResult::FAILURE;
+        return nullptr;
     }
 
     if(bindValueList() == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+        return nullptr;
 
     if(bindColumnValueList() == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+        return nullptr;
 
     if(bindConditions() == ParseResult::FAILURE)
-       return ParseResult::FAILURE;
+       return nullptr;
 
     if(bindOrderBy() == ParseResult::FAILURE)
-       return ParseResult::FAILURE;
+       return nullptr;
 
     if(bindGroupBy() == ParseResult::FAILURE)
-       return ParseResult::FAILURE;
+       return nullptr;
 
-    return ParseResult::SUCCESS;
+    return statement;
 }
 /******************************************************
  * Bind Table List
  ******************************************************/
-ParseResult Binding::bindTableList()
+ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
 {
     TokenPair* tp;
     sTable* temp;
     sTable* table;
-    for(char* token : ielements->lstTables)
+    for(char* token : _lstDeclaredTables)
     {
         if(debug)
             fprintf(traceFile,"\n table name %s|| \n",token);
@@ -156,30 +166,6 @@ ParseResult Binding::bindTableList()
             lstTables.push_back(table);
             continue;
         }
-
-        //No valid table name at this point
-        if(tp->two == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true," invalid table name:");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->one);
-            return ParseResult::FAILURE;
-        }
-
-        //The valid table name must be tp->two and tp->one is the alias
-        temp = lookup::getTableByName(isqlTables->tables,tp->two);
-        if(temp != nullptr)
-        {
-            table->name         = temp->name;
-            table->fileName     = temp->fileName;
-            table->alias        = tp->one;
-            table->recordLength = temp->recordLength;
-            for(sIndex* idx : temp->indexes)
-            {
-                table->indexes.push_back(idx);
-            }
-            lstTables.push_back(table);
-            continue;
-        }  
     }
 
     if(lstTables.size() == 0)
@@ -209,7 +195,7 @@ ParseResult Binding::bindColumn(char* colName)
             return ParseResult::FAILURE;
     }
     else
-    if(bindAliasedColumn(tp, (char*)"") == ParseResult::FAILURE)
+    if(bindAliasedColumn(colName, tp, (char*)"") == ParseResult::FAILURE)
             return ParseResult::FAILURE;
     
     return ParseResult::SUCCESS;
@@ -219,7 +205,10 @@ ParseResult Binding::bindColumn(char* colName)
  ******************************************************/
 ParseResult Binding::bindColumnList()
 {
-    //case Insert into table values(....)
+    /*
+        case Insert into table values(....)
+    */
+
     if(ielements->lstColName.size() == 0
     && ielements->lstColNameValue.size() == 0)
     {
@@ -248,6 +237,10 @@ ParseResult Binding::bindColumnValueList()
     {
         fprintf(traceFile,"\n\n-----------Bind Column Value List----------------");
     }
+    //TODO
+    /*
+        update orders set totalAmount = (Select price from items where...) where ordid = ....
+    */
     for(ColumnNameValue* cv : ielements->lstColNameValue)
     {
         if(debug)
@@ -267,7 +260,7 @@ ParseResult Binding::bindColumnValueList()
                 return ParseResult::FAILURE;
         }
         else
-        if(bindAliasedColumn(tp, cv->value) == ParseResult::FAILURE)
+        if(bindAliasedColumn(cv->name, tp, cv->value) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
     }
     return ParseResult::SUCCESS;
@@ -306,93 +299,137 @@ ParseResult Binding::bindNonAliasedColumn(char* _name, char* _value)
 /******************************************************
  * Resolve Column Alias
  ******************************************************/
-Column* Binding::resolveColumn(TokenPair* tp)
+Column* Binding::resolveColumnName(char* _str)
 {
-    ColumnAlias* ca = new ColumnAlias();
-    sTable* temp1;
-    sTable* temp2;
-    Column* col;
+    /*
+        Column name have the following forms
+
+        case 1) aggregates          - COUNT(), SUM(), AVG(), MAX(), MIN()
+        case 2) column alias        - surname AS last
+        case 3) simple name         - surname
+        case 4) table/column        - customers.surname
+        case 5) table alias column  - c.surname from customers c
+    
+    */
+
+   sTable* tbl;
+
+    // case 1) aggregates          - COUNT(), SUM(), AVG(), MAX(), MIN()
+   // if(lookup::findDelimiter(_str,(char*)sqlTokenOpenParen) > NEGATIVE)
+   //     return bindAggregateColumn(_str);
+
+    signed int columnAliasPosition = lookup::findDelimiter(_str,(char*)sqlTokenAs);
+    if(columnAliasPosition == DELIMITERERR)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+        return nullptr;
+    }
+
+    // case 2) alias               - surname AS last
+    char* columnAlias = nullptr;
+    if(columnAliasPosition > NEGATIVE)
+    {
+        columnAlias = dupString(_str+columnAliasPosition+3);
+    }
+    
+    TokenPair* tp = lookup::tokenSplit(_str,(char*)sqlTokenPeriod);
     if(tp == nullptr)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"resolveColumn tokenPair is null ");
-        return nullptr;
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+        return nullptr; 
     }
 
+    Column* col{};
+
+    // case 3) simple name         - surname
     if(tp->two == nullptr)
     {
-        return lookup::getColumnByName(defaultSQLTable->columns,tp->one);
-    }
-
-    temp1 = lookup::getTableByAlias(lstTables,tp->one);
-    temp2 = lookup::getTableByAlias(lstTables,tp->two);
-    if(temp1 == nullptr
-    && temp2 == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table by alias:");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->one);
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," or ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->two);
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
-        return nullptr;
-    }
-    if(temp1 != nullptr)
-    {
-        ca->tableName = temp1->name;
-        ca->columnName = tp->two;
-    }
-    else
-    {
-        ca->tableName = temp2->name;
-        ca->columnName = tp->one;
-    }
-    sTable* lstTbl;
-    sTable* sqlTbl;
-
-    lstTbl = lookup::getTableByName(lstTables,ca->tableName);
-    if(lstTbl == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name: ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,ca->tableName);
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
-        return nullptr;
-    }
-    sqlTbl = lookup::getTableByName(isqlTables->tables,ca->tableName);
-    if(sqlTbl == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name: ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,ca->tableName);
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
-        return nullptr;
-    }
-
-    if(strcasecmp(ca->columnName,(char*)sqlTokenAsterisk) == 0 )
-    {
-        col             = new Column();
-        col->name       = ca->columnName;
-        col->tableName  = ca->tableName;
+        col = lookup::getColumnByName(defaultTable->columns,tp->one);
+        if(col == nullptr)
+        {
+            col = lookup::getColumnByName(defaultSQLTable->columns,tp->one);
+            if(col == nullptr)
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name not found in query table");
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+                return nullptr; 
+            }
+        }
+        col->alias = columnAlias;
         return col;
     }
 
-    col = lookup::getColumnByName(sqlTbl->columns,ca->columnName);
-    if(col == nullptr)
+    // case 4) table/column        - customers.surname
+    tbl = lookup::getTableByName(lstTables,tp->one);
+    if(tbl != nullptr)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,ca->columnName);
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," not found ");
-        return nullptr;  
+        col = lookup::getColumnByName(tbl->columns,tp->one); 
+        if(col == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name not found in query table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+            return nullptr; 
+        }
+        col->alias = columnAlias;
+        return col;
     }
-    col->tableName  = ca->tableName;
+
+    // case 5) table/column        - c.surname
+    tbl = lookup::getTableByAlias(lstTables,tp->one);
+    if(tbl != nullptr)
+    {
+        col = lookup::getColumnByName(tbl->columns,tp->one); 
+        if(col == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name not found in query table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+            return nullptr; 
+        }
+        col->alias = columnAlias;
+        return col;
+    }
+
+
     return col;
 };
 /******************************************************
  * Bind Non-Aliased Column
  ******************************************************/
-ParseResult Binding::bindAliasedColumn(TokenPair* tp, char* _value)
+ParseResult Binding::bindAliasedColumn(char* colName, TokenPair* tp, char* _value)
 {
     sTable* lstTbl;
     sTable* sqlTbl;
     Column* col;
     
-    col = resolveColumn(tp);
+    //include all columns of alias table
+    //case: s.*
+    if(strcmp(tp->two,(char*)sqlTokenAsterisk) == 0)
+    {
+        lstTbl = lookup::getTableByAlias(isqlTables->tables, tp->one);
+        if(lstTbl == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->one);
+            return ParseResult::FAILURE;
+        }
+        sqlTbl = lookup::getTableByName(isqlTables->tables,lstTbl->name);
+        if(sqlTbl == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
+            return ParseResult::FAILURE;
+        }
+
+        if(populateTable(lstTbl,sqlTbl) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        return ParseResult::SUCCESS;
+    }
+
+
+    col = resolveColumnName(colName);
     if(col == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true," cannot resolve alias table name ");
@@ -406,28 +443,19 @@ ParseResult Binding::bindAliasedColumn(TokenPair* tp, char* _value)
         return ParseResult::FAILURE;
     }
 
-    if(strcmp(col->name,(char*)sqlTokenAsterisk) == 0)
-    {
-        //Since there is no alias, a single table is assumed
-        sqlTbl = lookup::getTableByName(isqlTables->tables,col->tableName);
-        if(sqlTbl == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for table name:");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,lstTbl->name);
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
-            return ParseResult::FAILURE;
-        }
-        if(populateTable(lstTbl,sqlTbl) == ParseResult::FAILURE)
-            return ParseResult::FAILURE;
-        return ParseResult::SUCCESS;
-    }
-
     if(editColumn(col,_value) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     lstTbl->columns.push_back(col);
     return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Bind Aggregate Columns
+ ******************************************************/
+/* Column* Binding::bindAggregateColumn(char* _str)
+{
+    return nullptr;
+}; */
 
 /******************************************************
  * Bind Value List
@@ -523,7 +551,7 @@ ParseResult Binding::bindConditions()
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition column name is null ");
             return ParseResult::FAILURE;
         }
-        col = resolveColumn(tp);
+        col = resolveColumnName(con->name);
         if(col == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name: ");
@@ -532,26 +560,13 @@ ParseResult Binding::bindConditions()
             return ParseResult::FAILURE;
         }
 
-        if(tp->two == nullptr)
-        {
-            con->col = col;
-            if(editCondition(con,con->value) == ParseResult::FAILURE)
-                return ParseResult::FAILURE;
-
-            defaultTable->conditions.push_back(con);
-            continue;
-        }
-        //--------------------------------------
-        // case alias.col
-        //--------------------------------------
-
         con->col  = col;
         sTable* lstTbl = lookup::getTableByName(lstTables,col->tableName);
         if(lstTbl == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind alias table name not found: ");
-             sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->tableName);
-             sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->tableName);
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
         }
         con->col->tableName = lstTbl->name;
         if(editCondition(con,con->value) == ParseResult::FAILURE)
@@ -570,7 +585,6 @@ ParseResult Binding::bindOrderBy()
     if(debug)
         fprintf(traceFile,"\n----------------------- bind order by -----------------------------------");
 
-    TokenPair* tp;
     Column* col;
 
     if (ielements->orderBy == nullptr)
@@ -579,8 +593,7 @@ ParseResult Binding::bindOrderBy()
     for(OrderOrGroup order : ielements->orderBy->order)
     {
 
-        tp = lookup::tokenSplit(order.name,(char*)".");
-        col = resolveColumn(tp);
+        col = resolveColumnName(order.name);
         if(col == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Order by: Cannot find valid table name to sort on ");
@@ -632,13 +645,11 @@ ParseResult Binding::bindGroupBy()
     if(ielements->groupBy == nullptr)
         return ParseResult::SUCCESS;
 
-    TokenPair* tp;
     Column* col;
 
     for(OrderOrGroup group : ielements->groupBy->group)
     {
-        tp = lookup::tokenSplit(group.name,(char*)".");
-        col = resolveColumn(tp);
+        col = resolveColumnName(group.name);
         if(col == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Group by: Cannot resolve column name. See:");

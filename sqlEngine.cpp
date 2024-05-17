@@ -41,7 +41,7 @@ class searchIndexes
 class sqlEngine
 {
 	/***************************************
-	 * Assuming a single table for now
+	 * Assuming a single table 
 	*******************************************/
 	fstream* 		tableStream;
 	fstream* 		indexStream;
@@ -50,29 +50,30 @@ class sqlEngine
 	char* 			line;
 	iSQLTables* 	iSQL;
 	Statement*		statement;
-	resultList*		results;
+
+	ParseResult 	update			();
+	ParseResult 	insert			();
+	ParseResult 	Delete			();
+	ParseResult		select			();
+	char* 			getRecord		(long, fstream*, int);
+	long			appendRecord	(void*, fstream*, int);
+	bool 			writeRecord		(void*, long, fstream*, int);
+	ParseResult 	formatInput		(char*, Column*);
+	ParseResult 	updateIndexes	(long, SQLACTION);
+	ParseResult 	tableScan		(list<Column*>, SQLACTION);
+	searchIndexes* 	determineIndex	();
+	string 			searchForward	(Search*, char*, int, SEARCH);
+	string 			searchBack		(Search*, char*, int);
+	string 			indexRead		(searchIndexes*);
+	bool			isRecordDeleted (bool);
+	vector<TempColumn*>	outputLine	(list<Column*>);
 
 	public:
 		sqlEngine						(iSQLTables*);
 		ParseResult 	execute			(Statement*);
 		ParseResult 	open			();
 		ParseResult 	close			();
-		ParseResult 	update			();
-		ParseResult 	insert			();
-		ParseResult 	Delete			();
-		ParseResult		select			();
-		char* 			getRecord		(long, fstream*, int);
-		long			appendRecord	(void*, fstream*, int);
-		bool 			writeRecord		(void*, long, fstream*, int);
-		ParseResult 	formatInput		(char*, Column*);
-		ParseResult 	updateIndexes	(long, SQLACTION);
-		ParseResult 	tableScan		(list<Column*>, SQLACTION);
-		searchIndexes* 	determineIndex	();
-		string 			searchForward	(Search*, char*, int, SEARCH);
-		string 			searchBack		(Search*, char*, int);
-		string 			indexRead		(searchIndexes*);
-		bool			isRecordDeleted (bool);
-		vector<TempColumn*>	outputLine	(list<Column*>);
+		resultList*		results			= new resultList();
 
 };
 /******************************************************
@@ -89,7 +90,7 @@ ParseResult sqlEngine::execute(Statement* _statement)
 {
 	if(debug)
         fprintf(traceFile,"\n\n-------------------------BEGIN ENGINE-------------------------------------------");
-	results = new resultList(_statement);
+
 	statement = _statement;
 	if(statement == nullptr)
 	{
@@ -271,15 +272,6 @@ ParseResult sqlEngine::select()
 			fprintf(traceFile,"\n table scan failed ");
 			return ParseResult::FAILURE;
 		}
-		if(statement->orderBy != nullptr)
-			if(statement->orderBy->order.size() > 0)
-				results->orderBy();
-		if(statement->groupBy != nullptr)
-			if(statement->groupBy->group.size() > 0)
-				results->groupBy();
-
-		results->print();
-		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 		return ParseResult::SUCCESS;
 	}
 
@@ -292,16 +284,6 @@ ParseResult sqlEngine::select()
 		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 
-		if(statement->orderBy != nullptr)
-			if(statement->orderBy->order.size() > 0)
-				results->orderBy();
-
-		if(statement->groupBy != nullptr)
-		if(statement->groupBy->group.size() > 0)
-			results->groupBy();
-			
-		results->print();
-		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 		return ParseResult::SUCCESS;
 	}
 	
@@ -610,14 +592,7 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 		}
 		searchResults = searchResults->next;
 	}
-	if(statement->orderBy != nullptr)
-		if(statement->orderBy->order.size() > 0)
-			results->orderBy();
-	if(statement->groupBy != nullptr)
-		if(statement->groupBy->group.size() > 0)
-			results->groupBy();
-	results->print();
-	fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
+
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return "";
@@ -662,14 +637,6 @@ string sqlEngine::searchBack(Search* _search, char* _value, int _rowsToReturn)
 		}
 	}
 
-	if(statement->orderBy->order.size() > 0)
-		results->orderBy();
-	if(statement->groupBy->group.size() > 0)
-	{
-		results->groupBy();
-	}
-	results->print();
-	fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Rows returned ");
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
 	return "";
