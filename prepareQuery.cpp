@@ -174,23 +174,6 @@ char* sanitizeQuery(char _target[])
         free(str);
         return nullptr;
     }
-
-
-    if(!(openParen   % 2 == 0))
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing '('.");
-        free(str);
-        return nullptr;
-    } 
-
-
-
-    if(!(closeParen   % 2 == 0))
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing ')'.");
-        free(str);
-        return nullptr;
-    } 
-    
+ 
     return str;
 }

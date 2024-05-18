@@ -26,8 +26,9 @@ Build
 X   order by sort
 X   group by
     having
+    functions
 X    asc/dsc
-    column alias
+X    column alias
 
 Build
     reject duplicates on primary key

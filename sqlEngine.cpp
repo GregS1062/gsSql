@@ -262,12 +262,10 @@ ParseResult sqlEngine::select()
 	fprintf(traceFile,"\n------------------------Select-----------------------------");
 
 
-	list<Column*> columns = statement->table->columns;
-
 	//No conditions
 	if(statement->table->conditions.size() == 0)
 	{
-		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
+		if(tableScan(statement->table->columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 		{
 			fprintf(traceFile,"\n table scan failed ");
 			return ParseResult::FAILURE;
@@ -281,7 +279,7 @@ ParseResult sqlEngine::select()
 	//query condition but not on an indexed column
 	if(searchOn == nullptr)
 	{
-		if(tableScan(columns, SQLACTION::SELECT) == ParseResult::FAILURE)
+		if(tableScan(statement->table->columns, SQLACTION::SELECT) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 
 		return ParseResult::SUCCESS;
@@ -429,6 +427,15 @@ vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
 		temp->name		= col->name;
 		temp->length	= col->length;
 		temp->edit		= col->edit;
+		temp->alias		= col->alias;
+		temp->aggregateType		= col->aggregateType;
+		if(col->aggregateType == t_aggregate::COUNT
+		&& strcasecmp(col->name,(char*)sqlTokenCount) == 0)
+		{
+			temp->intValue = 1;
+			row.push_back(temp);
+			continue;
+		}
 		switch(col->edit)
 		{
 			case t_edit::t_bool:

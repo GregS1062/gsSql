@@ -44,14 +44,15 @@ class TokenPair
 class Column
 {
     public:
-    char*   tableName;
-    char*   name;
-    char*   alias;
-    bool    primary = false;
-    t_edit  edit;
-    int     length = 0;
-    int     position = 0;
-    char*   value;
+    char*       tableName;
+    char*       name;
+    char*       alias;
+    bool        primary = false;
+    t_aggregate aggregateType;
+    t_edit      edit;
+    int         length = 0;
+    int         position = 0;
+    char*       value;
 };
 /******************************************************
  * Temp Column 

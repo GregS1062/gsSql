@@ -15,23 +15,24 @@ using namespace std;
  ******************************************************/
 class resultList
 {
-    vector<vector<TempColumn*>> rows{};
+	ParseResult					printHeader		(vector<TempColumn*>);
+	string  					htmlHeader		(vector<TempColumn*>,int32_t);
+	string  					textHeader		(vector<TempColumn*>);
+	void						printRow		(vector<TempColumn*>);
 	vector<vector<TempColumn*>> tempRows{};
 
 public:
 	resultList();
+
+	vector<vector<TempColumn*>> rows{};
 	RETURNACTION				returnAction;
     int                         rowCount = 0;
     PRESENTATION                presentation;
 	list<int>					lstSort;
     ParseResult                 addRow			(vector<TempColumn*>);
-	void						printRow		(vector<TempColumn*>);
     string                      formatColumn	(TempColumn*);
 	void						printColumn		(TempColumn*);
 	TempColumn*					getCountColumn	(int);
-	ParseResult					printHeader		(vector<TempColumn*>);
-	string  					htmlHeader		(vector<TempColumn*>,int32_t);
-	string  					textHeader		(vector<TempColumn*>);
     ParseResult                 Sort			(list<int>,bool);
 	ParseResult					orderBy(OrderBy*);
 	ParseResult					groupBy(GroupBy*);
@@ -222,14 +223,20 @@ ParseResult resultList::orderBy(OrderBy* _orderBy)
 ParseResult resultList::groupBy(GroupBy* _groupBy)
 {
 
-		if(debug)
-			fprintf(traceFile,"\n Group by ");
+	if(debug)
+		fprintf(traceFile,"\n-----------------------Group by-----------------------");
+
 	list<int> n;
 	bool sortByCount = true;
 	for(OrderOrGroup group : _groupBy->group)
 	{
+		if(group.col->name == nullptr)
+			return ParseResult::FAILURE;
+		
 		if(strcasecmp(group.col->name,(char*)sqlTokenCount) == 0)
 		{
+			if(debug)
+				fprintf(traceFile,"\nsort by count = true");
 			sortByCount = true;
 		}
 		else
@@ -443,7 +450,7 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 	if(_sumOfColumnSize < 100)
 	{
 		pad = 100 - _sumOfColumnSize;
-		fprintf(traceFile,"\n pad = %d",pad);
+		//fprintf(traceFile,"\n pad = %d",pad);
 		_sumOfColumnSize = _sumOfColumnSize + pad;
 	}
 	for (Column* col : _columns) 
@@ -459,7 +466,12 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 			percentage = (double)col->length / _sumOfColumnSize * 100;
 		header.append(to_string((int)percentage));
 		header.append("%"">");
-		header.append(col->name);
+		if(col->alias != nullptr)
+		{
+			header.append(col->alias);
+		}
+		else
+			header.append(col->name);
 		header.append(hdrEnd);
 	}
 	if(pad > 0)
@@ -489,8 +501,16 @@ string resultList::textHeader(vector<TempColumn*> _columns)
 	{
 		if((size_t)col->length > strlen(col->name))
 		{
-			header.append(col->name);
-			pad = col->length - strlen(col->name);
+			if(col->alias != nullptr)
+			{
+				header.append(col->alias);
+				pad = col->length - strlen(col->alias);
+			}
+			else
+			{
+				header.append(col->name);
+				pad = col->length - strlen(col->name);
+			}
 			for(size_t i =0;i<pad;i++)
 			{
 				header.append(" ");
@@ -498,9 +518,10 @@ string resultList::textHeader(vector<TempColumn*> _columns)
 		}
 		else
 		{
-			char* name = col->name;
-			//name[col->length] = '\0';
-			header.append(name);
+			if(col->alias != nullptr)
+				header.append(col->alias);
+			else
+				header.append(col->name);
 			header.append(" ");
 		}
 	}

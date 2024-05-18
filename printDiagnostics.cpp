@@ -11,7 +11,7 @@ void printTable(sTable* tbl)
     for(Column* col : tbl->columns)
     {
         fprintf(traceFile,"\n\t column name %s", col->name);
-        fprintf(traceFile," alias %s", col->tableName);
+        fprintf(traceFile," alias %s", col->alias);
         fprintf(traceFile," value %s", col->value);
         if(col->primary)
             fprintf(traceFile," PRIMARY");
@@ -41,7 +41,7 @@ void printOrderBy(OrderBy* _orderBy)
     fprintf(traceFile,"\n*******************************************");
     for(OrderOrGroup order :_orderBy->order)
     {
-        fprintf(traceFile,"\n\t\t index column name %s", order.name);
+        fprintf(traceFile,"\n\t\t order by name %s", order.name);
     }
     if(_orderBy->asc)
         fprintf(traceFile,"\n\tascending");
@@ -51,11 +51,11 @@ void printOrderBy(OrderBy* _orderBy)
 void printGroupBy(GroupBy* _groupBy)
 {
     fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n Order By");
+    fprintf(traceFile,"\n Group By");
     fprintf(traceFile,"\n*******************************************");
     for(OrderOrGroup group :_groupBy->group)
     {
-        fprintf(traceFile,"\n\t\t index column name %s", group.name);
+        fprintf(traceFile,"\n\t\t group by name %s", group.name);
     }
 }
 void printQuery(iElements* _it,Binding* bind)

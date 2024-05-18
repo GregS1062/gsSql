@@ -73,20 +73,29 @@ ParseResult sqlParser::parse()
         if(strcasecmp(token,(char*)sqlTokenTable) == 0)
         {
             if(createTable() == ParseResult::FAILURE) 
+            {
+                free(token);
                 return ParseResult::FAILURE;
+            }
             continue;
         }
 
         if(strcasecmp(token,(char*)sqlTokenIndex) == 0)
         {
             if(createIndex() == ParseResult::FAILURE) 
+            {
+                free(token);
                 return ParseResult::FAILURE;
+            }
             continue;
         }
         errText.append("sql parser expecting a CREATE statement instead we got ");
         errText.append(token);
+        free(token);
         return ParseResult::FAILURE;
     }
+    if(token != nullptr)
+        free(token);
     
     return ParseResult::SUCCESS;
 };
@@ -102,8 +111,6 @@ ParseResult sqlParser::createTable()
     //Get table name
     token           = tok->getToken();
     table->name     = token;
-
-    if(strcasecmp(table->name,(char*)sqlTokenSysTables))
 
     //Get AS statement
     token           = tok->getToken();

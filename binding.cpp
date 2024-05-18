@@ -20,7 +20,7 @@ class Binding
     ParseResult     bindColumnValueList();
     ParseResult     bindColumn(char*);
     Column*         resolveColumnName(char*);
-    Column*         bindAggregateColumn(char*);
+    Column*         bindAggregateColumn(char*, signed int);
     ParseResult     bindNonAliasedColumn(char*, char*);
     ParseResult     bindAliasedColumn(char*, TokenPair*, char*);
     ParseResult     bindValueList();
@@ -82,8 +82,12 @@ Statement* Binding::bind(iElements* _ielements)
     if(statement->table == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"statement table name is null");
+        delete tp;
         return nullptr;
     }
+
+    delete tp;
+
     statement->action = ielements->sqlAction;
     statement->rowsToReturn = ielements->rowsToReturn;
 
@@ -157,13 +161,15 @@ ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
         {
             table->name         = temp->name;
             table->fileName     = temp->fileName;
-            table->alias        = tp->two;;
+            if(tp->two != nullptr)
+                table->alias        = dupString(tp->two);
             table->recordLength = temp->recordLength;
             for(sIndex* idx : temp->indexes)
             {
                 table->indexes.push_back(idx);
             }
             lstTables.push_back(table);
+            delete tp;
             continue;
         }
     }
@@ -252,16 +258,25 @@ ParseResult Binding::bindColumnValueList()
         if(tp == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name/value is null");
+            delete tp;
             return ParseResult::FAILURE;
         }
+
         if(tp->two == nullptr)
         {
             if(bindNonAliasedColumn(tp->one,cv->value) == ParseResult::FAILURE)
+            {
+                delete tp;
                 return ParseResult::FAILURE;
+            }
         }
         else
         if(bindAliasedColumn(cv->name, tp, cv->value) == ParseResult::FAILURE)
+        {
+                delete tp;
                 return ParseResult::FAILURE;
+        }
+        delete tp;
     }
     return ParseResult::SUCCESS;
 }
@@ -279,7 +294,7 @@ ParseResult Binding::bindNonAliasedColumn(char* _name, char* _value)
         return ParseResult::SUCCESS;
     }
 
-    Column* col = lookup::getColumnByName(defaultSQLTable->columns,_name);
+    Column* col = resolveColumnName(_name);
     if(col == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"looking for column name:");
@@ -289,8 +304,12 @@ ParseResult Binding::bindNonAliasedColumn(char* _name, char* _value)
     if(strlen(_value) > 0)
         if(editColumn(col,_value) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-    fprintf(traceFile,"\nbound column name:%s",col->name);
-    fprintf(traceFile," value:%s",col->value);
+    if(debug)
+    {
+        fprintf(traceFile,"\nbound column name:%s",col->name);
+        fprintf(traceFile,"\nbound column alias:%s",col->alias);
+        fprintf(traceFile,"\nvalue:%s",col->value);
+    }
 
     defaultTable->columns.push_back(col);
 
@@ -315,8 +334,9 @@ Column* Binding::resolveColumnName(char* _str)
    sTable* tbl;
 
     // case 1) aggregates          - COUNT(), SUM(), AVG(), MAX(), MIN()
-   // if(lookup::findDelimiter(_str,(char*)sqlTokenOpenParen) > NEGATIVE)
-   //     return bindAggregateColumn(_str);
+    signed int posParen = lookup::findDelimiter(_str,(char*)sqlTokenOpenParen);
+    if(posParen > NEGATIVE)
+       return bindAggregateColumn(_str, posParen);
 
     signed int columnAliasPosition = lookup::findDelimiter(_str,(char*)sqlTokenAs);
     if(columnAliasPosition == DELIMITERERR)
@@ -328,16 +348,22 @@ Column* Binding::resolveColumnName(char* _str)
 
     // case 2) alias               - surname AS last
     char* columnAlias = nullptr;
+    char* columnName  = _str;
     if(columnAliasPosition > NEGATIVE)
     {
         columnAlias = dupString(_str+columnAliasPosition+3);
+        columnName[columnAliasPosition] = '\0';
     }
+
+    if(debug)
+        fprintf(traceFile,"\nCase 2: column name = %s column alias = %s",columnName,columnAlias);
+
     
-    TokenPair* tp = lookup::tokenSplit(_str,(char*)sqlTokenPeriod);
+    TokenPair* tp = lookup::tokenSplit(columnName,(char*)sqlTokenPeriod);
     if(tp == nullptr)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name: ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
         return nullptr; 
     }
 
@@ -352,8 +378,8 @@ Column* Binding::resolveColumnName(char* _str)
             col = lookup::getColumnByName(defaultSQLTable->columns,tp->one);
             if(col == nullptr)
             {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name not found in query table");
-                sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Case 3: Column name not found in query table: ");
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
                 return nullptr; 
             }
         }
@@ -362,14 +388,14 @@ Column* Binding::resolveColumnName(char* _str)
     }
 
     // case 4) table/column        - customers.surname
-    tbl = lookup::getTableByName(lstTables,tp->one);
+    tbl = lookup::getTableByName(isqlTables->tables,tp->one);
     if(tbl != nullptr)
     {
-        col = lookup::getColumnByName(tbl->columns,tp->one); 
+        col = lookup::getColumnByName(tbl->columns,tp->two); 
         if(col == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name not found in query table");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Case 4: Column name not found in query table:");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
             return nullptr; 
         }
         col->alias = columnAlias;
@@ -378,21 +404,29 @@ Column* Binding::resolveColumnName(char* _str)
 
     // case 5) table/column        - c.surname
     tbl = lookup::getTableByAlias(lstTables,tp->one);
-    if(tbl != nullptr)
+    if(tbl == nullptr)
     {
-        col = lookup::getColumnByName(tbl->columns,tp->one); 
-        if(col == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name not found in query table");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
-            return nullptr; 
-        }
-        col->alias = columnAlias;
-        return col;
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Case 5: table alias not foung: ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->two);
+        return nullptr; 
     }
-
-
+    tbl = lookup::getTableByName(isqlTables->tables,tbl->name);
+    if(tbl == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Case 5: table name: ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->two);
+        return nullptr; 
+    }
+    col = lookup::getColumnByName(tbl->columns,tp->two); 
+    if(col == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Case 5: Column name not found in query table: ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,tp->two);
+        return nullptr; 
+    }
+    col->alias = columnAlias;
     return col;
+
 };
 /******************************************************
  * Bind Non-Aliased Column
@@ -452,10 +486,105 @@ ParseResult Binding::bindAliasedColumn(char* colName, TokenPair* tp, char* _valu
 /******************************************************
  * Bind Aggregate Columns
  ******************************************************/
-/* Column* Binding::bindAggregateColumn(char* _str)
+ Column* Binding::bindAggregateColumn(char* _str, signed int _posParen)
 {
-    return nullptr;
-}; */
+    if(debug)
+        fprintf(traceFile,"\n------------------bind aggregate------------");
+
+    // Assign aggregate function type
+    char* agStr = dupString(_str);
+    agStr[_posParen] = '\0';
+
+    t_aggregate ag = t_aggregate::NONE;
+
+    if(lookup::findDelimiter(agStr,(char*)sqlTokenCount) > NEGATIVE)
+        ag = t_aggregate::COUNT;
+    else
+        if(lookup::findDelimiter(agStr,(char*)sqlTokenSum) > NEGATIVE)
+            ag = t_aggregate::SUM;
+        else
+            if(lookup::findDelimiter(agStr,(char*)sqlTokenMax) > NEGATIVE)
+                ag = t_aggregate::MAX;
+            else
+                if(lookup::findDelimiter(agStr,(char*)sqlTokenMin) > NEGATIVE)
+                    ag = t_aggregate::MIN;
+                else
+                    if(lookup::findDelimiter(agStr,(char*)sqlTokenAvg) > NEGATIVE)
+                        ag = t_aggregate::AVG;
+
+
+    if(ag == t_aggregate::NONE)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"unable to identify function: ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,agStr);
+        return nullptr;
+    }
+
+    char* colStr = dupString(_str+_posParen+1); 
+
+    //  Create a new column
+    Column* col{};
+    if(ag == t_aggregate::COUNT)
+    {
+       if(lookup::findDelimiter(colStr,(char*)sqlTokenAsterisk) > NEGATIVE)
+       {
+            col = new Column();
+            col->aggregateType = t_aggregate::COUNT;
+            col->name = (char*)"COUNT";
+            col->edit   = t_edit::t_int;
+            return col;
+       }
+    }
+
+
+    // all other aggregate function must reference a column
+    // Function pattern looks like this: FUNC(column table alias/column name) AS alias
+
+    int ii = 0;
+    for(size_t i=0;i<strlen(_str);i++)
+    {
+        if(colStr[i] != CLOSEPAREN)
+        {
+            colStr[ii] = colStr[i];
+            ii++;
+        }
+    }
+    ii++;
+    colStr[ii] = '\0';
+
+    col = resolveColumnName(colStr);
+    
+    if(col == nullptr)
+        return nullptr;
+    
+    col->aggregateType = ag;
+
+    char* altAlias{};
+    switch(ag)
+    {
+        case t_aggregate::AVG:
+            altAlias = (char*)sqlTokenAvg;
+            break;
+        case t_aggregate::COUNT:
+            altAlias = (char*)sqlTokenCount;
+            break;
+        case t_aggregate::MAX:
+            altAlias = (char*)sqlTokenMax;
+            break;
+        case t_aggregate::MIN:
+            altAlias = (char*)sqlTokenMin;
+            break;
+        case t_aggregate::SUM:
+            altAlias = (char*)sqlTokenSum;
+            break;
+        case t_aggregate::NONE:
+            fprintf(traceFile,"\nCounld not find function type");
+            return nullptr;
+    }
+    if(col->alias == nullptr)
+        col->alias = altAlias;
+    return col;
+}; 
 
 /******************************************************
  * Bind Value List
@@ -541,12 +670,10 @@ bool Binding::valueSizeOutofBounds(char* value, Column* col)
  ******************************************************/
 ParseResult Binding::bindConditions()
 {
-    TokenPair* tp;
     Column* col;
     for(Condition* con : ielements->lstConditions)
     {
-        tp = lookup::tokenSplit(con->name,(char*)".");
-        if(tp == nullptr)
+        if(con->name == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition column name is null ");
             return ParseResult::FAILURE;
@@ -692,12 +819,12 @@ ParseResult Binding::bindGroupBy()
         
     }
     //TODO Do count properly
-    OrderOrGroup groupCount;
+/*     OrderOrGroup groupCount;
     Column* count = new Column();
     groupCount.name = (char*)sqlTokenCount;
     col->name       = (char*)sqlTokenCount;
     groupCount.col  = count;
-    groupBy->group.push_back(groupCount);
+    groupBy->group.push_back(groupCount); */
     return ParseResult::SUCCESS;
 }
 

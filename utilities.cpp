@@ -129,7 +129,7 @@ void formatDate(char s[], t_tm _date)
 	//Has time structure been initialized (conversion issue)
 	if (_date.year < 1)
 	{
-		strcpy(s, "");
+		strncpy(s, "",1);
 		return;
 	}
 
@@ -137,18 +137,18 @@ void formatDate(char s[], t_tm _date)
 
 	sprintf(str,"%d", _date.month);
 
-	strcpy(s, padLeft(str, 2));
-	strcat(s, "/");
+	strncpy(s, padLeft(str, 2),2);
+	strncat(s, "/",2);
 
 	sprintf(str,"%d", _date.day);
 
-	strcat(s, padLeft(str, 2));
+	strncat(s, padLeft(str, 2),2);
 
-	strcat(s, "/");
+	strncat(s, "/",2);
 
 	sprintf(str, "%d", _date.year);
 
-	strcat(s, str);
+	strncat(s, str,11);
 }
 
 /*******************************************************
@@ -267,17 +267,17 @@ t_tm parseDate(char _date[])
 	char str[11];
 
 	//strcpy_s(str, 11, digits);
-	strcpy(str, digits);
+	strncpy(str, digits,11);
 	subString(str, 0, 2);
 	_d.month = atoi(str);
 
 
-	strcpy(str, digits);
+	strncpy(str, digits,11);
 	subString(str, 2, 4);
 	_d.day = atoi(str);
 
 
-	strcpy(str, digits);
+	strncpy(str, digits,11);
 	subString(str, 4, 8);
 	_d.year = atoi(str);
 

@@ -89,6 +89,10 @@ int main(int argc, char* argv[])
             case 23:
                 script = "t202-Group-By";
                 break;
+            case 24:
+                script = "t203-count-asterisk";
+                break;
+
           default:
                 fprintf(traceFile,"\n No case for this script number\n\n");
                 return 0;
@@ -123,6 +127,8 @@ int main(int argc, char* argv[])
     {
         fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
         fprintf(traceFile,"\n %s",errText.c_str());
+        delete sql;
+        delete plan;
         return 0;
     }
 
@@ -130,7 +136,8 @@ int main(int argc, char* argv[])
 
     plan->prepare((char*)queryStr.c_str());
     plan->execute();
-
+    delete sql;
+    delete plan;
 
     fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
     fprintf(traceFile,"\n %s",msgText.c_str());

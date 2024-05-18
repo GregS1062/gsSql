@@ -96,7 +96,10 @@ using namespace std;
 #define sqlTokenOrderAcending   "ASC"
 #define sqlTokenTrue            "T"
 #define sqlTokenCount           "COUNT"
-#define sqlTokenSysTables       "SYSTABLES"
+#define sqlTokenSum             "SUM"
+#define sqlTokenMax             "MAX"
+#define sqlTokenMin             "MIN"
+#define sqlTokenAvg             "AVG"
 
 enum MESSAGETYPE
 {
@@ -134,15 +137,6 @@ enum class SQLACTION{
     FULL        //Join
 };
 
-enum class AGGREGATEType
-{
-    COUNT,
-    MAX,
-    MIN,
-    AVG,
-    SUM
-};
-
 enum class RETURNACTION
 {
     ORDER,
@@ -167,6 +161,15 @@ enum class t_edit
     t_date,
     t_double,
     t_int
+};
+enum class t_aggregate
+{
+    NONE,
+    COUNT,
+    MAX,
+    MIN,
+    AVG,
+    SUM
 };
 
 

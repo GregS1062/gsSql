@@ -90,6 +90,10 @@ ParseResult ParseQuery::parse(const char* _queryString)
     }
 
     sqlAction = lookup::determineAction(token);
+    
+    delete tok;
+    free(token);
+    
     if(sqlAction == SQLACTION::INVALID)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot determine action: select, insert, update?");
@@ -167,27 +171,33 @@ ParseResult ParseQuery::parseSelect()
     iElement = new iElements();
     iElement->sqlAction = sqlAction;
     iElement->rowsToReturn = iclause->topRows;
-        
-    if(parseTableList(iclause->strTables) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+     
+    ParseResult errorState = parseTableList(iclause->strTables);
+
+    if(errorState == ParseResult::SUCCESS)
+        errorState = parseColumnList(iclause->strColumns);
     
-    if(parseColumnList(iclause->strColumns) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-    
-    if(parseConditionList(iclause->strConditions,notJoin) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+    if(errorState == ParseResult::SUCCESS) 
+        errorState = parseConditionList(iclause->strConditions,notJoin);
 
-    if(parseConditionList(iclause->strJoinConditions,join) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+    if(errorState == ParseResult::SUCCESS) 
+        errorState = parseConditionList(iclause->strJoinConditions,join);
 
-    if(parseOrderByList(iclause->strOrderBy) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+    if(errorState == ParseResult::SUCCESS) 
+        errorState = parseOrderByList(iclause->strOrderBy);
 
-    if(parseGroupByList(iclause->strGroupBy) == ParseResult::FAILURE)
-        return ParseResult::FAILURE; 
+    if(errorState == ParseResult::SUCCESS) 
+        errorState = parseGroupByList(iclause->strGroupBy);
 
     if(iclause->topRows > 0)
         rowsToReturn = iclause->topRows;
+
+    if(errorState == ParseResult::FAILURE) 
+    {
+        delete iclause;
+        delete iElement;
+        return ParseResult::FAILURE;
+    }
 
     return ParseResult::SUCCESS;
 

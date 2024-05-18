@@ -28,3 +28,40 @@ WHERE Orders.ID = 12345
 -----------------------------------------------------------
 check list of functions as valid column names
 
+-----------------------------------------------------------------------------------------------------------
+Aggregates:
+    - are a reporting element with a specific place.
+    - must be acted upon on a row by row basis
+    - can be specific to a column
+    - yet can be tied only to a row (*)
+    - the asterisk cannot be confused with "include all columns"
+        - COUNT(*) 
+          - counting rows
+            - all
+            - in a group
+        - SUM(column)
+          - the sum of all values
+            - all
+            - in a group
+        - MAX(column)
+          - highest value of column
+            - all
+            - in a group
+        - MIN(column)
+          - lowest value of column
+            - all
+            - in a group
+        - AVG
+          - average value of column
+          - combines both COUNT and SUM
+            - all
+            - in a group
+    Aggregate functions need to be 
+      - identified on a Column/Temp level
+      - acted upon at a row level
+      - acted upon at a control break level
+
+
+
+
+

@@ -35,6 +35,11 @@ class Plan
     list<iElements*>    lstElements;
     OrderBy*            orderBy     = new OrderBy;
     GroupBy*            groupBy     = new GroupBy; 
+
+    ParseResult         printFunctions(resultList*);
+    TempColumn*         Sum(TempColumn*, TempColumn*);
+    TempColumn*         Max(TempColumn*, TempColumn*);
+    TempColumn*         Min(TempColumn*, TempColumn*);
     
     public:
         iSQLTables*     isqlTables = new iSQLTables();
@@ -118,8 +123,25 @@ ParseResult Plan::execute()
     for(Statement* statement : lstStatements)
     {
         if(debug)
+        {
             if(statement->table != nullptr)
                 printTable(statement->table);
+            if(orderBy != nullptr)
+                printOrderBy(orderBy);
+            if(groupBy != nullptr)
+                printGroupBy(groupBy);
+        }
+
+        //Were any functions asked for?
+        bool functions = false;
+        for(Column* col : statement->table->columns)
+        {
+            if(col->aggregateType != t_aggregate::NONE)
+            {
+                functions = true;
+                break;
+            }   
+        } 
         
         if(engine->execute(statement) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
@@ -130,6 +152,12 @@ ParseResult Plan::execute()
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Results = null");
             return ParseResult::FAILURE;
+        }
+
+        if( functions)
+        {
+            printFunctions(results);
+            return ParseResult::SUCCESS;
         }
         
         if(orderBy != nullptr)
@@ -145,7 +173,109 @@ ParseResult Plan::execute()
     }
     return ParseResult::SUCCESS;
 }
+ParseResult Plan::printFunctions(resultList* _results)
+{
+    /*
+        Logic:
+            1) Capture and save an image of the results
+                Which will be used for printing, since
+                this is not a group by, a single row will be returned.
+            
+            2) Read through results row by row
 
+            3) Iterate through the columns
+
+            4) Match the result columns to the report columns
+
+            5) Execute the required function
+    */
+	if(_results->rows.size() == 0)
+		return ParseResult::FAILURE;
+
+    // 1)
+	vector<TempColumn*> reportRow = _results->rows.front();
+
+    vector<TempColumn*> row;
+
+    int avgCount = 0;
+
+    // 2)
+	for (size_t i = 0; i < _results->rows.size(); i++) { 
+		row = (vector<TempColumn*>)_results->rows[i];
+		if(row.size() < 1)
+           continue;
+
+        // 3)
+        
+        for (size_t nbr = 0;nbr < row.size();nbr++) 
+        {
+            switch(row.at(nbr)->aggregateType)
+            {
+                case t_aggregate::NONE:
+                    break;
+                case t_aggregate::COUNT:
+                    reportRow.at(nbr)->intValue++;
+                    break;
+                case t_aggregate::SUM:
+                    reportRow.at(nbr) = Sum(reportRow.at(nbr),row.at(nbr));
+                    break;
+                case t_aggregate::MAX:
+                    reportRow.at(nbr) = Max(reportRow.at(nbr),row.at(nbr));
+                    break;
+                case t_aggregate::MIN:
+                    reportRow.at(nbr) = Min(reportRow.at(nbr),row.at(nbr));
+                    break;  
+                case t_aggregate::AVG:
+                    reportRow.at(nbr) = Sum(reportRow.at(nbr),row.at(nbr));
+                    avgCount++;
+                    break;  
+            }
+        }	
+	}
+    resultList* functionResults = new resultList();
+    functionResults->addRow(reportRow);
+    functionResults->print();
+    return ParseResult::SUCCESS;
+}
+TempColumn* Plan::Sum(TempColumn* _reportCol, TempColumn* _readCol)
+{
+    if(_readCol->edit == t_edit::t_double)
+        _reportCol->doubleValue = _reportCol->doubleValue + _readCol->doubleValue;
+
+    if(_readCol->edit == t_edit::t_int)
+        _reportCol->intValue = _reportCol->intValue + _readCol->intValue;
+
+    return _reportCol;
+}
+TempColumn* Plan::Max(TempColumn* _reportCol, TempColumn* _readCol)
+{
+    if(_readCol->edit == t_edit::t_double)
+    {
+        if(_readCol->doubleValue > _reportCol->doubleValue)
+            _reportCol->doubleValue = _readCol->doubleValue;
+    }
+    if(_readCol->edit == t_edit::t_int)
+    {
+        if (_readCol->intValue > _reportCol->intValue)
+             _reportCol->intValue = _readCol->intValue;
+    }
+    return _reportCol;
+}
+TempColumn* Plan::Min(TempColumn* _reportCol, TempColumn* _readCol)
+{
+    if(_readCol->edit == t_edit::t_double)
+    {
+        if(_readCol->doubleValue < _reportCol->doubleValue)
+            _reportCol->doubleValue = _readCol->doubleValue;
+    }
+
+    if(_readCol->edit == t_edit::t_int)
+    {
+        if (_readCol->intValue < _reportCol->intValue)
+             _reportCol->intValue = _readCol->intValue;
+    }
+    return _reportCol;
+}
 /******************************************************
  * Process Split
  ******************************************************/
