@@ -9,6 +9,7 @@
 #include "binding.cpp"
 #include "sqlEngine.cpp"
 #include "printDiagnostics.cpp"
+#include "functions.cpp"
 
 /******************************************************
  * Plan
@@ -33,13 +34,9 @@ class Plan
     list<Statement*>    lstStatements;
     list<char*>         queries;
     list<iElements*>    lstElements;
-    OrderBy*            orderBy     = new OrderBy;
-    GroupBy*            groupBy     = new GroupBy; 
-
-    ParseResult         printFunctions(resultList*);
-    TempColumn*         Sum(TempColumn*, TempColumn*);
-    TempColumn*         Max(TempColumn*, TempColumn*);
-    TempColumn*         Min(TempColumn*, TempColumn*);
+    OrderBy*            orderBy     = nullptr;
+    GroupBy*            groupBy     = nullptr; 
+    ParseResult         printFunctions(resultList* _results);
     
     public:
         iSQLTables*     isqlTables = new iSQLTables();
@@ -79,8 +76,7 @@ ParseResult Plan::prepare(char* _queryString)
         if(parseQuery->iElement->tableName != nullptr)
             lstDeclaredTables.push_back(parseQuery->iElement->tableName);
         
-        if(parseQuery->iElement->lstColName.size() == 0
-        && parseQuery->iElement->lstColNameValue.size() == 0)
+        if(parseQuery->iElement->lstColumns.size() == 0)
         {
             fprintf(traceFile,"\n nothing in column list ");
             break;
@@ -136,7 +132,7 @@ ParseResult Plan::execute()
         bool functions = false;
         for(Column* col : statement->table->columns)
         {
-            if(col->aggregateType != t_aggregate::NONE)
+            if(col->functionType != t_function::NONE)
             {
                 functions = true;
                 break;
@@ -154,11 +150,15 @@ ParseResult Plan::execute()
             return ParseResult::FAILURE;
         }
 
-        if( functions)
+        if(groupBy == nullptr
+        && functions)
         {
+            if(debug)
+                fprintf(traceFile,"\n------------- print functions ----------------");
             printFunctions(results);
             return ParseResult::SUCCESS;
         }
+
         
         if(orderBy != nullptr)
 			if(orderBy->order.size() > 0)
@@ -166,13 +166,16 @@ ParseResult Plan::execute()
 
 		if(groupBy != nullptr)
 			if(groupBy->group.size() > 0)
-				results->groupBy(groupBy);
+				results->groupBy(groupBy,functions);
 
 		results->print();
 		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
     }
     return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Print Functions
+ ******************************************************/
 ParseResult Plan::printFunctions(resultList* _results)
 {
     /*
@@ -207,75 +210,16 @@ ParseResult Plan::printFunctions(resultList* _results)
 
         // 3)
         
-        for (size_t nbr = 0;nbr < row.size();nbr++) 
-        {
-            switch(row.at(nbr)->aggregateType)
-            {
-                case t_aggregate::NONE:
-                    break;
-                case t_aggregate::COUNT:
-                    reportRow.at(nbr)->intValue++;
-                    break;
-                case t_aggregate::SUM:
-                    reportRow.at(nbr) = Sum(reportRow.at(nbr),row.at(nbr));
-                    break;
-                case t_aggregate::MAX:
-                    reportRow.at(nbr) = Max(reportRow.at(nbr),row.at(nbr));
-                    break;
-                case t_aggregate::MIN:
-                    reportRow.at(nbr) = Min(reportRow.at(nbr),row.at(nbr));
-                    break;  
-                case t_aggregate::AVG:
-                    reportRow.at(nbr) = Sum(reportRow.at(nbr),row.at(nbr));
-                    avgCount++;
-                    break;  
-            }
-        }	
-	}
+        callFunctions(reportRow,row);
+        avgCount++;
+    }	
     resultList* functionResults = new resultList();
     functionResults->addRow(reportRow);
     functionResults->print();
     return ParseResult::SUCCESS;
 }
-TempColumn* Plan::Sum(TempColumn* _reportCol, TempColumn* _readCol)
-{
-    if(_readCol->edit == t_edit::t_double)
-        _reportCol->doubleValue = _reportCol->doubleValue + _readCol->doubleValue;
 
-    if(_readCol->edit == t_edit::t_int)
-        _reportCol->intValue = _reportCol->intValue + _readCol->intValue;
 
-    return _reportCol;
-}
-TempColumn* Plan::Max(TempColumn* _reportCol, TempColumn* _readCol)
-{
-    if(_readCol->edit == t_edit::t_double)
-    {
-        if(_readCol->doubleValue > _reportCol->doubleValue)
-            _reportCol->doubleValue = _readCol->doubleValue;
-    }
-    if(_readCol->edit == t_edit::t_int)
-    {
-        if (_readCol->intValue > _reportCol->intValue)
-             _reportCol->intValue = _readCol->intValue;
-    }
-    return _reportCol;
-}
-TempColumn* Plan::Min(TempColumn* _reportCol, TempColumn* _readCol)
-{
-    if(_readCol->edit == t_edit::t_double)
-    {
-        if(_readCol->doubleValue < _reportCol->doubleValue)
-            _reportCol->doubleValue = _readCol->doubleValue;
-    }
-
-    if(_readCol->edit == t_edit::t_int)
-    {
-        if (_readCol->intValue < _reportCol->intValue)
-             _reportCol->intValue = _readCol->intValue;
-    }
-    return _reportCol;
-}
 /******************************************************
  * Process Split
  ******************************************************/

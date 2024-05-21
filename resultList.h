@@ -1,7 +1,9 @@
+#pragma once
 #include <list>
 #include <vector>
 #include <bits/stdc++.h> 
 #include "sqlCommon.h"
+#include "functions.cpp"
 /*----------------------------------------------------------------------
     Case: return results in HTML form
     Case: return results in text form
@@ -35,7 +37,7 @@ public:
 	TempColumn*					getCountColumn	(int);
     ParseResult                 Sort			(list<int>,bool);
 	ParseResult					orderBy(OrderBy*);
-	ParseResult					groupBy(GroupBy*);
+	ParseResult					groupBy(GroupBy*,bool);
 	void						print();
     
 };
@@ -220,7 +222,7 @@ ParseResult resultList::orderBy(OrderBy* _orderBy)
 /******************************************************
  * Group By
  ******************************************************/
-ParseResult resultList::groupBy(GroupBy* _groupBy)
+ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
 {
 
 	if(debug)
@@ -232,40 +234,32 @@ ParseResult resultList::groupBy(GroupBy* _groupBy)
 	{
 		if(group.col->name == nullptr)
 			return ParseResult::FAILURE;
-		
-		if(strcasecmp(group.col->name,(char*)sqlTokenCount) == 0)
-		{
-			if(debug)
-				fprintf(traceFile,"\nsort by count = true");
-			sortByCount = true;
-		}
-		else
-		{
-			if(debug)
-				fprintf(traceFile,"\n grouping on column# %d", group.columnNbr);
-			n.push_back(group.columnNbr);
-		}
+
+		n.push_back(group.columnNbr);
 	}
 
 	Sort(n,true);
 
-	vector<TempColumn*> priorRow;
 	vector<TempColumn*> sortRow;
-	bool first = true;
 	bool controlBreak = true;
-	int count = 0;
 	int newRowSize = 0;
+	
+	if(rows.size() == 0)
+		return ParseResult::FAILURE;
+
+	vector<TempColumn*> reportRow = (vector<TempColumn*>)rows[0];
+	vector<TempColumn*> priorRow = (vector<TempColumn*>)rows[0];
+
 	
 	for (size_t i = 0; i < rows.size(); i++) { 
 		vector<TempColumn*> row = (vector<TempColumn*>)rows[i];
-		if(first)
-		{
-			priorRow = row;
-			first = false;
-		}
+
+		if(_functions)
+			callFunctions(reportRow,row);
+		
 		for(OrderOrGroup group : _groupBy->group)
 		{	
-			count++;
+
 			if(row.at(group.columnNbr)->edit == t_edit::t_char)
 			{
 				if(strcasecmp(row.at(group.columnNbr)->charValue,priorRow.at(group.columnNbr)->charValue ) != 0)
@@ -277,7 +271,7 @@ ParseResult resultList::groupBy(GroupBy* _groupBy)
 
 			if(controlBreak)
 			{
-				sortRow.push_back(getCountColumn(count));
+				//sortRow.push_back(getCountColumn(count));
 				for(int i2 : n)
 				{
 					sortRow.push_back(priorRow.at(i2));
@@ -288,7 +282,6 @@ ParseResult resultList::groupBy(GroupBy* _groupBy)
 				if(newRowSize == 0)
 					newRowSize = (int)sortRow.size();
 				sortRow.clear();
-				count = 0;
 				controlBreak = false;
 			}
 		}	

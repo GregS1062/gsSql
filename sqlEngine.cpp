@@ -210,7 +210,9 @@ ParseResult sqlEngine::open()
 		{
 			for(sIndex* idx : statement->table->indexes)
 			{
-				//TODO test that file
+				//TODO 
+				fprintf(traceFile,"\n index %s",idx->fileName);
+				continue;
 				if(idx->open() == nullptr)
 				{
 					sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to open index: ");
@@ -428,8 +430,8 @@ vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
 		temp->length	= col->length;
 		temp->edit		= col->edit;
 		temp->alias		= col->alias;
-		temp->aggregateType		= col->aggregateType;
-		if(col->aggregateType == t_aggregate::COUNT
+		temp->functionType		= col->functionType;
+		if(col->functionType == t_function::COUNT
 		&& strcasecmp(col->name,(char*)sqlTokenCount) == 0)
 		{
 			temp->intValue = 1;
@@ -577,7 +579,7 @@ string sqlEngine::searchForward(Search* _search, char* _value, int _rowsToReturn
 	{
 		fprintf(traceFile,"\nOp=%d",(int)_op);
 	}
-	ResultList* searchResults = _search->findRange(_value, _rowsToReturn, _op);
+	QueryResultList* searchResults = _search->findRange(_value, _rowsToReturn, _op);
 	
 	while(searchResults != nullptr)
 	{

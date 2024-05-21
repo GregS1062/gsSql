@@ -92,6 +92,9 @@ int main(int argc, char* argv[])
             case 24:
                 script = "t203-count-asterisk";
                 break;
+            case 25:
+                script = "test";
+                break;
 
           default:
                 fprintf(traceFile,"\n No case for this script number\n\n");

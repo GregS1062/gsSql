@@ -1,15 +1,15 @@
 #pragma once
 #include <list>
 #include "sqlCommon.h"
+
 class iElements
 {
     public:
 
     SQLACTION               sqlAction {};               // Statement action
     char*                   tableName = nullptr;        // tables
-    list<ColumnNameValue*>  lstColNameValue {};         // used in update to set list of column/values
-    list<char*>             lstColName{};               // column names
-    list<char*>             lstValues{};                // value lists - found in insert and select IN (...)
+    list<columnParts*>      lstColumns {};              // used in update to set list of column/values            // column names
+    list<char*>             lstValues {};                // value lists - found in insert and select IN (...)
     OrderBy*                orderBy         = nullptr;  // order by
     GroupBy*                groupBy         = nullptr;  // group by
     list<Condition*>        lstConditions{};            // where condition (operator) value
@@ -26,11 +26,9 @@ ParseResult iElements::clear()
     sqlAction       = SQLACTION::NOACTION;
     rowsToReturn    = 0;
     tableName       = nullptr;
-    lstColName.clear();
-    lstColNameValue.clear();
     lstConditions.clear();
     lstJoinConditions.clear();
-    lstColNameValue.clear();
+    lstColumns.clear();
     orderBy->order.clear();
     groupBy->group.clear();
     groupBy->having.clear();

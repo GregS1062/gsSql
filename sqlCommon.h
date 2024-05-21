@@ -7,13 +7,15 @@
 
 using namespace std;
 
-class ColumnNameValue
+struct columnParts
 {
-    //Note: all that is needed for update parsing is the column name
-    //      the column and all of its edits are added in the sqlEngine
     public:
-    char*   name;
-    char*   value;
+        char* fullName;
+        char* tableAlias;
+        char* columnName;
+        char* columnAlias;
+        char* fuction;
+        char* value;
 };
 
 /******************************************************
@@ -48,7 +50,7 @@ class Column
     char*       name;
     char*       alias;
     bool        primary = false;
-    t_aggregate aggregateType;
+    t_function functionType;
     t_edit      edit;
     int         length = 0;
     int         position = 0;
@@ -72,8 +74,8 @@ class TempColumn : public Column
 class Condition
 {
     public:
-        char*   name            = nullptr;
-        char*   compareToName   = nullptr;
+        columnParts* name       = nullptr;
+        columnParts* compareToName   = nullptr;
         char*   op              = nullptr;  // operator is a reserved word
         char*   prefix          = nullptr;  // (
         char*   condition       = nullptr;	// and/or
@@ -94,7 +96,7 @@ class OrderOrGroup
 {
     public:
         Column* col         {};
-        char*   name       = nullptr;
+        columnParts* name   = nullptr;
         int     columnNbr   = 0;        //Tells the sort routing which column to sort on
 };
 /******************************************************
@@ -136,15 +138,19 @@ class BaseData
  ******************************************************/
 fstream* BaseData::open()
 {
-		////Open index file
-        fileStream = new fstream{};
-		fileStream->open(fileName, ios::in | ios::out | ios::binary);
-		if (!fileStream->is_open()) {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,fileName);
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
-			return nullptr;
-		}
-        return fileStream;
+    
+    if(fileName == nullptr)
+        return nullptr;
+
+    ////Open index file
+    fileStream = new fstream{};
+    fileStream->open(fileName, ios::in | ios::out | ios::binary);
+    if (!fileStream->is_open()) {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,fileName);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
+        return nullptr;
+    }
+    return fileStream;
 };
 /******************************************************
  * Base Close

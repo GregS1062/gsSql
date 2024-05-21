@@ -1,6 +1,10 @@
 #include "sqlCommon.h"
 #include "interfaces.h"
 #include "binding.cpp"
+void printParts(columnParts* parts)
+{
+    fprintf(traceFile,"\n\n name: %s alias: %s tableName: %s function: %s",parts->columnName, parts->columnAlias, parts->tableAlias, parts->fuction);
+}
 void printTable(sTable* tbl)
 {
     fprintf(traceFile,"\n*******************************************");
@@ -13,13 +17,14 @@ void printTable(sTable* tbl)
         fprintf(traceFile,"\n\t column name %s", col->name);
         fprintf(traceFile," alias %s", col->alias);
         fprintf(traceFile," value %s", col->value);
+        fprintf(traceFile," function %i", (int)col->functionType);
         if(col->primary)
             fprintf(traceFile," PRIMARY");
     }
     fprintf(traceFile,"\n\n Conditions");
     for(Condition* con : tbl->conditions)
     {
-        fprintf(traceFile,"\n\n\t condition name      %s", con->name);
+        printParts(con->name);
         fprintf(traceFile,"\n\t condition condition %s", con->condition);
         fprintf(traceFile,"\n\t condition op        %s", con->op);
         fprintf(traceFile,"\n\t condition value     %s", con->value);
@@ -41,7 +46,7 @@ void printOrderBy(OrderBy* _orderBy)
     fprintf(traceFile,"\n*******************************************");
     for(OrderOrGroup order :_orderBy->order)
     {
-        fprintf(traceFile,"\n\t\t order by name %s", order.name);
+        printParts(order.name);
     }
     if(_orderBy->asc)
         fprintf(traceFile,"\n\tascending");
@@ -55,7 +60,7 @@ void printGroupBy(GroupBy* _groupBy)
     fprintf(traceFile,"\n*******************************************");
     for(OrderOrGroup group :_groupBy->group)
     {
-        fprintf(traceFile,"\n\t\t group by name %s", group.name);
+        printParts(group.name);
     }
 }
 void printQuery(iElements* _it,Binding* bind)
@@ -71,9 +76,9 @@ void printQuery(iElements* _it,Binding* bind)
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n column names");
     fprintf(traceFile,"\n\n--------------------------------------------");
-    for(char* c : _it->lstColName)
+    for(columnParts* parts : _it->lstColumns)
     {
-        fprintf(traceFile,"\n column:%s",c);
+        printParts(parts);
     }
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n column values");
@@ -81,13 +86,6 @@ void printQuery(iElements* _it,Binding* bind)
     for(char* c : _it->lstValues)
     {
         fprintf(traceFile,"\n value:%s",c);
-    }
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    fprintf(traceFile,"\n Column Name Values");
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    for(ColumnNameValue* nv : _it->lstColNameValue)
-    {
-        fprintf(traceFile,"\n column:%s value:%s",nv->name,nv->value);
     }
     if(_it->lstConditions.size() == 0)
     {
@@ -99,7 +97,7 @@ void printQuery(iElements* _it,Binding* bind)
     fprintf(traceFile,"\n\n--------------------------------------------");
     for(Condition* con : _it->lstConditions)
     {
-        fprintf(traceFile,"\n\t condition name      %s", con->name);
+        printParts(con->name);
         fprintf(traceFile,"\n\t condition condition %s", con->condition);
         fprintf(traceFile,"\n\t condition op        %s", con->op);
         fprintf(traceFile,"\n\t condition value     %s", con->value);

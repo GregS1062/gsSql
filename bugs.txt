@@ -1,4 +1,4 @@
-- On update "" results in "where" being replaced
+X On update "" results in "where" being replaced
 X parser is confused when a reserved word ("where") is contained in data
 X date should be stored as a single int 20240317 so it can be compared and indexed on,
     however, what to do about a query that asks for all product sold in march, perhaps add
@@ -6,11 +6,12 @@ X date should be stored as a single int 20240317 so it can be compared and index
 - store insert
     - missing storename
     - failing to return on custid
-- conversion failing
+X conversion failing
 X != not recognised --- because it is an error SQL uses <>
 - compare two fields freight > totaldue
-- condition alias failing
-- select top 25 * from orders where orderdate <> "05/31/2011" and freight > 55.93 and status <> 0  Status condition ignored
+X condition alias failing
+> select top 25 * from orders where orderdate <> "05/31/2011" and freight > 55.93 and status <> 0  Status condition ignored
 X select top 25 o.* from orders o where o.tax > 14000
 X select top 25 orderdate from orders
+X order by desc not working.
 

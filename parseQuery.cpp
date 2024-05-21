@@ -25,7 +25,7 @@ using namespace std;
 class ParseQuery
 {
     const char*             queryString;
-    signed int             queryStringLength   = 0;
+    signed int              queryStringLength   = 0;
     bool join               = true;
     bool notJoin            = false;
 
@@ -47,6 +47,7 @@ class ParseQuery
     ParseResult             parseTableList(char*);
     ParseResult             parseColumnNameValueList(char*);
     ParseResult             parseColumnList(char*);
+    columnParts*            parseColumnName(char*);
     ParseResult             parseValueList(char*);
     ParseResult             parseOrderByList(char*);
     ParseResult             parseGroupByList(char*);
@@ -392,7 +393,7 @@ ParseResult ParseQuery::parseColumnNameValueList(char* _workingString)
 
     char* token;
     bool  isColumnFlag = true;
-    ColumnNameValue* colVal = new ColumnNameValue();
+    columnParts* parts{};
     tokenParser* tok = new tokenParser(_workingString);
  
     while(!tok->eof)
@@ -412,14 +413,13 @@ ParseResult ParseQuery::parseColumnNameValueList(char* _workingString)
         if(isColumnFlag)
         {
             isColumnFlag = false;
-            colVal = new ColumnNameValue();
-            colVal->name = token;
+            parts = parseColumnName(token);
             continue;
         }
 
         isColumnFlag = true;
-        colVal->value = token;
-        iElement->lstColNameValue.push_back(colVal);
+        parts->value = token;
+        iElement->lstColumns.push_back(parts);
     }
 
     return ParseResult::SUCCESS;
@@ -454,10 +454,10 @@ ParseResult ParseQuery::parseDelete()
     //--------------------------------------------------------
     // Mark delete column
     //---------------------------------------------------------
-    ColumnNameValue* colVal = new ColumnNameValue();
-    colVal->name = dupString("deleted");
-    colVal->value = dupString("T");
-    iElement->lstColNameValue.push_back(colVal);
+    columnParts* parts = new columnParts();
+    parts->columnName = dupString("deleted");
+    parts->value = dupString("T");
+    iElement->lstColumns.push_back(parts);
         
     //---------------------------------------------------------
     // Create condition list
@@ -539,7 +539,7 @@ ParseResult ParseQuery::addCondition(char* _token, bool isJoin)
     //If name is null, it assumed to be a column name
     if(condition->name == nullptr)
     {
-        condition->name = _token;
+        condition->name = parseColumnName(_token);
         return ParseResult::SUCCESS;
     }
 
@@ -594,14 +594,7 @@ ParseResult ParseQuery::addCondition(char* _token, bool isJoin)
             //TODO processList();
         }
         else
-        //case 4
-        if(lookup::findDelimiter(_token,(char*)sqlTokenPeriod) != NEGATIVE)
-        {
-            condition->compareToName = _token;
-        }
-        //case 5
-        else
-            condition->compareToName = _token;
+            condition->compareToName = parseColumnName(_token);
 
         if(isJoin)
             iElement->lstJoinConditions.push_back(condition);
@@ -644,7 +637,7 @@ ParseResult ParseQuery::parseOrderByList(char* _workingString)
             && strcasecmp(token,(char*)sqlTokenOrderDescending) != 0)
             {
                 OrderOrGroup    order;
-                order.name      = token;
+                order.name      = parseColumnName(token);
                 orderBy->order.push_back(order);
             }
             else
@@ -688,7 +681,7 @@ ParseResult ParseQuery::parseGroupByList(char* _workingString)
                 fprintf(traceFile,"\n order by tokens %s", token);
                 
             OrderOrGroup    order;
-            order.name      = token;
+            order.name      = parseColumnName(token);
             groupBy->group.push_back(order);
         }
     }
@@ -746,13 +739,97 @@ ParseResult ParseQuery::parseColumnList(char* _workingString)
     token = strtok (_workingString,",");
     while (token != NULL)
     {
-        fprintf(traceFile,"\nColumn: :%s",token);
-        iElement->lstColName.push_back(token);
+        lTrim(token,' ');
+        iElement->lstColumns.push_back(parseColumnName(token));
         token = strtok (NULL, ",");
     }
 
     return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Parse Column Name
+ ******************************************************/
+columnParts* ParseQuery::parseColumnName(char* _str)
+{
+    /*
+        Column name have the following forms
+
+        case 1) column alias        - surname AS last
+        case 2) functions           - COUNT(), SUM(), AVG(), MAX(), MIN()
+        case 3) simple name         - surname
+        case 4) table/column        - customers.surname
+        case 5) table alias column  - c.surname from customers c
+    */
+    columnParts* parts = new columnParts();
+    parts->fullName = dupString(_str);
+
+    signed int columnAliasPosition = lookup::findDelimiter(_str,(char*)sqlTokenAs);
+    if(columnAliasPosition == DELIMITERERR)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
+        return nullptr;
+    }
+
+    //case 1) column alias        - surname AS last
+    char* columnName  = _str;
+    if(columnAliasPosition > NEGATIVE)
+    {
+        parts->columnAlias = dupString(_str+columnAliasPosition+3);
+        _str[columnAliasPosition] = '\0';
+    }
+
+    // case 2) functions          - COUNT(), SUM(), AVG(), MAX(), MIN()
+    signed int posParen = lookup::findDelimiter(_str,(char*)sqlTokenOpenParen);
+    if(posParen > NEGATIVE)
+    {
+        parts->fuction = dupString(_str);
+        parts->fuction[posParen-1] = '\0';
+    }
+    
+    char* colStr = dupString(_str+posParen+1); 
+    int ii = 0;
+    for(size_t i=0;i<strlen(_str);i++)
+    {
+        if(colStr[i] != CLOSEPAREN)
+        {
+            colStr[ii] = colStr[i];
+            ii++;
+        }
+    }
+    ii++;
+    
+    colStr[ii] = '\0';
+
+    TokenPair* tp = lookup::tokenSplit(colStr,(char*)sqlTokenPeriod);
+    if(tp == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name: ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
+        return nullptr; 
+    }
+
+    // case 3) simple name         - surname
+    if(tp->two == nullptr)
+    {
+        parts->columnName = tp->one;
+    }
+    else
+    {
+    // case 4/5)
+        parts->tableAlias = tp->one;
+        parts->columnName = tp->two;
+    }
+
+    delete tp;
+
+    if(debug)
+    {
+        fprintf(traceFile,"\n Column parts: function:%s name:%s alias:%s table Alias %s",parts->fuction, parts->columnName, parts->columnAlias, parts->tableAlias);
+    }
+
+    return parts;
+};
 /******************************************************
  * Parse Value List
  ******************************************************/

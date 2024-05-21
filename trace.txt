@@ -1,0 +1,110 @@
+
+ query=select top 4 * from customers where surname like "sc" and givenname like "g"
+ 
+
+
+-------------------------BEGIN QUERY PARSE-------------------------------------------
+ query=select top 4 * from customers where surname like "sc" and givenname like "g"
+ determine action
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = select top 4 * from customers where surname like "sc" and givenname like "g"
+
+-------------------------PARSE CLAUSES - SELECT -------------------------------------------
+Query String = select top 4 * from customers where surname like "sc" and givenname like "g"
+
+-----------Parse Table List----------------
+tableString: customers 
+token  customers 
+
+-----------Parse Column List----------------
+Column string:* 
+ Column parts: function:(null) name:* alias:(null) table Alias (null)
+
+-----------Parse Conditions----------------
+Condition: surname like "sc" and givenname like "g"
+token=surname
+ Column parts: function:(null) name:surname alias:(null) table Alias (null)
+token=like
+token="sc"
+token=and
+token=givenname
+ Column parts: function:(null) name:givenname alias:(null) table Alias (null)
+token=like
+token="g"
+
+-----------Parse Conditions----------------
+Join Condition:(null)
+
+-----------Parse Order by----------------
+OrderBy string:(null)
+
+-----------Parse Group by----------------
+Group By string:(null)
+ table name  customers || 
+
+ tp1:customers| tp2:(null)|
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name customers
+----------------------- bind order by -----------------------------------
+----------------------- bind group by -----------------------------------
+*******************************************
+ Statement Table
+*******************************************
+ table name customers alias (null)
+	 column name deleted alias (null) value (null)
+	 column name custid alias (null) value (null) PRIMARY
+	 column name givenname alias (null) value (null)
+	 column name middleinitial alias (null) value (null)
+	 column name surname alias (null) value (null)
+	 column name phone alias (null) value (null)
+	 column name email alias (null) value (null)
+	 column name street1 alias (null) value (null)
+	 column name street2 alias (null) value (null)
+	 column name city alias (null) value (null)
+	 column name state alias (null) value (null)
+	 column name country alias (null) value (null)
+	 column name zipcode alias (null) value (null)
+
+ Conditions
+
+ name: surname alias: (null) tableName: (null) function: (null)
+	 condition condition  
+	 condition op        like
+	 condition value     sc
+
+ name: givenname alias: (null) tableName: (null) function: (null)
+	 condition condition and
+	 condition op        like
+	 condition value     g
+	 index name customerid  file name /home/greg/projects/test/testIndex/custid.idx
+		 index column name custid
+*******************************************
+ Order By
+*******************************************
+	ascending
+*******************************************
+ Group By
+*******************************************
+
+-------------------------BEGIN ENGINE-------------------------------------------
+ index /home/greg/projects/test/testIndex/custid.idx
+------------------------Select-----------------------------
+ 
+deleted custid     givenname            middleinitial surname              phone                email                                    street1                        street2                        city                 state country zipcode    T000010154  Gabrielle            N Scott                189 555 0173         gabrielle56@adventure works.com          6028 D St.                     NULL                           Port Hammond         BC  CA  V6B 3P7    
+T000001734  Gary                 N Schare               157 555 0100         gary4@adventure works.com                Kulmer Stra  e 36              NULL                           Braunschweig         NW  DE  38001      
+T000010177  Gabriella            A Scott                292 555 0126         gabriella37@adventure works.com          1334 Appalachian Drive         NULL                           Portland             OR  US  97205      
+T000015074  Gina                 N Schmidt              1  11  500 555 0117  gina20@adventure works.com               7319 Snyder Lane               NULL                           Oxford               ENG GB  OX1        
+
+ 
+deleted custid     givenname            middleinitial surname              phone                email                                    street1                        street2                        city                 state country zipcode    T000010154  Gabrielle            N Scott                189 555 0173         gabrielle56@adventure works.com          6028 D St.                     NULL                           Port Hammond         BC  CA  V6B 3P7    
+T000001734  Gary                 N Schare               157 555 0100         gary4@adventure works.com                Kulmer Stra  e 36              NULL                           Braunschweig         NW  DE  38001      
+T000010177  Gabriella            A Scott                292 555 0126         gabriella37@adventure works.com          1334 Appalachian Drive         NULL                           Portland             OR  US  97205      
+T000015074  Gina                 N Schmidt              1  11  500 555 0117  gina20@adventure works.com               7319 Snyder Lane               NULL                           Oxford               ENG GB  OX1        
+
+ 
+Table scan: rows scanned 4
+rows returned 4
+ 
+

@@ -162,7 +162,7 @@ enum class t_edit
     t_double,
     t_int
 };
-enum class t_aggregate
+enum class t_function
 {
     NONE,
     COUNT,
