@@ -22,6 +22,7 @@ using namespace std;
 #define LST             '<'
 
 #define DELIMITERERR        -2
+#define COMPAREERROR        -2
 #define MAXSQLTOKENSIZE	    100
 #define MAXSQLSTRINGSIZE	1000
 

@@ -169,7 +169,7 @@ ParseResult Plan::execute()
 				results->groupBy(groupBy,functions);
 
 		results->print();
-		fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
+
     }
     return ParseResult::SUCCESS;
 }
@@ -214,6 +214,16 @@ ParseResult Plan::printFunctions(resultList* _results)
         avgCount++;
     }	
     resultList* functionResults = new resultList();
+    for (size_t nbr = 0;nbr < reportRow.size();nbr++) 
+    {
+        if( reportRow.at(nbr)->functionType == t_function::AVG)
+        {
+            if(reportRow.at(nbr)->edit == t_edit::t_int)
+                reportRow.at(nbr)->intValue = reportRow.at(nbr)->intValue / avgCount;
+            if(reportRow.at(nbr)->edit == t_edit::t_double)
+                reportRow.at(nbr)->doubleValue = reportRow.at(nbr)->doubleValue / avgCount;
+        }
+    }
     functionResults->addRow(reportRow);
     functionResults->print();
     return ParseResult::SUCCESS;

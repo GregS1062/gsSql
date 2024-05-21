@@ -21,7 +21,7 @@ class resultList
 	string  					htmlHeader		(vector<TempColumn*>,int32_t);
 	string  					textHeader		(vector<TempColumn*>);
 	void						printRow		(vector<TempColumn*>);
-	vector<vector<TempColumn*>> tempRows{};
+	vector<vector<TempColumn*>> groupRows{};
 
 public:
 	resultList();
@@ -115,57 +115,7 @@ ParseResult resultList::Sort(list<int> _n, bool _ascending)
               int x = 0;
 				for(int nbr : _n)
 				{
-					switch(row1.at(nbr)->edit)
-					{
-						case t_edit::t_char:
-						{
-							x = strcmp(row1.at(nbr)->charValue, row2.at(nbr)->charValue);
-							break;
-						}
-						case t_edit::t_int:
-						{
-							if(row1.at(nbr)->intValue == row2.at(nbr)->intValue)
-								x = 0;
-							else
-							if(row1.at(nbr)->intValue > row2.at(nbr)->intValue)
-							   x = 1;
-							else
-								x = -1;
-							break;
-						}
-						case t_edit::t_double:
-						{
-							if(row1.at(nbr)->doubleValue == row2.at(nbr)->doubleValue)
-								x = 0;
-							else
-							if(row1.at(nbr)->doubleValue > row2.at(nbr)->doubleValue)
-							   x = 1;
-							else
-								x = -1;
-							break;
-						}
-						case t_edit::t_date:
-						{
-							if(row1.at(nbr)->dateValue.yearMonthDay == row2.at(nbr)->dateValue.yearMonthDay)
-								x = 0;
-							else
-							if(row1.at(nbr)->dateValue.yearMonthDay > row2.at(nbr)->dateValue.yearMonthDay)
-							   x = 1;
-							else
-								x = -1;
-							break;
-						}
-						case t_edit::t_bool:
-							if(row1.at(nbr)->boolValue
-							&& row2.at(nbr)->boolValue)
-								x = 0;
-							else														
-							if(row1.at(nbr)->boolValue
-							&& !row2.at(nbr)->boolValue)
-								x = 1;
-							else
-								x = -1;
-					}
+					x = compareTempColumns(row1.at(nbr), row2.at(nbr));
 					
 					if(x != 0)
 					{
@@ -228,8 +178,21 @@ ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
 	if(debug)
 		fprintf(traceFile,"\n-----------------------Group by-----------------------");
 
+	/*
+	Pre-condition: a table of rows input from the sqlEngine
+		Logic:
+			1) Get list of the positions of sort columns, call it (n)
+			2) Use (n) list to sort the results
+			3) Save the prior row to detect a control break
+			4) Read sorted list
+			5) Compare each column in current row to column in prior row to detect a control break
+			6) Call functions logic
+			7) Copy contents of prior row into a temporary row
+			8) Store temporary row in new output table
+	*/
+
+	// 1)
 	list<int> n;
-	bool sortByCount = true;
 	for(OrderOrGroup group : _groupBy->group)
 	{
 		if(group.col->name == nullptr)
@@ -238,66 +201,107 @@ ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
 		n.push_back(group.columnNbr);
 	}
 
+	// 2)
 	Sort(n,true);
-
-	vector<TempColumn*> sortRow;
-	bool controlBreak = true;
-	int newRowSize = 0;
 	
 	if(rows.size() == 0)
 		return ParseResult::FAILURE;
 
-	vector<TempColumn*> reportRow = (vector<TempColumn*>)rows[0];
+	// 3)
 	vector<TempColumn*> priorRow = (vector<TempColumn*>)rows[0];
+	vector<TempColumn*> reportRow = (vector<TempColumn*>)rows[0];
+	vector<TempColumn*> tempRow;
 
-	
-	for (size_t i = 0; i < rows.size(); i++) { 
+	int avgCount = 1;  //includes first row
+	bool controlBreak = false;
+
+	// 4) Read 
+	for (size_t i = 1; i < rows.size(); i++) { 
 		vector<TempColumn*> row = (vector<TempColumn*>)rows[i];
-
-		if(_functions)
-			callFunctions(reportRow,row);
 		
+		// 5)
 		for(OrderOrGroup group : _groupBy->group)
 		{	
-
-			if(row.at(group.columnNbr)->edit == t_edit::t_char)
+			if(compareTempColumns(row.at(group.columnNbr),priorRow.at(group.columnNbr)) != 0)
 			{
-				if(strcasecmp(row.at(group.columnNbr)->charValue,priorRow.at(group.columnNbr)->charValue ) != 0)
-					controlBreak = true;
-			}
-			else
-			if(row.at(group.columnNbr) != priorRow.at(group.columnNbr))
 				controlBreak = true;
-
-			if(controlBreak)
-			{
-				//sortRow.push_back(getCountColumn(count));
-				for(int i2 : n)
+				// 7)
+				for(size_t i2 = 0; i2 < reportRow.size(); i2++)
 				{
-					sortRow.push_back(priorRow.at(i2));
-				}
-				tempRows.push_back(sortRow);
+					if(reportRow.at(i2)->functionType == t_function::AVG)
+					{
+						if(avgCount > 0)
+						{
+							if( reportRow.at(i2)->edit == t_edit::t_double)
+								reportRow.at(i2)->doubleValue = reportRow.at(i2)->doubleValue / avgCount;
 
-				//Get position of count in the row for sorting by count
-				if(newRowSize == 0)
-					newRowSize = (int)sortRow.size();
-				sortRow.clear();
-				controlBreak = false;
+						}
+						else
+						{
+							reportRow.at(i2)->intValue = 0;
+							reportRow.at(i2)->doubleValue = 0;
+						}
+					}
+					//load report columns into tempRow
+					tempRow.push_back(reportRow.at(i2));
+				}
+				// 8)
+				groupRows.push_back(tempRow);
+				tempRow.clear();
+
+				//The current row becomes the template row
+				reportRow = row;
+				avgCount = 0;
 			}
-		}	
-		priorRow = row;
+
+			//Do not want to trip counts and sums on a control break
+			if(_functions && !controlBreak)
+			{
+				callFunctions(reportRow,row);
+			}
+			avgCount++;
+			controlBreak = false;
+			priorRow = row;
+		}
 	}
-	rows = tempRows;
+	//End of file is a control break
+	for(size_t i2 = 0; i2 < reportRow.size(); i2++)
+	{
+		if(reportRow.at(i2)->functionType == t_function::AVG)
+		{
+			if(avgCount > 0)
+			{
+				if( reportRow.at(i2)->edit == t_edit::t_double)
+					reportRow.at(i2)->doubleValue = reportRow.at(i2)->doubleValue / avgCount;
+
+			}
+		}
+	}
+	groupRows.push_back(reportRow);
+	
+	rows = groupRows;
+
+	bool sortByCount = false;
+	int sortColumn = 0;
+	for(size_t i2 = 0; i2 < reportRow.size(); i2++)
+	{
+		if(reportRow.at(i2)->functionType == t_function::COUNT)
+		{
+			sortColumn = (int)i2;
+			sortByCount = true;
+			break;
+		}
+	}
 	if(sortByCount)
 	{
 		list<int> c;
-		c.push_back(0);
-		if(debug)
-			fprintf(traceFile,"\n group by sorting count at %d", newRowSize);
+		c.push_back(sortColumn);
 		Sort(c,false);
 	}
+
 	return ParseResult::SUCCESS;
 }
+
 /******************************************************
  * Get Group Row
  ******************************************************/
@@ -340,8 +344,7 @@ void resultList::printColumn(TempColumn* col)
 			{
 				result.append(" ");
 			}
-		}
-		
+		}	
 	}
 
 	returnResult.resultTable.append(result);

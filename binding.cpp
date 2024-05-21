@@ -215,7 +215,7 @@ ParseResult Binding::bindColumnList()
         tbl = assignTable(parts);
         if(tbl == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot assign column to table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,parts->fullName);
             return ParseResult::FAILURE;
         }
@@ -223,7 +223,7 @@ ParseResult Binding::bindColumnList()
         col = assignTemplateColumn(parts,tbl->name);
         if(col == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column name");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot assign column to table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,parts->fullName);
             return ParseResult::FAILURE;
         }
@@ -353,7 +353,7 @@ Column*  Binding::assignTemplateColumn(columnParts* _parts,char* _tableName)
     col = assignTemplateColumn(_parts,tbl->name);
     if(col == nullptr)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column name");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find template column: ");
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,_parts->fullName);
         return ParseResult::FAILURE;
     }
@@ -539,7 +539,7 @@ ParseResult Binding::bindOrderBy()
         tbl = assignTable(order.name);
         if(tbl == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Order By column to table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,order.name->fullName);
             return ParseResult::FAILURE;
         }
@@ -547,7 +547,7 @@ ParseResult Binding::bindOrderBy()
         col = assignTemplateColumn(order.name,tbl->name);
         if(col == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column name");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Order By template column to table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,order.name->fullName);
             return ParseResult::FAILURE;
         }
@@ -601,7 +601,7 @@ ParseResult Binding::bindGroupBy()
         tbl = assignTable(group.name);
         if(tbl == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Group By column to table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,group.name->fullName);
             return ParseResult::FAILURE;
         }
@@ -609,7 +609,7 @@ ParseResult Binding::bindGroupBy()
         col = assignTemplateColumn(group.name,tbl->name);
         if(col == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot column name");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Group By template column to table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,group.name->fullName);
             return ParseResult::FAILURE;
         }

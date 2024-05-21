@@ -148,7 +148,7 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 	return compareIntegerToInteger(_condition->op, recordInt, _condition->intValue);
 }
 /******************************************************
- * Compare Integer To Integer
+ * Compare Double To Double
  ******************************************************/
  ParseResult compareDoubleToDouble(char* _op, double _dbl1, double _dbl2 )
  {
@@ -281,6 +281,67 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 	
 
 	return ParseResult::FAILURE;
+}
+
+signed int compareTempColumns(TempColumn* col1,TempColumn* col2)
+{
+	//Assuming col1 and col2 are same edit
+	if(col1->edit != col2->edit)
+		return COMPAREERROR;
+
+	signed int x;
+	switch(col1->edit)
+	{
+		case t_edit::t_char:
+		{
+			x = strcmp(col1->charValue, col2->charValue);
+			break;
+		}
+		case t_edit::t_int:
+		{
+			if(col1->intValue == col2->intValue)
+				x = 0;
+			else
+			if(col1->intValue > col2->intValue)
+				x = 1;
+			else
+				x = -1;
+			break;
+		}
+		case t_edit::t_double:
+		{
+			if(col1->doubleValue == col2->doubleValue)
+				x = 0;
+			else
+			if(col1->doubleValue > col2->doubleValue)
+				x = 1;
+			else
+				x = -1;
+			break;
+		}
+		case t_edit::t_date:
+		{
+			if(col1->dateValue.yearMonthDay == col2->dateValue.yearMonthDay)
+				x = 0;
+			else
+			if(col1->dateValue.yearMonthDay > col2->dateValue.yearMonthDay)
+				x = 1;
+			else
+				x = -1;
+			break;
+		}
+		case t_edit::t_bool:
+			if(col1->boolValue
+			&& col2->boolValue)
+				x = 0;
+			else														
+			if(col1->boolValue
+			&& !col2->boolValue)
+				x = 1;
+			else
+				x = -1;
+	}
+	return x;
 }
 
 
