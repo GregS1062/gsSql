@@ -41,6 +41,7 @@ using namespace std;
 #define sqlTokenInsert          "INSERT"
 #define sqlTokenDelete          "DELETE"
 #define sqlTokenUpdate          "UPDATE"
+#define sqlTokenFumctionTable   "FUNCTIONTABLE"
 #define sqlTokenTop             "TOP"
 #define sqlTokenAs              "AS"
 #define sqlTokenInto            "INTO"
@@ -117,7 +118,8 @@ enum ParseResult
 {
     SUCCESS,
     FAILURE,
-    CONTINUE 
+    CONTINUE,
+    FATAL
 };
 
 enum class SQLACTION{
@@ -138,12 +140,11 @@ enum class SQLACTION{
     FULL        //Join
 };
 
-enum class RETURNACTION
+enum class CONDITIONTYPE
 {
-    ORDER,
-    GROUP,
+    SELECT,
     JOIN,
-    SEND
+    HAVING
 };
 
 // C++ tm is 58 characters long - this is 16
@@ -163,6 +164,7 @@ enum class t_edit
     t_double,
     t_int
 };
+
 enum class t_function
 {
     NONE,

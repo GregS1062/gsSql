@@ -8,8 +8,9 @@ class lookup
     public:
 
     static Column*     getColumnByName(list<Column*>, char*);
-    static sTable*     getTableByAlias(list<sTable*>, char*);
+    static Column*     getColumnByAlias(list<Column*>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
+    static sTable*     getTableByAlias(list<sTable*>, char*);
     static TokenPair*  tokenSplit(char*,char*);
     static signed int  findDelimiter(char*, char*);
     static signed int  findDelimiterFromList(char*, list<char*>);
@@ -58,6 +59,21 @@ Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
     {
         if(strcasecmp(col->name,_name) == 0)
             return col;
+    }
+    return nullptr;
+}
+/******************************************************
+ * Get Column By Alias
+ ******************************************************/
+Column* lookup::getColumnByAlias(list<Column*> _columns, char* _name)
+{
+    if(_name == nullptr)
+        return nullptr;
+    for(Column* col : _columns)
+    {
+        if(col->alias != nullptr)
+            if(strcasecmp(col->alias,_name) == 0)
+                return col;
     }
     return nullptr;
 }

@@ -210,9 +210,6 @@ ParseResult sqlEngine::open()
 		{
 			for(sIndex* idx : statement->table->indexes)
 			{
-				//TODO 
-				fprintf(traceFile,"\n index %s",idx->fileName);
-				continue;
 				if(idx->open() == nullptr)
 				{
 					sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to open index: ");

@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+#include <list>
 #include "sqlCommon.h"
 
 /******************************************************
@@ -184,28 +186,35 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 /******************************************************
  * Compare Date Condition
  ******************************************************/
+ int compareDateToDate(t_tm _dateValue, t_tm _date)
+ {
+
+	if( _date.yearMonthDay == _dateValue.yearMonthDay)
+		return 0;
+
+	if(_date.yearMonthDay != _dateValue.yearMonthDay)
+		return NEGATIVE;
+
+	if(_date.yearMonthDay > _dateValue.yearMonthDay)
+		return 1;
+
+	if(_date.yearMonthDay < _dateValue.yearMonthDay)
+		return NEGATIVE;
+	
+	return -2;
+} 
+
+/******************************************************
+ * Compare Date Condition
+ ******************************************************/
  ParseResult compareDateToConditionValue(Condition* _condition, char* _line)
 {
 	t_tm recordDate;
 	Column* column = _condition->col;
 	memcpy(&recordDate, _line+column->position, column->length);
 
-	int compareResult = 0;
-
-	if( recordDate.yearMonthDay == _condition->dateValue.yearMonthDay)
-		compareResult = 0;
-
-	if(recordDate.yearMonthDay != _condition->dateValue.yearMonthDay)
-		compareResult = NEGATIVE;
-
-	if(recordDate.yearMonthDay > _condition->dateValue.yearMonthDay)
-		compareResult = 1;
-
-	if(recordDate.yearMonthDay < _condition->dateValue.yearMonthDay)
-		compareResult = NEGATIVE;
-	
-	return evaluateComparisons(_condition->op, compareResult);
-} 
+	return evaluateComparisons(_condition->op, compareDateToDate(_condition->dateValue, recordDate));
+}
 
 /******************************************************
  * Query Conditions Met
@@ -220,8 +229,7 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 	ParseResult Queryesults = ParseResult::FAILURE;
 
 	for(Condition* condition : _conditions)
-	{
-		
+	{	
 		switch(condition->col->edit)
 		{
 			case t_edit::t_char:
@@ -277,12 +285,13 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 	}
 
 	if(Queryesults == ParseResult::SUCCESS)
-		return ParseResult::SUCCESS;
-	
+		return ParseResult::SUCCESS;	
 
 	return ParseResult::FAILURE;
 }
-
+/******************************************************
+ * Compare Temp Column
+ ******************************************************/
 signed int compareTempColumns(TempColumn* col1,TempColumn* col2)
 {
 	//Assuming col1 and col2 are same edit
@@ -343,6 +352,73 @@ signed int compareTempColumns(TempColumn* col1,TempColumn* col2)
 	}
 	return x;
 }
+/******************************************************
+ * Compare Having Condition
+ ******************************************************/
+ParseResult compareHavingCondition(TempColumn* _rowCol, Condition* _con)
+{
+	// Assuming both rowCol and condition col have the proper edit values int, double, date etc
+	if(_rowCol->edit != _con->col->edit)
+		return ParseResult::FATAL;
 
+	switch(_rowCol->edit)
+	{
+		case t_edit::t_char:
+			return compareStringToString(_con->op, _rowCol->charValue, _con->value);
+			break;
+		case t_edit::t_int:
+			return compareIntegerToInteger(_con->op, _rowCol->intValue, _con->intValue);
+			break;
+		case t_edit::t_double:
+			return compareDoubleToDouble(_con->op, _rowCol->doubleValue, _con->doubleValue);
+			break;
+		case t_edit::t_date:
+			return evaluateComparisons(_con->op, compareDateToDate(_con->dateValue, _rowCol->dateValue));
+			break;
+		case t_edit::t_bool: //NOTE: group by having - should not test a boolean
+			break;
+	}
 
+	// error if we get here
+	return ParseResult::FAILURE;
+}
+/******************************************************
+ * Having Conditions Met
+ ******************************************************/
+ParseResult compareHavingConditions(vector<TempColumn*> _row, list<Condition*> _conditions)
+{
+	ParseResult ret;
+	// 1) roll through all having conditions
+	// 2) match condition column to result row column
+	//		3) match on alias
+	//		4) match on column name
+	// 5) if match found compare values
+	// 6) if values fail compare return FAILURE
+	for(Condition* con : _conditions)
+	{
+		for(size_t i = 0;i < _row.size();i++)
+		{
+			if(con->col->alias != nullptr 
+			&& _row.at(i)->alias != nullptr)
+			{
+				if(strcasecmp(con->col->alias,_row.at(i)->alias) == 0 )
+				{
+					ret = compareHavingCondition(_row.at(i),con);
+					if(ret != ParseResult::SUCCESS)
+						return ret;
+				}
+			}
+			else
+			{
+				if(strcasecmp(con->col->name,_row.at(i)->name) == 0 )
+				{
+					ret = compareHavingCondition(_row.at(i),con);
+					if(ret != ParseResult::SUCCESS)
+						return ret;
+				}
+			}
+		}
+	}
+	return ParseResult::SUCCESS;
+}
 

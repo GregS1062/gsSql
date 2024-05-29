@@ -14,6 +14,7 @@ class iElements
     GroupBy*                groupBy         = nullptr;  // group by
     list<Condition*>        lstConditions{};            // where condition (operator) value
     list<Condition*>        lstJoinConditions{};        // join ON conditions
+    list<Condition*>        lstHavingConditions{};      // Having conditions
     int                     rowsToReturn = 0;           // max result rows
 
     ParseResult             clear();
@@ -28,6 +29,7 @@ ParseResult iElements::clear()
     tableName       = nullptr;
     lstConditions.clear();
     lstJoinConditions.clear();
+    lstHavingConditions.clear();
     lstColumns.clear();
     orderBy->order.clear();
     groupBy->group.clear();
@@ -42,12 +44,12 @@ class iClauses
     public:
         iClauses(){};
         char*       strGroupBy          {};
-        char*       strHaving           {};
         char*       strOrderBy          {};
         char*       strTables           {};
         char*       strColumns          {};
         char*       strConditions       {};
         char*       strJoinConditions   {};
+        char*       strHavingConditions {};
         int         topRows             = 0;
         void        clear();
 };

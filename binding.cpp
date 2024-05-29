@@ -22,12 +22,14 @@ class Binding
     Column*         assignTemplateColumn(columnParts*,char*);
     ParseResult     bindValueList();
     ParseResult     bindConditions();
+    ParseResult     bindCondition(Condition*);
+    ParseResult     bindHaving();
     ParseResult     bindOrderBy();
     ParseResult     bindGroupBy();
     ParseResult     populateTable(sTable*,sTable*);
     bool            valueSizeOutofBounds(char*, Column*);
     ParseResult     editColumn(Column*,char*);
-    ParseResult     editCondition(Condition*,char*);
+    ParseResult     editCondition(Condition*);
 
     public:
 
@@ -181,8 +183,8 @@ ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
  ******************************************************/
 ParseResult Binding::bindColumnList()
 {
-
-        
+    if(debug)
+        fprintf(traceFile,"\n-------------------- bind column list ----------------");
     // case Insert into table values(....)
     if(ielements->lstColumns.size() == 0)
     {
@@ -247,23 +249,41 @@ ParseResult Binding::bindColumnList()
  ******************************************************/
 sTable* Binding::assignTable(columnParts* _parts)
 {
-    // case theColumn  No prefix
-    if(_parts->tableAlias == nullptr)
+    sTable* tbl;
+    
+    if(_parts->tableAlias != nullptr)
+    {
+        // case 1:  theTable.theColumn  prefix is table name
+        tbl = lookup::getTableByName(lstTables,_parts->tableAlias);
+        if(tbl != nullptr)
+            return tbl;
+
+        // case 2: t.theColumn  prefix is an alias
+        tbl = lookup::getTableByAlias(lstTables,_parts->tableAlias);
+        if(tbl != nullptr)
+            return tbl;
+    }
+
+    // case 3: order by and group by can reference a column alias   tax AS ripoff   order by ripoff
+    Column* col = lookup::getColumnByAlias(defaultTable->columns,_parts->columnName);
+    if(col != nullptr)
         return defaultTable;
 
-    sTable* tbl;
+    // case 4: order by and group by can reference a function   count(*)   order by count
+    tbl = lookup::getTableByName(isqlTables->tables,(char*)sqlTokenFumctionTable);
+    
+    if(tbl == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot retrieve function table: ");
+        return nullptr;
+    }
 
-    // case:  theTable.theColumn  prefix is table name
-    tbl = lookup::getTableByName(lstTables,_parts->tableAlias);
-    if(tbl != nullptr)
+    col = lookup::getColumnByName(tbl->columns,_parts->columnName);
+    if(col != nullptr)
         return tbl;
 
-    // case t.theColumn  prefix is an alias
-    tbl = lookup::getTableByAlias(lstTables,_parts->tableAlias);
-    if(tbl != nullptr)
-        return tbl;
-
-    return nullptr;
+    // case 5: Most common form of all  theColumn No table reference/no table alias
+    return defaultTable;
 }
 /******************************************************
  * Assign Template Column
@@ -277,6 +297,9 @@ Column*  Binding::assignTemplateColumn(columnParts* _parts,char* _tableName)
     Column* col;
     Column* newCol = new Column();
     col = lookup::getColumnByName(tbl->columns,_parts->columnName);
+
+    if(col == nullptr)
+        col = lookup::getColumnByAlias(tbl->columns,_parts->columnName);
 
     if(col == nullptr)
         return nullptr;
@@ -433,6 +456,8 @@ ParseResult Binding::bindValueList()
  ******************************************************/
 ParseResult Binding::populateTable(sTable* _table,sTable* _sqlTbl)
 {
+    if(debug)
+        fprintf(traceFile,"\n-------------------- Populate table  ----------------");
     for (Column* col : _sqlTbl->columns) 
     {
         _table->columns.push_back(col);
@@ -480,38 +505,51 @@ bool Binding::valueSizeOutofBounds(char* value, Column* col)
 ParseResult Binding::bindConditions()
 {
     sTable* tbl;
-    Column* col;
     for(Condition* con : ielements->lstConditions)
     {
-        if(con->name == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition column name is null ");
+        if(bindCondition(con) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-        }
-        //Bind column to table
-        tbl = assignTable(con->name);
-        if(tbl == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find table");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,con->name->fullName);
-            return ParseResult::FAILURE;
-        }
-
-        col = assignTemplateColumn(con->name,tbl->name);
-        if(col == nullptr)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column name");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,con->name->fullName);
-            return ParseResult::FAILURE;
-        }
-        con->col = col;
-        con->col->tableName = tbl->name;
-        if(editCondition(con,con->value) == ParseResult::FAILURE)
-            return ParseResult::FAILURE;
-
+        tbl = lookup::getTableByName(lstTables,con->col->tableName);
         tbl->conditions.push_back(con);
     }
      
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Bind Condition
+ ******************************************************/
+ParseResult Binding::bindCondition(Condition* _con)
+{
+    sTable* tbl;
+    Column* col;
+    if(_con->name == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition column name is null ");
+        return ParseResult::FAILURE;
+    }
+
+    //Bind column to table
+    tbl = assignTable(_con->name);
+    if(tbl == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find table");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name->fullName);
+        return ParseResult::FAILURE;
+    }
+
+    col = assignTemplateColumn(_con->name,tbl->name);
+    if(col == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column name");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name->fullName);
+        return ParseResult::FAILURE;
+    }
+
+    _con->col = col;
+    _con->col->tableName = tbl->name;
+    if(editCondition(_con) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -632,12 +670,49 @@ ParseResult Binding::bindGroupBy()
         group.columnNbr = columnNbr;
         group.col = col;
         groupBy->group.push_back(group);
+        
 
         if(debug)
             fprintf(traceFile,"\n bind group Column name:%s table: %s  sort# %d",col->name, col->tableName, group.columnNbr);
         
+        bindHaving();
     }
 
+    return ParseResult::SUCCESS;
+}
+
+/******************************************************
+ * bind Having
+ ******************************************************/
+ParseResult Binding::bindHaving()
+{
+
+    //  Condition must apply to an item in the report line
+
+    Column* col;
+    
+    // case 1: group by zipcode Having Count(*) > 10                    Count   = function
+    // case 2: group by order Having Max(tax) < 100                     tax     = column name
+    // case 3: Max(tax) as maxtax group by order Having maxtax > 50     maxtax  = column alias
+    
+    for(Condition* con : ielements->lstHavingConditions)
+    {
+        col = lookup::getColumnByName(defaultTable->columns,con->name->columnName);
+        
+        // Notice what is going on here. Since a HAVING statement does not have an alias, we test the HAVING column name against the default column alias.
+        if(col == nullptr)
+            col = lookup::getColumnByAlias(defaultTable->columns,con->name->columnName);
+        
+        if(col == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find 'Having' column ");
+            return ParseResult::FAILURE;
+        }
+        con->col = col;
+        if( editCondition(con) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        groupBy->having.push_back(con);
+    }
     return ParseResult::SUCCESS;
 }
 
@@ -717,11 +792,11 @@ ParseResult Binding::editColumn(Column* _col,char* _value)
 /******************************************************
  * Edit Condition Column
  ******************************************************/
-ParseResult Binding::editCondition(Condition* _con ,char* _value)
+ParseResult Binding::editCondition(Condition* _con)
 {
     if(_con == nullptr)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"edit condition null ");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"condition edit is null ");
         return ParseResult::FAILURE;
     }
 
@@ -738,7 +813,7 @@ ParseResult Binding::editCondition(Condition* _con ,char* _value)
         case t_edit::t_char:    //do nothing
         {
 
-            _con->col->value     = _con->value;
+            _con->value   = _con->value;
             break; 
         }  
         case t_edit::t_date:    //do nothing
@@ -751,26 +826,26 @@ ParseResult Binding::editCondition(Condition* _con ,char* _value)
         } 
         case t_edit::t_double:
         {
-            if(!isNumeric(_value))
+            if(!isNumeric(_con->value))
             {
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false," condition column ");
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name->fullName); 
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric ");
-                sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->value);
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
                 return ParseResult::FAILURE;
             }
-            _con->doubleValue = atof(_value);
+            _con->doubleValue = atof(_con->value);
             break;
         }
         case t_edit::t_int:
         {
-            if(!isNumeric(_value))
+            if(!isNumeric(_con->value))
             {
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false," condition column ");
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name->fullName); 
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,"  value not numeric |");
-                sendMessage(MESSAGETYPE::ERROR,presentationType,false,_value);
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->value);
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
                 return ParseResult::FAILURE;
             }

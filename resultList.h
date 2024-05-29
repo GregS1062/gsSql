@@ -27,7 +27,6 @@ public:
 	resultList();
 
 	vector<vector<TempColumn*>> rows{};
-	RETURNACTION				returnAction;
     int                         rowCount = 0;
     PRESENTATION                presentation;
 	list<int>					lstSort;
@@ -134,8 +133,6 @@ ParseResult resultList::Sort(list<int> _n, bool _ascending)
 								return false;
 						}
 					}
-
-					
 				}
 				if(_ascending)
 				{
@@ -188,7 +185,8 @@ ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
 			5) Compare each column in current row to column in prior row to detect a control break
 			6) Call functions logic
 			7) Copy contents of prior row into a temporary row
-			8) Store temporary row in new output table
+			8) Test Having conditions
+			9) Store temporary row in new output table
 	*/
 
 	// 1)
@@ -242,11 +240,14 @@ ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
 							reportRow.at(i2)->doubleValue = 0;
 						}
 					}
-					//load report columns into tempRow
+					
 					tempRow.push_back(reportRow.at(i2));
 				}
 				// 8)
-				groupRows.push_back(tempRow);
+				
+				if(compareHavingConditions(tempRow,_groupBy->having) == ParseResult::SUCCESS)
+					groupRows.push_back(tempRow);
+
 				tempRow.clear();
 
 				//The current row becomes the template row
@@ -277,8 +278,7 @@ ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
 			}
 		}
 	}
-	groupRows.push_back(reportRow);
-	
+
 	rows = groupRows;
 
 	bool sortByCount = false;

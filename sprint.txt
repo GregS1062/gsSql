@@ -26,7 +26,7 @@ Build
 X   order by sort
 X   group by
     having
-    functions
+X   functions
 X    asc/dsc
 X    column alias
 

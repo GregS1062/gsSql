@@ -62,6 +62,19 @@ void printGroupBy(GroupBy* _groupBy)
     {
         printParts(group.name);
     }
+
+    fprintf(traceFile,"\n*******************************************");
+    fprintf(traceFile,"\n Having");
+    fprintf(traceFile,"\n*******************************************");
+
+    for(Condition* con :_groupBy->having)
+    {
+        printParts(con->name);
+        fprintf(traceFile,"\n\t condition condition %s", con->condition);
+        fprintf(traceFile,"\n\t condition op        %s", con->op);
+        fprintf(traceFile,"\n\t condition value     %s", con->value);
+    }
+
 }
 void printQuery(iElements* _it,Binding* bind)
 {

@@ -51,8 +51,8 @@ class ParseQuery
     ParseResult             parseValueList(char*);
     ParseResult             parseOrderByList(char*);
     ParseResult             parseGroupByList(char*);
-    ParseResult             parseConditionList(char*, bool);
-    ParseResult             addCondition(char*,bool);
+    ParseResult             parseConditionList(char*, CONDITIONTYPE);
+    ParseResult             addCondition(char*,CONDITIONTYPE);
     void                    clear();
 };
 /******************************************************
@@ -179,16 +179,19 @@ ParseResult ParseQuery::parseSelect()
         errorState = parseColumnList(iclause->strColumns);
     
     if(errorState == ParseResult::SUCCESS) 
-        errorState = parseConditionList(iclause->strConditions,notJoin);
+        errorState = parseConditionList(iclause->strConditions,CONDITIONTYPE::SELECT);
 
     if(errorState == ParseResult::SUCCESS) 
-        errorState = parseConditionList(iclause->strJoinConditions,join);
+        errorState = parseConditionList(iclause->strJoinConditions,CONDITIONTYPE::JOIN);
 
     if(errorState == ParseResult::SUCCESS) 
         errorState = parseOrderByList(iclause->strOrderBy);
 
     if(errorState == ParseResult::SUCCESS) 
         errorState = parseGroupByList(iclause->strGroupBy);
+
+    if(errorState == ParseResult::SUCCESS) 
+        errorState = parseConditionList(iclause->strHavingConditions,CONDITIONTYPE::HAVING);
 
     if(iclause->topRows > 0)
         rowsToReturn = iclause->topRows;
@@ -372,7 +375,7 @@ ParseResult ParseQuery::parseUpdate()
 
     char* strConditions = dupString(queryString+posWhere + strlen((char*)sqlTokenWhere));
 
-    if(parseConditionList(strConditions,notJoin) == ParseResult::FAILURE)
+    if(parseConditionList(strConditions,CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
@@ -471,7 +474,7 @@ ParseResult ParseQuery::parseDelete()
 
     char* strConditions = dupString(queryString+posWhere + strlen((char*)sqlTokenWhere));
 
-    if(parseConditionList(strConditions,notJoin) == ParseResult::FAILURE)
+    if(parseConditionList(strConditions,CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
@@ -480,7 +483,7 @@ ParseResult ParseQuery::parseDelete()
 /******************************************************
  * Add Condition
  ******************************************************/
-ParseResult ParseQuery::addCondition(char* _token, bool isJoin)
+ParseResult ParseQuery::addCondition(char* _token, CONDITIONTYPE _conditionType)
 {
     /* First sprint: Looking for 4 things:
         A column name   - text not enclosed in quotes
@@ -596,10 +599,18 @@ ParseResult ParseQuery::addCondition(char* _token, bool isJoin)
         else
             condition->compareToName = parseColumnName(_token);
 
-        if(isJoin)
-            iElement->lstJoinConditions.push_back(condition);
-        else
-            iElement->lstConditions.push_back(condition);
+        switch(_conditionType)
+        {
+            case CONDITIONTYPE::SELECT:
+                iElement->lstConditions.push_back(condition);
+                break;
+            case CONDITIONTYPE::JOIN:
+                iElement->lstJoinConditions.push_back(condition);
+                break;
+            case CONDITIONTYPE::HAVING:
+                iElement->lstHavingConditions.push_back(condition);
+                break;
+        }
 
         condition = new Condition();
         return ParseResult::SUCCESS;
@@ -654,7 +665,7 @@ ParseResult ParseQuery::parseOrderByList(char* _workingString)
     return ParseResult::SUCCESS;
 }
 /******************************************************
- * Parse Order
+ * Parse Group
  ******************************************************/
 ParseResult ParseQuery::parseGroupByList(char* _workingString)
 {
@@ -692,18 +703,22 @@ ParseResult ParseQuery::parseGroupByList(char* _workingString)
 
     return ParseResult::SUCCESS;
 }
+
 /******************************************************
  * Parse Conditions
  ******************************************************/
-ParseResult ParseQuery::parseConditionList(char* _workingString,bool _isJoin)
+ParseResult ParseQuery::parseConditionList(char* _workingString,CONDITIONTYPE _conditionType)
 {
     if(debug)
     {
         fprintf(traceFile,"\n\n-----------Parse Conditions----------------");
-        if(_isJoin)
+        if(_conditionType == CONDITIONTYPE::JOIN)
             fprintf(traceFile,"\nJoin Condition:%s",_workingString);
         else
-            fprintf(traceFile,"\nCondition:%s",_workingString);
+        if(_conditionType == CONDITIONTYPE::HAVING)
+            fprintf(traceFile,"\nHaving Condition:%s",_workingString);
+        else
+           fprintf(traceFile,"\nCondition:%s",_workingString);
     }
     if(_workingString == nullptr)
         return ParseResult::SUCCESS;
@@ -716,7 +731,7 @@ ParseResult ParseQuery::parseConditionList(char* _workingString,bool _isJoin)
     {
         token = tok->getToken();
         if(token != nullptr)
-            if(addCondition(token,_isJoin) == ParseResult::FAILURE)
+            if(addCondition(token,_conditionType) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
     }
     return ParseResult::SUCCESS;

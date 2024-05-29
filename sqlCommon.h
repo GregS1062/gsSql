@@ -115,7 +115,7 @@ class GroupBy
 {
     public:
         list<OrderOrGroup>      group{}; 
-        list<Condition>         having{};
+        list<Condition*>        having{};
 };
 
 

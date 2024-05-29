@@ -95,5 +95,12 @@ CREATE TABLE items as "/home/greg/projects/test/testData/Items.dat"
 CREATE INDEX orderid as "/home/greg/projects/test/testIndex/itemOrder.idx"
 ON orders (orderid)
 
-
+CREATE TABLE functionTable
+(
+	count           int,
+	max				double,
+	min 			double,
+	sum 			double,
+	avg 			double
+)
 

@@ -24,6 +24,17 @@ class Plan
                 statement 2 join on orders o where c.custid = o.custid group by c.zipCode
         2) Each statement will have one and only one table
         3) A given statement may contain columns for another statement, these must be resolved
+
+        Prepare
+        1) Validates if query is well-formed
+        2) Query is divided into subqueries
+        3) Subqueries divided into clauses
+        4) Clauses divided into elements
+        5) Elements are bound into columns and values
+        6) Columns and values are bound into statements
+
+        Execute
+
     ----------------------------------------------------------------------------------------------*/
     // This will be a merged list of tables in the query including selects and joins
     //      It is required by bind because column names in the select may belong to one of the join
@@ -49,25 +60,19 @@ class Plan
  ******************************************************/
 ParseResult Plan::prepare(char* _queryString)
 {
-    /*---------------------------------------------------
-    1) Validates if query is well-formed
-    2) Query is divided into subqueries
-    3) Subqueries divided into clauses
-    4) Clauses divided into elements
-    5) Elements are bound into columns and values
- ------------------------------------------------------*/
+
+    // 1)
     char* querystr = sanitizeQuery(_queryString);
     if( querystr == nullptr)
         return ParseResult::FAILURE;
 
+    // 2)
     if(split(querystr) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
     parseQuery = new ParseQuery();
 
-    /*
-        All tables and all columns
-    */
+    // 3 And 4)
     for(char* query : queries)
     {
         if(parseQuery->parse(query) == ParseResult::FAILURE)
@@ -76,7 +81,8 @@ ParseResult Plan::prepare(char* _queryString)
         if(parseQuery->iElement->tableName != nullptr)
             lstDeclaredTables.push_back(parseQuery->iElement->tableName);
         
-        if(parseQuery->iElement->lstColumns.size() == 0)
+        if(parseQuery->iElement->lstColumns.size() == 0
+        && parseQuery->iElement->lstValues.size() == 0)
         {
             fprintf(traceFile,"\n nothing in column list ");
             break;
@@ -85,11 +91,12 @@ ParseResult Plan::prepare(char* _queryString)
         lstElements.push_back(parseQuery->iElement);
     }
             
+    // 5)
     Binding* binding            = new Binding(isqlTables);
     binding->bindTableList(lstDeclaredTables);
     for(iElements* ielement : lstElements)
     {
-
+        // 6)
         Statement* statement = binding->bind(ielement);
         if(statement != nullptr)
             lstStatements.push_back(statement);
@@ -159,14 +166,13 @@ ParseResult Plan::execute()
             return ParseResult::SUCCESS;
         }
 
+		if(groupBy != nullptr)
+			if(groupBy->group.size() > 0)
+				results->groupBy(groupBy,functions);
         
         if(orderBy != nullptr)
 			if(orderBy->order.size() > 0)
 				results->orderBy(orderBy);
-
-		if(groupBy != nullptr)
-			if(groupBy->group.size() > 0)
-				results->groupBy(groupBy,functions);
 
 		results->print();
 

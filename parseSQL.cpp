@@ -112,17 +112,19 @@ ParseResult sqlParser::createTable()
     token           = tok->getToken();
     table->name     = token;
 
-    //Get AS statement
-    token           = tok->getToken();
-    if(strcasecmp(token,(char*)sqlTokenAs) != 0)
+    if(strcasecmp(table->name,(char*)sqlTokenFumctionTable) != 0)
     {
-        errText.append("sql parser expecting  AS statement (table file location).");
-        return ParseResult::FAILURE;
+        //Get AS statement
+        token           = tok->getToken();
+        if(strcasecmp(token,(char*)sqlTokenAs) != 0)
+        {
+            errText.append("sql parser expecting  AS statement (table file location).");
+            return ParseResult::FAILURE;
+        }
+        //Get table location
+        token               = tok->getToken();
+        table->fileName     = token;
     }
-
-    //Get table location
-    token               = tok->getToken();
-    table->fileName     = token;
 
     if(parseColumns(table->name) == ParseResult::FAILURE)
     {

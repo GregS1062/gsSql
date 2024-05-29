@@ -282,9 +282,6 @@ ParseResult ParseClause::parseOrderByGroup(char* _queryString)
         if(found == NEGATIVE)
             continue;
 
-        if(debug)
-            fprintf(traceFile,"\nStack: %ld",found);
-
         if(positionOfOrderBy == found)
         {
             iClause->strOrderBy = dupString(_queryString+positionOfOrderBy+strlen(sqlTokenOrderBy));
@@ -303,9 +300,9 @@ ParseResult ParseClause::parseOrderByGroup(char* _queryString)
 
         if(positionOfHaving == found)
         {
-            iClause->strHaving = dupString(_queryString+positionOfHaving+strlen(sqlTokenHaving));
+            iClause->strHavingConditions= dupString(_queryString+positionOfHaving+strlen(sqlTokenHaving));
             if(debug)
-                fprintf(traceFile,"\nHaving clause: %s",iClause->strHaving);
+                fprintf(traceFile,"\nHaving clause: %s",iClause->strHavingConditions);
             _queryString[positionOfHaving] = '\0';
         }
     }

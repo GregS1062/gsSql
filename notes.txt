@@ -29,7 +29,7 @@ WHERE Orders.ID = 12345
 check list of functions as valid column names
 
 -----------------------------------------------------------------------------------------------------------
-Aggregates:
+Functions:
     - are a reporting element with a specific place.
     - must be acted upon on a row by row basis
     - can be specific to a column
@@ -56,12 +56,16 @@ Aggregates:
           - combines both COUNT and SUM
             - all
             - in a group
-    Aggregate functions need to be 
+    Functions need to be 
       - identified on a Column/Temp level
       - acted upon at a row level
       - acted upon at a control break level
 
-
+HAVING addresses qualifies function statements
+    Form:
+      group by zipcode Having Count(*) > 10
+      group by order Having Max(tax) < 100
+      Max(tax) as max tax group by order Having max tax > 50
 
 
 
