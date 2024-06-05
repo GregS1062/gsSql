@@ -106,13 +106,15 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 	Column* column = _condition->col;
 	
 	strncpy(buffRecord, _line+column->position, column->length);
-	rTrim(buffRecord);
 	
 	if (strcasecmp(_condition->op,sqlTokenEqual) == 0
 	|| strcasecmp(_condition->op,sqlTokenNotEqual) == 0)
+	{
 		buffRecord[_condition->col->length] = '\0';
+		rTrim(buffRecord);
+	}
 	else
-		buffRecord[strlen(_condition->col->value)] = '\0';
+		buffRecord[strlen(_condition->value)] = '\0';
 		
 
 	return compareStringToString(_condition->op, buffRecord,_condition->value);
@@ -225,40 +227,42 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 	if(_conditions.size() == 0)
 		return ParseResult::SUCCESS;
 
-	ParseResult Queryesult = ParseResult::FAILURE;
-	ParseResult Queryesults = ParseResult::FAILURE;
+	ParseResult queryResult = ParseResult::FAILURE;
+	ParseResult queryResults = ParseResult::FAILURE;
 
 	for(Condition* condition : _conditions)
 	{	
+
 		switch(condition->col->edit)
 		{
 			case t_edit::t_char:
 			{
-				Queryesult = compareStringToConditionValue(condition,_line);
+				queryResult = compareStringToConditionValue(condition,_line);
 				break;
 			}
 			case t_edit::t_int:
 			{
-				Queryesult = compareIntegerToConditionValue(condition,_line);
+				queryResult = compareIntegerToConditionValue(condition,_line);
 				break;
 			}
 			case t_edit::t_double:
 			{
-				Queryesult = compareDoubleToConditionValue(condition,_line);
+				queryResult = compareDoubleToConditionValue(condition,_line);
 				break;
 			}
 			case t_edit::t_date:
 			{	
-				Queryesult = compareDateToConditionValue(condition,_line);
+				queryResult = compareDateToConditionValue(condition,_line);
 				break;
 			}
 				
 			case t_edit::t_bool:
 				break;
 		}
+
 		
 		if(_conditions.size() == 1)
-			return Queryesult;
+			return queryResult;
 
 		if(condition->condition != nullptr)
 		{
@@ -267,24 +271,24 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 			&& strcasecmp(condition->condition,(char*)sqlTokenOr) != 0)
 			{
 				if (_conditions.size() == 1
-				&& Queryesult == ParseResult::FAILURE)
+				&& queryResult == ParseResult::FAILURE)
 					return ParseResult::FAILURE;
 			}
 
 			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) == 0
-			&& (Queryesult == ParseResult::FAILURE
-			|| Queryesults == ParseResult::FAILURE))
+			&& (queryResult == ParseResult::FAILURE
+			|| queryResults == ParseResult::FAILURE))
 				return ParseResult::FAILURE;
 
 			if(strcasecmp(condition->condition,(char*)sqlTokenOr)  == 0
-			&& (Queryesult == ParseResult::SUCCESS
-			|| Queryesults == ParseResult::SUCCESS))
+			&& (queryResult == ParseResult::SUCCESS
+			|| queryResults == ParseResult::SUCCESS))
 				return ParseResult::SUCCESS;
 		}
-		Queryesults = Queryesult;		
+		queryResults = queryResult;		
 	}
 
-	if(Queryesults == ParseResult::SUCCESS)
+	if(queryResults == ParseResult::SUCCESS)
 		return ParseResult::SUCCESS;	
 
 	return ParseResult::FAILURE;

@@ -3,7 +3,7 @@
 #include "binding.cpp"
 void printParts(columnParts* parts)
 {
-    fprintf(traceFile,"\n\n name: %s alias: %s tableName: %s function: %s",parts->columnName, parts->columnAlias, parts->tableAlias, parts->fuction);
+    fprintf(traceFile,"\n\t name: %s alias: %s tableName: %s function: %s",parts->columnName, parts->columnAlias, parts->tableAlias, parts->fuction);
 }
 void printTable(sTable* tbl)
 {
@@ -25,6 +25,8 @@ void printTable(sTable* tbl)
     for(Condition* con : tbl->conditions)
     {
         printParts(con->name);
+        if(con->compareToName != nullptr)
+            printParts(con->compareToName);
         fprintf(traceFile,"\n\t condition condition %s", con->condition);
         fprintf(traceFile,"\n\t condition op        %s", con->op);
         fprintf(traceFile,"\n\t condition value     %s", con->value);

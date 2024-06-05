@@ -74,20 +74,20 @@ class TempColumn : public Column
 class Condition
 {
     public:
-        columnParts* name       = nullptr;
-        columnParts* compareToName   = nullptr;
-        char*   op              = nullptr;  // operator is a reserved word
-        char*   prefix          = nullptr;  // (
-        char*   condition       = nullptr;	// and/or
-        char*   suffix          = nullptr;  // )
-        char*   value           = nullptr;
-        int     intValue        = 0;
-        double  doubleValue     = 0;
-        bool    boolValue       = false;
-        t_tm    dateValue       {};
-        Column* col             {};
-        Column* compareToColumn {};
-        list<char*> valueList   {};
+        columnParts*    name            = nullptr;
+        columnParts*    compareToName   = nullptr;
+        char*           op              = nullptr;  // operator is a reserved word
+        char*           prefix          = nullptr;  // (
+        char*           condition       = nullptr;	// and/or
+        char*           suffix          = nullptr;  // )
+        char*           value           = nullptr;
+        int             intValue        = 0;
+        double          doubleValue     = 0;
+        bool            boolValue       = false;
+        t_tm            dateValue       {};
+        Column*         col             {};
+        Column*         compareToColumn {};
+        list<char*>     valueList       {};
 };
 /******************************************************
  * Base Order/Group
@@ -95,9 +95,9 @@ class Condition
 class OrderOrGroup
 {
     public:
-        Column* col         {};
-        columnParts* name   = nullptr;
-        int     columnNbr   = 0;        //Tells the sort routing which column to sort on
+        Column*         col         {};
+        columnParts*    name        = nullptr;
+        int             columnNbr   = 0;        //Tells the sort routing which column to sort on
 };
 /******************************************************
  * Order By
@@ -185,8 +185,8 @@ Column* BaseData::getColumn(char* _name)
 class sIndex : public BaseData
 {
     public:
-    Index* index;
-    bool openIndex();
+    Index*  index;
+    bool    openIndex();
 };
 /******************************************************
  * Open Index
@@ -227,11 +227,12 @@ class sTable : public BaseData
 class Statement
 {
     public:
-        SQLACTION           action;
-        OrderBy*            orderBy {};
-        GroupBy*            groupBy {};     
-        int                 rowsToReturn;
-        sTable*             table;
+        SQLACTION           action          = SQLACTION::NOACTION;
+        OrderBy*            orderBy         {};
+        GroupBy*            groupBy         {};     
+        int                 rowsToReturn    = 0;
+        id_t                exectionOrder   = 0;
+        sTable*             table           {};
 };
 
 FILE* traceFile;

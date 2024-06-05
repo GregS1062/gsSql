@@ -22,7 +22,7 @@ class Binding
     Column*         assignTemplateColumn(columnParts*,char*);
     ParseResult     bindValueList();
     ParseResult     bindConditions();
-    ParseResult     bindCondition(Condition*);
+    ParseResult     bindCondition(Condition*,bool);
     ParseResult     bindHaving();
     ParseResult     bindOrderBy();
     ParseResult     bindGroupBy();
@@ -185,8 +185,10 @@ ParseResult Binding::bindColumnList()
 {
     if(debug)
         fprintf(traceFile,"\n-------------------- bind column list ----------------");
+    
     // case Insert into table values(....)
-    if(ielements->lstColumns.size() == 0)
+    if(ielements->lstColumns.size() == 0
+    && ielements->sqlAction == SQLACTION::INSERT)
     {
         if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
@@ -507,7 +509,11 @@ ParseResult Binding::bindConditions()
     sTable* tbl;
     for(Condition* con : ielements->lstConditions)
     {
-        if(bindCondition(con) == ParseResult::FAILURE)
+        //Normal binding
+        if(bindCondition(con,false) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        //Bind to compareToColumn
+        if(bindCondition(con,true) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
         tbl = lookup::getTableByName(lstTables,con->col->tableName);
         tbl->conditions.push_back(con);
@@ -518,18 +524,33 @@ ParseResult Binding::bindConditions()
 /******************************************************
  * Bind Condition
  ******************************************************/
-ParseResult Binding::bindCondition(Condition* _con)
+ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
 {
     sTable* tbl;
     Column* col;
-    if(_con->name == nullptr)
+    columnParts* columnName;
+
+    //What is being bound, a normal column or a compareToColumn?
+    if(_compareToColumn)
+    {
+        //It is okay for compareToColumn to be null
+        if(_con->compareToName == nullptr)
+            return ParseResult::SUCCESS;
+
+        columnName = _con->compareToName;
+    }
+    else
+        columnName = _con->name;
+        
+    //It is not okay for normal condition column to be null
+    if(columnName == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition column name is null ");
         return ParseResult::FAILURE;
     }
 
     //Bind column to table
-    tbl = assignTable(_con->name);
+    tbl = assignTable(columnName);
     if(tbl == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find table");
@@ -537,7 +558,7 @@ ParseResult Binding::bindCondition(Condition* _con)
         return ParseResult::FAILURE;
     }
 
-    col = assignTemplateColumn(_con->name,tbl->name);
+    col = assignTemplateColumn(columnName,tbl->name);
     if(col == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column name");
@@ -545,10 +566,18 @@ ParseResult Binding::bindCondition(Condition* _con)
         return ParseResult::FAILURE;
     }
 
-    _con->col = col;
-    _con->col->tableName = tbl->name;
+    if(_compareToColumn)
+    {
+        _con->compareToColumn = col;
+        _con->compareToColumn->tableName = tbl->name;
+    }
+    else
+    {
+        _con->col = col;
+        _con->col->tableName = tbl->name;
+    }
     if(editCondition(_con) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+      return ParseResult::FAILURE;
 
     return ParseResult::SUCCESS;
 }
@@ -800,9 +829,23 @@ ParseResult Binding::editCondition(Condition* _con)
         return ParseResult::FAILURE;
     }
 
-    if(_con->value == nullptr
-    && _con->compareToName != nullptr)
-       return ParseResult::SUCCESS;
+    if(_con->compareToName != nullptr
+    && _con->compareToColumn != nullptr)
+    {
+        if (_con->col->edit != _con->compareToColumn->edit)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Comparing columns of different edits ");
+            return ParseResult::FAILURE;
+        }
+        else
+        {
+            //Without an explicit value, no need for further tests
+            return ParseResult::SUCCESS;
+        }
+    }
+
+    if(_con->compareToName != nullptr)
+        return ParseResult::SUCCESS;
 
     switch(_con->col->edit)
     {

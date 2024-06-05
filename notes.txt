@@ -61,11 +61,39 @@ Functions:
       - acted upon at a row level
       - acted upon at a control break level
 
-HAVING addresses qualifies function statements
+HAVING addresses function statements
     Form:
       group by zipcode Having Count(*) > 10
       group by order Having Max(tax) < 100
       Max(tax) as max tax group by order Having max tax > 50
+-----------------------------------------------------------------------------------------------------------
+Joins
+-----------------------------------------------------------------------------------------------------------
+Statements > 1 trigger the following logic
+  - Subqueries will always be executed first
+  - Joins 
+    - Analyze the indexes
+      - Execution order does not matter if both tables are joined on indexed keys.
+      - if a table is not indexed on join key, execute if first
+  Assign order to statements
+  Sort by execution order
+  Execute first statement
+  Clear parsing objects
+  Feed results of statement into next execute
+    - Fetch merge table row based on index keys
+    - If no index match scan table and follow sequential merge logic
+    - Check join conditions
+    - Merge columns
+  Return to print
 
+-----------------------------------------------------------------------------------------------------------
+Data Access
+-----------------------------------------------------------------------------------------------------------
+  - read
+  - write
+  - append
+  - find: returns location by key
+  - Next: returns location by location
+  - SearchRange: returns location list by key
 
 

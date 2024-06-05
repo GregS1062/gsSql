@@ -69,7 +69,11 @@ void ParseQuery::clear()
 ParseResult ParseQuery::parse(const char* _queryString)
 {
     if(debug)
-        fprintf(traceFile,"\n\n-------------------------BEGIN QUERY PARSE-------------------------------------------");
+    {
+        fprintf(traceFile,"\n\n***************************************************************");
+        fprintf(traceFile,"\n                 BEGIN QUERY PARSE");
+        fprintf(traceFile,"\n\n***************************************************************");
+    }
    
     tokenParser* tok = new tokenParser();
     queryString       = tok->cleanString((char*)_queryString);
@@ -166,7 +170,7 @@ ParseResult ParseQuery::parseSelect()
     }
 
     ParseClause* parseClause = new ParseClause();
-    parseClause->parseSelect((char*)queryString);
+    parseClause->process((char*)queryString);
     iClauses* iclause = parseClause->iClause;
 
     iElement = new iElements();
@@ -432,15 +436,16 @@ ParseResult ParseQuery::parseColumnNameValueList(char* _workingString)
  ******************************************************/
 ParseResult ParseQuery::parseDelete()
 {
-    //----------------------------------------------------------
-    // Parse Table List
-    //----------------------------------------------------------
-    signed int posFrom     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenFrom);
-    
     if(debug)
-        fprintf(traceFile,"\nQuery string after top %s",queryString);
+        fprintf(traceFile,"\nQuery string %s",queryString);
+    //----------------------------------------------------------
+    // Parse Delete
+    //----------------------------------------------------------
+    signed int posDelete     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenDelete);
     
-    char* strTableList = dupString(queryString+posFrom+1+strlen(sqlTokenFrom));
+    iElement->sqlAction = sqlAction;
+    
+    char* strTableList = dupString(queryString+posDelete+1+strlen(sqlTokenDelete));
 
     signed int posWhere =lookup::findDelimiter(strTableList, (char*)sqlTokenWhere);
 

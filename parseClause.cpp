@@ -16,7 +16,7 @@ class ParseClause
         signed int isJoin(char*);
 };
 /******************************************************
- * Process Select
+ * Process Process
  ******************************************************/
 ParseResult ParseClause::process(char* _queryString)
 {
@@ -174,6 +174,9 @@ ParseResult ParseClause::parseJoin(char* _queryString)
 {
      if(parseOrderByGroup(_queryString) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
+
+    if(debug)
+        fprintf(traceFile,"\n-------------------------  Parse Join ------------------------");
     //----------------------------------------------------------
     // Join Conditions
     //----------------------------------------------------------

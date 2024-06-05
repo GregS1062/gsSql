@@ -14,4 +14,5 @@ X condition alias failing
 X select top 25 o.* from orders o where o.tax > 14000
 X select top 25 orderdate from orders
 X order by desc not working.
+  Delete not working properly  true and false reversed
 

@@ -25,7 +25,7 @@ X   index primary on all tables
 Build
 X   order by sort
 X   group by
-    having
+X   having
 X   functions
 X    asc/dsc
 X    column alias

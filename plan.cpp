@@ -7,7 +7,9 @@
 #include "prepareQuery.cpp"
 #include "parseQuery.cpp"
 #include "binding.cpp"
-#include "sqlEngine.cpp"
+#include "sqlSelectEngine.cpp"
+#include "sqlJoinEngine.cpp"
+#include "sqlModifyEngine.cpp"
 #include "printDiagnostics.cpp"
 #include "functions.cpp"
 
@@ -26,21 +28,25 @@ class Plan
         3) A given statement may contain columns for another statement, these must be resolved
 
         Prepare
-        1) Validates if query is well-formed
-        2) Query is divided into subqueries
-        3) Subqueries divided into clauses
-        4) Clauses divided into elements
-        5) Elements are bound into columns and values
-        6) Columns and values are bound into statements
+        1) Validate that query is well-formed
+        2) Divide query into subqueries
+        3) divide subqueries into clauses
+        4) Divide clauses into elements
+        5) bind elements into tables, columns, functions and values
+        6) Bind tables, columns, functions and values into statements 
 
         Execute
+         - Analyze statements to determine order of execution
+            Rules:
+                - Subqueries go first 
+                - Where an indexed join, read the table with the least rows first
+                - Where an indexed join, read the table with a "where" condition
 
     ----------------------------------------------------------------------------------------------*/
     // This will be a merged list of tables in the query including selects and joins
     //      It is required by bind because column names in the select may belong to one of the join
     //      tables
     list<char*>         lstDeclaredTables;
-    //
     ParseQuery*         parseQuery;
     list<Statement*>    lstStatements;
     list<char*>         queries;
@@ -54,6 +60,7 @@ class Plan
         ParseResult     split(char*);
         ParseResult     prepare(char*);
         ParseResult     execute();
+        ParseResult     determineExecutionOrder();
 };
 /******************************************************
  * Prepare
@@ -75,6 +82,8 @@ ParseResult Plan::prepare(char* _queryString)
     // 3 And 4)
     for(char* query : queries)
     {
+        if(debug)
+            fprintf(traceFile,"\nQuery statements to be parse %s",_queryString);
         if(parseQuery->parse(query) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
 
@@ -82,7 +91,8 @@ ParseResult Plan::prepare(char* _queryString)
             lstDeclaredTables.push_back(parseQuery->iElement->tableName);
         
         if(parseQuery->iElement->lstColumns.size() == 0
-        && parseQuery->iElement->lstValues.size() == 0)
+        && parseQuery->iElement->lstValues.size() == 0
+        && parseQuery->iElement->sqlAction == SQLACTION::SELECT)
         {
             fprintf(traceFile,"\n nothing in column list ");
             break;
@@ -96,6 +106,8 @@ ParseResult Plan::prepare(char* _queryString)
     binding->bindTableList(lstDeclaredTables);
     for(iElements* ielement : lstElements)
     {
+        if(debug)
+            fprintf(traceFile,"\n iElement tablename %s",ielement->tableName);
         // 6)
         Statement* statement = binding->bind(ielement);
         if(statement != nullptr)
@@ -114,7 +126,7 @@ ParseResult Plan::prepare(char* _queryString)
  ******************************************************/
 ParseResult Plan::execute()
 {
-    sqlEngine* engine = new sqlEngine(isqlTables);
+
     if(lstStatements.size() == 0)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Bind produced no statements");
@@ -145,11 +157,124 @@ ParseResult Plan::execute()
                 break;
             }   
         } 
-        
-        if(engine->execute(statement) == ParseResult::FAILURE)
-            return ParseResult::FAILURE;
-        
-        results = engine->results;
+
+        switch(statement->action)
+        {
+            case SQLACTION::CREATE:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+
+            case SQLACTION::NOACTION:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::SELECT:
+            {
+                sqlSelectEngine* sqlSelect = new sqlSelectEngine();
+                if(sqlSelect->execute(statement) == ParseResult::FAILURE)
+                {
+                    delete sqlSelect;
+                    return ParseResult::FAILURE;
+                };
+                results = sqlSelect->results;
+                break;
+            }
+            case SQLACTION::INSERT:
+            {
+                sqlModifyEngine* sqlModify = new sqlModifyEngine();
+                if(sqlModify->insert(statement) == ParseResult::FAILURE)
+                {
+                    delete sqlModify;
+                    return ParseResult::FAILURE;
+                };
+                results = sqlModify->results;
+                break;
+            }
+            case SQLACTION::UPDATE:
+            {
+                sqlModifyEngine* sqlModify = new sqlModifyEngine();
+                if(sqlModify->update(statement) == ParseResult::FAILURE)
+                {
+                    delete sqlModify;
+                    return ParseResult::FAILURE;
+                };
+                results = sqlModify->results;
+                break;
+            }
+            case SQLACTION::DELETE:
+            {
+                /*
+                    NOTE: Update and Delete use the same logic
+                */
+                sqlModifyEngine* sqlModify = new sqlModifyEngine();
+                if(sqlModify->update(statement) == ParseResult::FAILURE)
+                {
+                    delete sqlModify;
+                    return ParseResult::FAILURE;
+                };
+                results = sqlModify->results;
+                break;
+            }
+            case SQLACTION::INVALID:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Invalid SQL Action");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::JOIN:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::LEFT:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::RIGHT:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::INNER:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::OUTER:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::FULL:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::NATURAL:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+            case SQLACTION::CROSS:
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
+                return ParseResult::FAILURE;
+                break;
+            }
+        }
 
         if(results == nullptr)
         {
@@ -235,13 +360,13 @@ ParseResult Plan::printFunctions(resultList* _results)
     return ParseResult::SUCCESS;
 }
 
-
 /******************************************************
  * Process Split
  ******************************************************/
 ParseResult Plan::split(char* _queryString)
 {
-
+    if(debug)
+        fprintf(traceFile,"\n------------- split ----------------");
     int offset = 6;
     list<char*>lstDelimiters;
     char* query;
@@ -257,6 +382,8 @@ ParseResult Plan::split(char* _queryString)
     signed int found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
     if(found == NEGATIVE)
     {
+        if(debug)
+            fprintf(traceFile,"\nNo delimiters found %s",_queryString);
         queries.push_back(_queryString);
         return ParseResult::SUCCESS;
     }
@@ -265,14 +392,32 @@ ParseResult Plan::split(char* _queryString)
         //select * from orders Join Author 
         query = dupString(_queryString);
         query[found+offset] = '\0';
+        if(debug)
+            fprintf(traceFile,"\n%s",query);
         queries.push_back(query);
         _queryString = dupString(_queryString+found+offset);
         found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
     }
     if(strlen(_queryString) > 0)
     {
+        if(debug)
+            fprintf(traceFile,"\ndrop though %s",_queryString);
         queries.push_back(_queryString);
     }
+    return ParseResult::SUCCESS;
+}
+ParseResult Plan::determineExecutionOrder()
+{
+    /*
+      - Subqueries will always be executed first
+    - Joins 
+        - Analyze the indexes
+        - Execution order does not matter if both tables are joined on indexed keys.
+        - if a table is not indexed on join key, execute if first
+    */
+    if(lstStatements.size() < 2)
+        return ParseResult::SUCCESS;
+
     return ParseResult::SUCCESS;
 }
 
