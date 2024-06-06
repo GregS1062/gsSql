@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
                 script = "t105-select-order-by-orderid";
                 break;
             case 21:
-                script = "t200-Join-Books-on-Author";
+                script = "t200-Join-Orders-On-Customers";
                 break;
             case 22:
                 script = "t201-Join-Books-on-Translator";

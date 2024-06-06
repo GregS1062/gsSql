@@ -228,8 +228,13 @@ ParseResult Plan::execute()
             }
             case SQLACTION::JOIN:
             {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Joins not implemented at this time");
-                return ParseResult::FAILURE;
+                sqlJoinEngine* sqlJoin = new sqlJoinEngine();
+                if(sqlJoin->join(statement, results) == ParseResult::FAILURE)
+                {
+                    delete sqlJoin;
+                    return ParseResult::FAILURE;
+                };
+                results = sqlJoin->results;
                 break;
             }
             case SQLACTION::LEFT:
@@ -299,9 +304,10 @@ ParseResult Plan::execute()
 			if(orderBy->order.size() > 0)
 				results->orderBy(orderBy);
 
-		results->print();
+		
 
     }
+    results->print();
     return ParseResult::SUCCESS;
 }
 /******************************************************

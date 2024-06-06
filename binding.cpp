@@ -518,6 +518,18 @@ ParseResult Binding::bindConditions()
         tbl = lookup::getTableByName(lstTables,con->col->tableName);
         tbl->conditions.push_back(con);
     }
+
+    for(Condition* con : ielements->lstJoinConditions)
+    {
+        //Normal binding
+        if(bindCondition(con,false) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        //Bind to compareToColumn
+        if(bindCondition(con,true) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+       //TODO tbl = lookup::getTableByName(lstTables,con->col->tableName);
+        defaultTable->conditions.push_back(con);
+    }
      
     return ParseResult::SUCCESS;
 }
@@ -537,10 +549,16 @@ ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
         if(_con->compareToName == nullptr)
             return ParseResult::SUCCESS;
 
+        if(debug)
+            fprintf(traceFile,"\nbinding condition compareToName %s %s",_con->compareToName->columnName, _con->compareToName->columnAlias);
         columnName = _con->compareToName;
     }
     else
+    {
+        if(debug)
+            fprintf(traceFile,"\nbinding condition name %s %s",_con->name->columnName, _con->name->columnAlias);
         columnName = _con->name;
+    }
         
     //It is not okay for normal condition column to be null
     if(columnName == nullptr)

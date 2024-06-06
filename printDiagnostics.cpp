@@ -31,6 +31,7 @@ void printTable(sTable* tbl)
         fprintf(traceFile,"\n\t condition op        %s", con->op);
         fprintf(traceFile,"\n\t condition value     %s", con->value);
     }
+    fprintf(traceFile,"\n\n Indexes ");
     for(sIndex* idx : tbl->indexes)
     {
         fprintf(traceFile,"\n\t index name %s", idx->name);

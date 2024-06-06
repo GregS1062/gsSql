@@ -1,0 +1,164 @@
+
+ query=select top 5 orders.*, c.surname from orders 
+join customers c 
+on orders.custid = customers.custid 
+
+------------- split ----------------
+select top 5 orders.*, c.surname from orders 
+drop though join customers c on orders.custid = customers.custid
+Query statements to be parse select top 5 orders.*, c.surname from orders 
+join customers c 
+on orders.custid = customers.custid
+
+***************************************************************
+                 BEGIN QUERY PARSE
+
+***************************************************************
+ query=select top 5 orders.*, c.surname from orders 
+ determine action
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = select top 5 orders.*, c.surname from orders 
+
+-------------------------PARSE CLAUSES - SELECT -------------------------------------------
+Query String = select top 5 orders.*, c.surname from orders 
+
+-----------Parse Table List----------------
+tableString: orders 
+token  orders 
+
+-----------Parse Column List----------------
+Column string:orders.*, c.surname 
+ Column parts: function:(null) name:* alias:(null) table Alias orders
+ Column parts: function:(null) name:surname alias:(null) table Alias c
+
+-----------Parse Conditions----------------
+Condition:(null)
+
+-----------Parse Conditions----------------
+Join Condition:(null)
+
+-----------Parse Order by----------------
+OrderBy string:(null)
+
+-----------Parse Group by----------------
+Group By string:(null)
+
+-----------Parse Conditions----------------
+Having Condition:(null)
+Query statements to be parse select top 5 orders.*, c.surname from orders 
+join customers c 
+on orders.custid = customers.custid
+
+***************************************************************
+                 BEGIN QUERY PARSE
+
+***************************************************************
+ query=join customers c on orders.custid =customers.custid
+ determine action
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = join customers c on orders.custid =customers.custid
+-------------------------  Parse Join ------------------------
+
+-----------Parse Table List----------------
+tableString: customers c 
+token  customers c 
+
+-----------Parse Column List----------------
+Column string:(null)
+
+-----------Parse Conditions----------------
+Condition:(null)
+
+-----------Parse Conditions----------------
+Join Condition: orders.custid =customers.custid
+token=orders.custid
+ Column parts: function:(null) name:custid alias:(null) table Alias orders
+token==
+token=customers.custid
+ Column parts: function:(null) name:custid alias:(null) table Alias customers
+
+-----------Parse Order by----------------
+OrderBy string:(null)
+
+-----------Parse Group by----------------
+Group By string:(null)
+
+-----------Parse Conditions----------------
+Having Condition:(null)
+ table name  orders || 
+
+ tp1:orders| tp2:(null)|
+ table name  customers c || 
+
+ tp1:customers| tp2:c|
+ iElement tablename orders
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name orders
+-------------------- bind column list ----------------
+-------------------- Populate table  ----------------
+----------------------- bind order by -----------------------------------
+----------------------- bind group by -----------------------------------
+ iElement tablename customers c
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name customers c
+-------------------- bind column list ----------------
+binding condition name custid (null)
+binding condition compareToName custid (null)
+----------------------- bind order by -----------------------------------
+----------------------- bind group by -----------------------------------
+*******************************************
+ Statement Table
+*******************************************
+ table name orders alias (null)
+	 column name deleted alias (null) value (null) function 0
+	 column name status alias (null) value (null) function 0
+	 column name orderid alias (null) value (null) function 0 PRIMARY
+	 column name custid alias (null) value (null) function 0
+	 column name orderdate alias (null) value (null) function 0
+	 column name duedate alias (null) value (null) function 0
+	 column name shipdate alias (null) value (null) function 0
+	 column name tax alias (null) value (null) function 0
+	 column name freight alias (null) value (null) function 0
+	 column name totaldue alias (null) value (null) function 0
+
+ Conditions
+
+ Indexes 
+	 index name orderid  file name /home/greg/projects/test/testIndex/orderid.idx
+		 index column name orderid
+	 index name orderid  file name /home/greg/projects/test/testIndex/itemOrder.idx
+		 index column name orderid
+
+-------------------------BEGIN SELECT ENGINE-------------------------------------------
+*******************************************
+ Statement Table
+*******************************************
+ table name customers alias c
+	 column name surname alias (null) value (null) function 0
+
+ Conditions
+	 name: custid alias: (null) tableName: orders function: (null)
+	 name: custid alias: (null) tableName: customers function: (null)
+	 condition condition  
+	 condition op        =
+	 condition value     (null)
+
+ Indexes 
+	 index name customerid  file name /home/greg/projects/test/testIndex/custid.idx
+		 index column name custid
+ 
+deleted status orderid    custid     orderdate       duedate         shipdate        tax     freight totaldue T0   SO43659    000029825  5/31/2011       6/12/2011       6/7/2011        $20565.62$1971.51$616.10 
+T0   SO43660    000029672  5/31/2011       6/12/2011       6/7/2011        $1294.25$124.25 $38.83  
+T0   SO43661    000029734  5/31/2011       6/12/2011       6/7/2011        $32726.48$3153.77$985.55 
+T0   SO43662    000029994  5/31/2011       6/12/2011       6/7/2011        $28832.53$2775.16$867.24 
+T0   SO43663    000029565  5/31/2011       6/12/2011       6/7/2011        $419.46 $40.27  $12.58  
+
+ 
+Table scan: rows scanned 5
+rows returned 5
+ 
+
