@@ -1,5 +1,5 @@
-CREATE TABLE customers as "/home/greg/projects/test/testData/Customers.dat"
-(
+CREATE TABLE customers as "/home/greg/projects/test/testData/Customers.dat" 
+( 
     deleted         bool,
     custid          char(11),
     givenname       char(21),

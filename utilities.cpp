@@ -41,6 +41,8 @@ void messageTEXT(MESSAGETYPE _type, bool _newLine, const char* _msg)
 		errText.append(msg);
 	else
 		msgText.append(msg);
+
+	//printf("\n%s %s",errText.c_str(),msgText.c_str());
 }
 /*******************************************************
    Message HTML
@@ -79,7 +81,7 @@ void messageHTML(MESSAGETYPE _type, bool _newLine, const char* _msg)
 	}
 };
 /*******************************************************
-   Send Message
+   Send Message char*
 *******************************************************/
 void sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, const char* _msg)
 {
@@ -90,6 +92,21 @@ void sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, c
 		messageHTML(_type,_newLine,_msg);
 	else
 		messageTEXT(_type,_newLine,_msg);
+}
+/*******************************************************
+   Send Message string
+*******************************************************/
+void sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, string _msg)
+{
+	sendMessage(_type,_presentation,_newLine, _msg.c_str());
+}
+/*******************************************************
+   Send Message string, string (just makes life easier)
+*******************************************************/
+void sendMessage( MESSAGETYPE _type, PRESENTATION _presentation,bool _newLine, string _msg, string _msg2)
+{
+	sendMessage(_type,_presentation,_newLine, _msg.c_str());
+	sendMessage(_type,_presentation,false, _msg2.c_str());
 }
 /*******************************************************
    Pad Left

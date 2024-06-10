@@ -17,9 +17,9 @@ class Binding
     iElements*       ielements;
     
     ParseResult     bindColumnList();
-    ParseResult     bindFunctionColumn(columnParts*);
-    sTable*         assignTable(columnParts*);
-    Column*         assignTemplateColumn(columnParts*,char*);
+    ParseResult     bindFunctionColumn(std::shared_ptr<columnParts>);
+    sTable*         assignTable(std::shared_ptr<columnParts>);
+    Column*         assignTemplateColumn(std::shared_ptr<columnParts>,char*);
     ParseResult     bindValueList();
     ParseResult     bindConditions();
     ParseResult     bindCondition(Condition*,bool);
@@ -33,9 +33,9 @@ class Binding
 
     public:
 
-    OrderBy*         orderBy    = new OrderBy();
-    GroupBy*         groupBy    = new GroupBy();  
-    ParseResult      bindTableList(list<char*>);
+    shared_ptr<OrderBy> orderBy = make_shared<OrderBy>(); 
+    shared_ptr<GroupBy> groupBy = make_shared<GroupBy>(); 
+    ParseResult         bindTableList(list<char*>);
     list<sTable*>    lstTables;  //public for diagnostic purposes
 
     Binding(iSQLTables*);
@@ -197,10 +197,10 @@ ParseResult Binding::bindColumnList()
 
     sTable* tbl;
     Column* col;
-    for(columnParts* parts : ielements->lstColumns)
+    for(std::shared_ptr<columnParts> parts : ielements->lstColumns)
     {
         //Case 1: function
-        if(parts->fuction != nullptr)
+        if(strlen(parts->fuction) > 0)
         {
            if(bindFunctionColumn(parts) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
@@ -232,10 +232,10 @@ ParseResult Binding::bindColumnList()
             return ParseResult::FAILURE;
         }
         
-        if(parts->columnAlias != nullptr)
+        if(strlen(parts->columnAlias) > 0)
             col->alias = parts->columnAlias;
 
-        if(parts->value != nullptr)
+        if(strlen(parts->value) > 0)
         {
             if(editColumn(col,parts->value) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
@@ -249,11 +249,10 @@ ParseResult Binding::bindColumnList()
 /******************************************************
  * Assign Table
  ******************************************************/
-sTable* Binding::assignTable(columnParts* _parts)
+sTable* Binding::assignTable(std::shared_ptr<columnParts> _parts)
 {
     sTable* tbl;
-    
-    if(_parts->tableAlias != nullptr)
+    if(strlen(_parts->tableAlias) > 0)
     {
         // case 1:  theTable.theColumn  prefix is table name
         tbl = lookup::getTableByName(lstTables,_parts->tableAlias);
@@ -290,7 +289,7 @@ sTable* Binding::assignTable(columnParts* _parts)
 /******************************************************
  * Assign Template Column
  ******************************************************/
-Column*  Binding::assignTemplateColumn(columnParts* _parts,char* _tableName)
+Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char* _tableName)
 {
     sTable* tbl = lookup::getTableByName(isqlTables->tables, _tableName);
     if(tbl == nullptr)
@@ -317,7 +316,7 @@ Column*  Binding::assignTemplateColumn(columnParts* _parts,char* _tableName)
 /******************************************************
  * Bind Function Columns
  ******************************************************/
- ParseResult Binding::bindFunctionColumn(columnParts* _parts)
+ ParseResult Binding::bindFunctionColumn(std::shared_ptr<columnParts> _parts)
 {
     if(debug)
         fprintf(traceFile,"\n------------------bind function------------");
@@ -356,7 +355,7 @@ Column*  Binding::assignTemplateColumn(columnParts* _parts,char* _tableName)
             col->functionType = t_function::COUNT;
             col->name = (char*)"COUNT";
             col->edit   = t_edit::t_int;
-            if(_parts->columnAlias != nullptr)
+            if(strlen(_parts->columnAlias) > 0)
                 col->alias  = _parts->columnAlias;
             defaultTable->columns.push_front(col);
             return ParseResult::SUCCESS;
@@ -407,7 +406,7 @@ Column*  Binding::assignTemplateColumn(columnParts* _parts,char* _tableName)
             fprintf(traceFile,"\nCounld not find function type");
             return ParseResult::FAILURE;
     }
-    if(_parts->columnAlias)
+    if(strlen(_parts->columnAlias) > 0)
         col->alias = _parts->columnAlias;
 
     if(col->alias == nullptr)
@@ -540,7 +539,7 @@ ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
 {
     sTable* tbl;
     Column* col;
-    columnParts* columnName;
+    std::shared_ptr<columnParts> columnName;
 
     //What is being bound, a normal column or a compareToColumn?
     if(_compareToColumn)
@@ -610,10 +609,7 @@ ParseResult Binding::bindOrderBy()
     Column* col;
 
     if (ielements->orderBy == nullptr)
-    {
-        orderBy = nullptr;
         return ParseResult::SUCCESS;
-    }
         
 
     orderBy->asc = ielements->orderBy->asc;
@@ -654,7 +650,6 @@ ParseResult Binding::bindOrderBy()
         }
         order.columnNbr = columnNbr;
         order.col = col;
-
         orderBy->order.push_back(order);
         
         if(debug)
@@ -673,13 +668,12 @@ ParseResult Binding::bindGroupBy()
 
     if(ielements->groupBy == nullptr)
     {
-        groupBy = nullptr;
+        fprintf(traceFile,"\nielemenst->groupBy = null");
         return ParseResult::SUCCESS;
     }
 
     sTable* tbl;
     Column* col;
-
     for(OrderOrGroup group : ielements->groupBy->group)
     {
         //Bind column to table

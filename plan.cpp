@@ -23,14 +23,14 @@ class Plan
         1) A query will be broken into statements
             Example: 
                 statement 1) Select c.*, o.orderid o.totalAmount from customers c 
-                statement 2 join on orders o where c.custid = o.custid group by c.zipCode
+                statement 2) join on orders o where c.custid = o.custid group by c.zipCode
         2) Each statement will have one and only one table
         3) A given statement may contain columns for another statement, these must be resolved
 
         Prepare
         1) Validate that query is well-formed
         2) Divide query into subqueries
-        3) divide subqueries into clauses
+        3) Divide subqueries into clauses
         4) Divide clauses into elements
         5) bind elements into tables, columns, functions and values
         6) Bind tables, columns, functions and values into statements 
@@ -47,29 +47,35 @@ class Plan
     //      It is required by bind because column names in the select may belong to one of the join
     //      tables
     list<char*>         lstDeclaredTables;
-    ParseQuery*         parseQuery;
-    list<Statement*>    lstStatements;
+    list<Statement>     lstStatements;
     list<char*>         queries;
     list<iElements*>    lstElements;
-    OrderBy*            orderBy     = nullptr;
-    GroupBy*            groupBy     = nullptr; 
+    list<Column>        reportColumns;
+    iSQLTables*         isqlTables;
+    shared_ptr<OrderBy> orderBy;
+    shared_ptr<GroupBy> groupBy; 
     ParseResult         printFunctions(resultList* _results);
     
     public:
-        iSQLTables*     isqlTables = new iSQLTables();
-        ParseResult     split(char*);
+        Plan(iSQLTables*);
+        ParseResult     split(shared_ptr<char[]>);
         ParseResult     prepare(char*);
         ParseResult     execute();
         ParseResult     determineExecutionOrder();
 };
+Plan::Plan(iSQLTables* _isqlTables)
+{
+    isqlTables = _isqlTables;
+}
 /******************************************************
  * Prepare
  ******************************************************/
 ParseResult Plan::prepare(char* _queryString)
 {
+    ParseQuery parseQuery;
 
     // 1)
-    char* querystr = sanitizeQuery(_queryString);
+    shared_ptr<char[]> querystr = sanitizeQuery(_queryString,MAXSQLSTRINGSIZE);
     if( querystr == nullptr)
         return ParseResult::FAILURE;
 
@@ -77,28 +83,26 @@ ParseResult Plan::prepare(char* _queryString)
     if(split(querystr) == ParseResult::FAILURE)
         return ParseResult::FAILURE;
 
-    parseQuery = new ParseQuery();
-
     // 3 And 4)
     for(char* query : queries)
     {
         if(debug)
             fprintf(traceFile,"\nQuery statements to be parse %s",_queryString);
-        if(parseQuery->parse(query) == ParseResult::FAILURE)
+        if(parseQuery.parse(query) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
 
-        if(parseQuery->iElement->tableName != nullptr)
-            lstDeclaredTables.push_back(parseQuery->iElement->tableName);
+        if(parseQuery.iElement->tableName != nullptr)
+            lstDeclaredTables.push_back(parseQuery.iElement->tableName);
         
-        if(parseQuery->iElement->lstColumns.size() == 0
-        && parseQuery->iElement->lstValues.size() == 0
-        && parseQuery->iElement->sqlAction == SQLACTION::SELECT)
+        if(parseQuery.iElement->lstColumns.size() == 0
+        && parseQuery.iElement->lstValues.size() == 0
+        && parseQuery.iElement->sqlAction == SQLACTION::SELECT)
         {
             fprintf(traceFile,"\n nothing in column list ");
             break;
         }
         
-        lstElements.push_back(parseQuery->iElement);
+        lstElements.push_back(parseQuery.iElement);
     }
             
     // 5)
@@ -109,10 +113,8 @@ ParseResult Plan::prepare(char* _queryString)
         if(debug)
             fprintf(traceFile,"\n iElement tablename %s",ielement->tableName);
         // 6)
-        Statement* statement = binding->bind(ielement);
-        if(statement != nullptr)
-            lstStatements.push_back(statement);
-        if(binding->orderBy != nullptr)
+        lstStatements.push_back(*binding->bind(ielement));
+        if(binding->orderBy != nullptr )
             orderBy                 = binding->orderBy;
         if(binding->groupBy != nullptr)
             groupBy                 = binding->groupBy;
@@ -122,7 +124,7 @@ ParseResult Plan::prepare(char* _queryString)
     return ParseResult::SUCCESS;
 }
 /******************************************************
- * Prepare
+ * Execute
  ******************************************************/
 ParseResult Plan::execute()
 {
@@ -135,12 +137,12 @@ ParseResult Plan::execute()
 
     resultList*		results;
 
-    for(Statement* statement : lstStatements)
+    for(Statement statement : lstStatements)
     {
         if(debug)
         {
-            if(statement->table != nullptr)
-                printTable(statement->table);
+            if(statement.table != nullptr)
+                printTable(statement.table);
             if(orderBy != nullptr)
                 printOrderBy(orderBy);
             if(groupBy != nullptr)
@@ -149,7 +151,7 @@ ParseResult Plan::execute()
 
         //Were any functions asked for?
         bool functions = false;
-        for(Column* col : statement->table->columns)
+        for(Column* col : statement.table->columns)
         {
             if(col->functionType != t_function::NONE)
             {
@@ -158,7 +160,7 @@ ParseResult Plan::execute()
             }   
         } 
 
-        switch(statement->action)
+        switch(statement.action)
         {
             case SQLACTION::CREATE:
             {
@@ -175,35 +177,30 @@ ParseResult Plan::execute()
             }
             case SQLACTION::SELECT:
             {
-                sqlSelectEngine* sqlSelect = new sqlSelectEngine();
-                if(sqlSelect->execute(statement) == ParseResult::FAILURE)
+                sqlSelectEngine sqlSelect;;
+                if(sqlSelect.execute(statement) == ParseResult::FAILURE)
                 {
-                    delete sqlSelect;
                     return ParseResult::FAILURE;
                 };
-                results = sqlSelect->results;
+                results = sqlSelect.results;
                 break;
             }
             case SQLACTION::INSERT:
             {
-                sqlModifyEngine* sqlModify = new sqlModifyEngine();
-                if(sqlModify->insert(statement) == ParseResult::FAILURE)
+                sqlModifyEngine sqlModify;
+                if(sqlModify.insert(statement) == ParseResult::FAILURE)
                 {
-                    delete sqlModify;
                     return ParseResult::FAILURE;
                 };
-                results = sqlModify->results;
                 break;
             }
             case SQLACTION::UPDATE:
             {
-                sqlModifyEngine* sqlModify = new sqlModifyEngine();
-                if(sqlModify->update(statement) == ParseResult::FAILURE)
+                sqlModifyEngine sqlModify;
+                if(sqlModify.update(statement) == ParseResult::FAILURE)
                 {
-                    delete sqlModify;
                     return ParseResult::FAILURE;
                 };
-                results = sqlModify->results;
                 break;
             }
             case SQLACTION::DELETE:
@@ -211,13 +208,11 @@ ParseResult Plan::execute()
                 /*
                     NOTE: Update and Delete use the same logic
                 */
-                sqlModifyEngine* sqlModify = new sqlModifyEngine();
-                if(sqlModify->update(statement) == ParseResult::FAILURE)
+                sqlModifyEngine sqlModify;
+                if(sqlModify.update(statement) == ParseResult::FAILURE)
                 {
-                    delete sqlModify;
                     return ParseResult::FAILURE;
                 };
-                results = sqlModify->results;
                 break;
             }
             case SQLACTION::INVALID:
@@ -228,13 +223,12 @@ ParseResult Plan::execute()
             }
             case SQLACTION::JOIN:
             {
-                sqlJoinEngine* sqlJoin = new sqlJoinEngine();
-                if(sqlJoin->join(statement, results) == ParseResult::FAILURE)
+                sqlJoinEngine sqlJoin;;
+                if(sqlJoin.join(statement, results) == ParseResult::FAILURE)
                 {
-                    delete sqlJoin;
                     return ParseResult::FAILURE;
                 };
-                results = sqlJoin->results;
+                results = sqlJoin.results;
                 break;
             }
             case SQLACTION::LEFT:
@@ -296,15 +290,11 @@ ParseResult Plan::execute()
             return ParseResult::SUCCESS;
         }
 
-		if(groupBy != nullptr)
-			if(groupBy->group.size() > 0)
-				results->groupBy(groupBy,functions);
+		if(groupBy->group.size() > 0)
+			results->groupBy(groupBy,functions);
         
-        if(orderBy != nullptr)
-			if(orderBy->order.size() > 0)
-				results->orderBy(orderBy);
-
-		
+		if(orderBy->order.size() > 0)
+			results->orderBy(orderBy);
 
     }
     results->print();
@@ -369,12 +359,13 @@ ParseResult Plan::printFunctions(resultList* _results)
 /******************************************************
  * Process Split
  ******************************************************/
-ParseResult Plan::split(char* _queryString)
+ParseResult Plan::split(shared_ptr<char[]> _queryString)
 {
     if(debug)
         fprintf(traceFile,"\n------------- split ----------------");
     int offset = 6;
     list<char*>lstDelimiters;
+    char* queryString = _queryString.get();
     char* query;
     lstDelimiters.push_back((char*)sqlTokenInsert);
     lstDelimiters.push_back((char*)sqlTokenDelete);
@@ -385,30 +376,30 @@ ParseResult Plan::split(char* _queryString)
     lstDelimiters.push_back((char*)sqlTokenLeftJoin);
     lstDelimiters.push_back((char*)sqlTokenRightJoin);
     lstDelimiters.push_back((char*)sqlTokenJoin);
-    signed int found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
+    signed int found = lookup::findDelimiterFromList(queryString+offset,lstDelimiters);
     if(found == NEGATIVE)
     {
         if(debug)
-            fprintf(traceFile,"\nNo delimiters found %s",_queryString);
-        queries.push_back(_queryString);
+            fprintf(traceFile,"\nNo delimiters found %s",queryString);
+        queries.push_back(queryString);
         return ParseResult::SUCCESS;
     }
     while(found > 0)
     {
         //select * from orders Join Author 
-        query = dupString(_queryString);
+        query = dupString(queryString);
         query[found+offset] = '\0';
         if(debug)
             fprintf(traceFile,"\n%s",query);
         queries.push_back(query);
-        _queryString = dupString(_queryString+found+offset);
-        found = lookup::findDelimiterFromList(_queryString+offset,lstDelimiters);
+        queryString = dupString(queryString+found+offset);
+        found = lookup::findDelimiterFromList(queryString+offset,lstDelimiters);
     }
-    if(strlen(_queryString) > 0)
+    if(strlen(queryString) > 0)
     {
         if(debug)
-            fprintf(traceFile,"\ndrop though %s",_queryString);
-        queries.push_back(_queryString);
+            fprintf(traceFile,"\ndrop though %s",queryString);
+        queries.push_back(queryString);
     }
     return ParseResult::SUCCESS;
 }

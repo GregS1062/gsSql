@@ -18,30 +18,30 @@ using namespace std;
 
 class sqlParser
 {
-    public:
+
     char*           sqlString;
     signed int      sqlStringLength;
     tokenParser*    tok;
     sTable*         table;
-    iSQLTables*     isqlTables;
+    ParseResult     createTable();
+    ParseResult     createIndex();
+    ParseResult     parseColumns(char*);
+    ParseResult     parsePrimaryKey();
+    ParseResult     parseColumnEdit(Column*);
+    ParseResult     calculateTableColumnValues(sTable*);
 
-    sqlParser(char*,iSQLTables*);
-    ParseResult parse();
-    ParseResult createTable();
-    ParseResult createIndex();
-    ParseResult parseColumns(char*);
-    ParseResult parsePrimaryKey();
-    ParseResult parseColumnEdit(Column*);
-    ParseResult calculateTableColumnValues(sTable*);
+    public:
+        iSQLTables*     isqlTables = new iSQLTables();
+        sqlParser(string);
+        ParseResult parse();
 
 };
 /******************************************************
  * SQL Parser Constructor
  ******************************************************/
-sqlParser::sqlParser(char* _sqlString, iSQLTables* _isqlTables)
+sqlParser::sqlParser(string _sqlString)
 {
-    isqlTables         = _isqlTables;
-    sqlString         = _sqlString;
+    sqlString         = (char*)_sqlString.c_str();
     sqlStringLength   = (signed int)strlen(sqlString);
     tok               = new tokenParser(sqlString);
 }
@@ -296,9 +296,9 @@ ParseResult sqlParser::parseColumnEdit(Column* _col)
         {
             errText.append("sql parser expecting a number for column length. See ");
             errText.append(_col->name);
-            errText.append("  ");
+            errText.append(":");
             errText.append(token);
-            errText.append("  ");
+            errText.append(":");
             return ParseResult::FAILURE;
         }
         _col->length = atoi(token);

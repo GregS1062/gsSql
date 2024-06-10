@@ -1,5 +1,4 @@
 #pragma once
-#include "parseSQL.cpp"
 #include "sqlCommon.h"
 #include "utilities.cpp"
 
@@ -12,6 +11,7 @@ class lookup
     static sTable*     getTableByName(list<sTable*>, char*);
     static sTable*     getTableByAlias(list<sTable*>, char*);
     static TokenPair*  tokenSplit(char*,char*);
+    static signed int  findDelimiter(string, string);
     static signed int  findDelimiter(char*, char*);
     static signed int  findDelimiterFromList(char*, list<char*>);
     static SQLACTION   determineAction(char* _token);
@@ -78,8 +78,9 @@ Column* lookup::getColumnByAlias(list<Column*> _columns, char* _name)
     return nullptr;
 }
 
+
 /******************************************************
- * Find Delimiter
+ * Find Delimiter char*
  ******************************************************/
 signed int lookup::findDelimiter(char* _string, char* _delimiter)
 {
@@ -141,6 +142,13 @@ signed int lookup::findDelimiter(char* _string, char* _delimiter)
     }                                  
 
     return NEGATIVE;
+}
+/******************************************************
+ * Find Delimiter string
+ ******************************************************/
+signed int lookup::findDelimiter(string _string, string _delimiter)
+{
+    return findDelimiter((char*)_string.c_str(),(char*)_delimiter.c_str());
 }
 /******************************************************
  * Find Delimiter From List

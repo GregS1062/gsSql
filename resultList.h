@@ -35,8 +35,8 @@ public:
 	void						printColumn		(TempColumn*);
 	TempColumn*					getCountColumn	(int);
     ParseResult                 Sort			(list<int>,bool);
-	ParseResult					orderBy(OrderBy*);
-	ParseResult					groupBy(GroupBy*,bool);
+	ParseResult					orderBy(shared_ptr<OrderBy>);
+	ParseResult					groupBy(shared_ptr<GroupBy>,bool);
 	void						print();
     
 };
@@ -60,7 +60,8 @@ void resultList::print()
 {
 	if(rows.size() == 0)
 		return;
-
+	if(debug)
+		fprintf(traceFile,"\n\nprinting\n");
 	vector<TempColumn*> row = rows.front();
 	printHeader(row);
 	for (size_t i = 0; i < rows.size(); i++) { 
@@ -154,7 +155,7 @@ ParseResult resultList::Sort(list<int> _n, bool _ascending)
 /******************************************************
  * Order By
  ******************************************************/
-ParseResult resultList::orderBy(OrderBy* _orderBy)
+ParseResult resultList::orderBy(shared_ptr<OrderBy> _orderBy)
 {
 	list<int> n;
 	for(OrderOrGroup order : _orderBy->order)
@@ -169,7 +170,7 @@ ParseResult resultList::orderBy(OrderBy* _orderBy)
 /******************************************************
  * Group By
  ******************************************************/
-ParseResult resultList::groupBy(GroupBy* _groupBy, bool _functions)
+ParseResult resultList::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 {
 
 	if(debug)

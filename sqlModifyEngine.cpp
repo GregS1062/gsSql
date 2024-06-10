@@ -12,8 +12,8 @@ class sqlModifyEngine : public sqlEngine
     */
 
    public:
-        ParseResult insert(Statement*);
-        ParseResult update(Statement*);
+        ParseResult insert(Statement);
+        ParseResult update(Statement);
 		ParseResult tableScan(SQLACTION);
         ParseResult formatInput(char*, Column*);
         ParseResult updateIndexes(long, SQLACTION);
@@ -27,9 +27,9 @@ class sqlModifyEngine : public sqlEngine
 /******************************************************
  * Insert
  ******************************************************/
-ParseResult sqlModifyEngine::insert(Statement* _statement)
+ParseResult sqlModifyEngine::insert(Statement _statement)
 {
-	statement = _statement;
+	statement = &_statement;
 
 	open();
 
@@ -102,12 +102,12 @@ ParseResult sqlModifyEngine::checkPrimaryKey(Column* _primaryKey)
 /******************************************************
  * Update Record
  ******************************************************/
-ParseResult sqlModifyEngine::update(Statement* _statement)
+ParseResult sqlModifyEngine::update(Statement _statement)
 {
 	/*
 		NOTE: Update and Delete use the same logic
 	*/
-	statement = _statement;
+	statement = &_statement;
 
 	ParseResult returnValue = ParseResult::FAILURE;;
 

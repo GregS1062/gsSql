@@ -25,6 +25,8 @@ using namespace std;
 #define COMPAREERROR        -2
 #define MAXSQLTOKENSIZE	    100
 #define MAXSQLSTRINGSIZE	1000
+#define MAXOBJECTNAMESIZE   128
+#define MAXINPUTSIZE        4000
 
 #define cellBegin   "<td>"
 #define cellEnd     "</td>"
@@ -162,7 +164,8 @@ enum class t_edit
     t_char,
     t_date,
     t_double,
-    t_int
+    t_int,
+    t_undefined
 };
 
 enum class t_function

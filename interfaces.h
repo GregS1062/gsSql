@@ -6,16 +6,16 @@ class iElements
 {
     public:
 
-    SQLACTION               sqlAction {};               // Statement action
-    char*                   tableName = nullptr;        // tables
-    list<columnParts*>      lstColumns {};              // used in update to set list of column/values            // column names
-    list<char*>             lstValues {};                // value lists - found in insert and select IN (...)
-    OrderBy*                orderBy         = nullptr;  // order by
-    GroupBy*                groupBy         = nullptr;  // group by
-    list<Condition*>        lstConditions{};            // where condition (operator) value
-    list<Condition*>        lstJoinConditions{};        // join ON conditions
-    list<Condition*>        lstHavingConditions{};      // Having conditions
-    int                     rowsToReturn = 0;           // max result rows
+    SQLACTION                       sqlAction {};               // Statement action
+    char*                           tableName = nullptr;        // tables
+    list<shared_ptr<columnParts>>   lstColumns;                 // used in update to set list of column/values            // column names
+    list<char*>                     lstValues {};               // value lists - found in insert and select IN (...)
+    shared_ptr<OrderBy>             orderBy{};                  // order by
+    shared_ptr<GroupBy>             groupBy{};                  // group by
+    list<Condition*>                lstConditions{};            // where condition (operator) value
+    list<Condition*>                lstJoinConditions{};        // join ON conditions
+    list<Condition*>                lstHavingConditions{};      // Having conditions
+    int                             rowsToReturn = 0;           // max result rows
 
     ParseResult             clear();
 };

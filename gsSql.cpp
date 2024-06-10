@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
                 script = "t200-Join-Orders-On-Customers";
                 break;
             case 22:
-                script = "t201-Join-Books-on-Translator";
+                script = "t201-Complex-Join";
                 break;
             case 23:
                 script = "t202-Group-By";
@@ -123,24 +123,20 @@ int main(int argc, char* argv[])
 
     presentationType = PRESENTATION::TEXT;
     
-    Plan* plan = new Plan();
-    sqlParser* sql = new sqlParser((char*)sqlFile.c_str(),plan->isqlTables);
+    auto sql = make_unique<sqlParser>(sqlFile);
 
     if(sql->parse() == ParseResult::FAILURE)
     {
         fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
         fprintf(traceFile,"\n %s",errText.c_str());
-        delete sql;
-        delete plan;
         return 0;
     }
 
     debug = true;
 
+    auto plan = make_unique<Plan>(sql->isqlTables);
     plan->prepare((char*)queryStr.c_str());
     plan->execute();
-    delete sql;
-    delete plan;
 
     fprintf(traceFile,"\n %s",returnResult.resultTable.c_str());
     fprintf(traceFile,"\n %s",msgText.c_str());

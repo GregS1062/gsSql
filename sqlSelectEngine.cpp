@@ -14,7 +14,7 @@ class sqlSelectEngine : public sqlEngine
 
    public:
 
-   ParseResult		execute			(Statement*);
+   ParseResult		execute			(Statement);
    ParseResult		tableScan		(list<Column*>);
    ParseResult		searchForward	(Search*, char*, size_t , SEARCH);
    ParseResult 		searchBack		(Search*, char*, size_t);
@@ -22,13 +22,13 @@ class sqlSelectEngine : public sqlEngine
 /******************************************************
  * Select
  ******************************************************/
-ParseResult sqlSelectEngine::execute(Statement* _statement)
+ParseResult sqlSelectEngine::execute(Statement _statement)
 {
 
 	if(debug)
         fprintf(traceFile,"\n\n-------------------------BEGIN SELECT ENGINE-------------------------------------------");
 
-	statement = _statement;
+	statement = &_statement;
 	
 	if(statement == nullptr)
 	{

@@ -6,9 +6,9 @@
 #include <filesystem>
 #include <list>
 #include "parseSQL.cpp"
-#include "ParseQuery.h"
-#include "sqlEngine.h"
-#include "global.h"
+#include "parseQuery.cpp"
+#include "sqlEngine.cpp"
+#include "plan.cpp"
 
 namespace fs = std::filesystem;
 
@@ -16,71 +16,45 @@ namespace fs = std::filesystem;
     std::string resultPath = "/home/greg/projects/regTest/results";
     std::string proofPath = "/home/greg/projects/regTest/proofs";
 
-    /*const int result = remove( "no-file" );
-    if( result == 0 ){
-        fprintf(traceFile, "success\n" );  
-    } else {
-        fprintf(traceFile, "%s\n", strerror( errno ) ); // No such file or directory
-    }*/
-
-bool runScript(string script)
+string runScript(shared_ptr<sqlParser> _sql, string script)
 {
     //Reads jason database description and load sql classes for the sqlEngine
-    sqlClassLoader* loader = new sqlClassLoader();
-    loader->loadSqlClasses("dbDef.json","bike");
-
-    sqlParser* parser = new sqlParser();
 
     string scriptFileName = scriptPath + "/" + script;
 
-    std::ifstream ifs(scriptFileName);
-    std::string sql ( (std::istreambuf_iterator<char>(ifs) ),
+    std::ifstream ifq(scriptFileName);              
+    std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                        (std::istreambuf_iterator<char>()    ) );
 
-    if(parser->parse(sql.c_str()) == ParseResult::FAILURE)
-    {
-        fprintf(traceFile,"\n Parse failure %s  script = %s",errText.c_str(),scriptFileName.c_str());
-        return 0;
-    }
+    presentationType = PRESENTATION::TEXT;
     
-    sTable* table = loader->getTableByName((char*)"customer");
-    if(table == nullptr)
-    {
-        fprintf(traceFile,"\n table not found");
-        return 0;
-    }
-    
-    sqlEngine* engine = new sqlEngine(parser,table);
-    if(engine->open() == ParseResult::SUCCESS)
-    {
-        if(engine->ValidateQueryColumns() == ParseResult::SUCCESS)
-        {
-            string resultFileName = resultPath + "/" + script;
-            ofstream resultFile;
-            resultFile.open (resultFileName);
-            if(parser->sqlAction == SQLACTION::SELECT)
-            {
-                resultFile << engine->select();
-            }
-            else
-            { 
-                resultFile << returnResult.message;
-            }
-            resultFile.close();
-            errText.clear();
-            returnResult.error.clear();
-            returnResult.message.clear();
-            returnResult.resultTable.clear();
-            return true;
-        }
-    }
-    fprintf(traceFile,"\n %s", errText.c_str());
+    unique_ptr<Plan> plan ( new Plan(_sql->isqlTables));
+    plan->prepare((char*)queryStr.c_str());
+    plan->execute();
 
-    return false;
+    string returnString;
+    returnString.append(returnResult.resultTable);
+    returnString.append(msgText);
+    returnString.append(errText);
+    return returnString;
 }
 
 int main()
 {
+    std::string sqlFileName = "bike.sql";
+    std::ifstream ifs(sqlFileName);
+    std::string sqlFile ( (std::istreambuf_iterator<char>(ifs) ),
+                       (std::istreambuf_iterator<char>()    ) );
+
+    shared_ptr<sqlParser> sql (new sqlParser((char*)sqlFile.c_str()));
+
+    if(sql->parse() == ParseResult::FAILURE)
+    {
+        fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
+        fprintf(traceFile,"\n %s",errText.c_str());
+        return 0;
+    }
+
     string fileName;
     string result;
     string proof;
@@ -96,12 +70,11 @@ int main()
  
     for (string name : scripts)
     {
-        runScript(name);
+        runScript(sql,name);
     }
 
     for (string name : scripts)
     {
-        debugText = name;
         ifstream inStream;
         inStream.open (resultPath + "/" + name);
         inStream >> result;
@@ -114,7 +87,5 @@ int main()
         if(result.compare(proof) != 0)
             fprintf(traceFile,"\n %s failed test", name.c_str());
     }
-
-
 
 }

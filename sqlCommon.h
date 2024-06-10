@@ -10,12 +10,12 @@ using namespace std;
 struct columnParts
 {
     public:
-        char* fullName;
-        char* tableAlias;
-        char* columnName;
-        char* columnAlias;
-        char* fuction;
-        char* value;
+        char fullName       [MAXOBJECTNAMESIZE];
+        char tableAlias     [MAXOBJECTNAMESIZE];
+        char columnName     [MAXOBJECTNAMESIZE];
+        char columnAlias    [MAXOBJECTNAMESIZE];
+        char fuction        [MAXOBJECTNAMESIZE];
+        char value          [MAXSQLSTRINGSIZE];
 };
 
 /******************************************************
@@ -74,8 +74,8 @@ class TempColumn : public Column
 class Condition
 {
     public:
-        columnParts*    name            = nullptr;
-        columnParts*    compareToName   = nullptr;
+        shared_ptr<columnParts>    name            = nullptr;
+        shared_ptr<columnParts>   compareToName   = nullptr;
         char*           op              = nullptr;  // operator is a reserved word
         char*           prefix          = nullptr;  // (
         char*           condition       = nullptr;	// and/or
@@ -95,9 +95,9 @@ class Condition
 class OrderOrGroup
 {
     public:
-        Column*         col         {};
-        columnParts*    name        = nullptr;
-        int             columnNbr   = 0;        //Tells the sort routing which column to sort on
+        Column*                     col         {};
+        shared_ptr<columnParts>     name        = nullptr;
+        int                         columnNbr   = 0;        //Tells the sort routing which column to sort on
 };
 /******************************************************
  * Order By
@@ -228,8 +228,8 @@ class Statement
 {
     public:
         SQLACTION           action          = SQLACTION::NOACTION;
-        OrderBy*            orderBy         {};
-        GroupBy*            groupBy         {};     
+        shared_ptr<OrderBy> orderBy         {};
+        shared_ptr<GroupBy> groupBy         {};     
         int                 rowsToReturn    = 0;
         id_t                exectionOrder   = 0;
         sTable*             table           {};

@@ -32,7 +32,7 @@ ParseResult isQueryWellFormed(char* _queryString)
 /*******************************************************
    Ensure well formed query
 *******************************************************/
-char* sanitizeQuery(char _target[])
+shared_ptr<char[]> sanitizeQuery(char _target[], size_t _maxSize)
 {
 	char c      = SPACE;
     char next   = SPACE;
@@ -40,23 +40,22 @@ char* sanitizeQuery(char _target[])
     int quotes      = 0;
     int openParen   = 0;
     int closeParen  = 0;
-    size_t eol         = MAXSQLSTRINGSIZE-1;  //hard end of line
+    size_t eol         = _maxSize-1;  //hard end of line
 	size_t len = strlen(_target);
     size_t eos = len -1;                    //hard end of string
-    if(len > MAXSQLSTRINGSIZE)
+    if(len > _maxSize)
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Query exceeds max query size of 1000 characters");
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Query exceeds max query size of ",to_string(_maxSize));
         return nullptr;
     }
 
-    char* str = (char*)malloc(MAXSQLSTRINGSIZE);
+    std::shared_ptr<char[]> str(new char[_maxSize]);
 	size_t itr = 0;
 	for(size_t i = 0;i<len;i++)
 	{		
-        if(itr > MAXSQLSTRINGSIZE)
+        if(itr > _maxSize)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Well formed query size exceeds max query size of 1000 characters");
-            free(str);
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Well formed query size exceeds max query size of",to_string(_maxSize));
             return nullptr;
         }
         prior = c;
@@ -159,7 +158,6 @@ char* sanitizeQuery(char _target[])
        if(!(quotes   % 2 == 0))
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing quotes.");
-            free(str);
             return nullptr;
         } 
     }
@@ -171,7 +169,6 @@ char* sanitizeQuery(char _target[])
     if(openParen != closeParen)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch between ( and ).");
-        free(str);
         return nullptr;
     }
  

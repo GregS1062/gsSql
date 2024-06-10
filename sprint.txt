@@ -31,10 +31,10 @@ X    asc/dsc
 X    column alias
 
 Build
-    reject duplicates on primary key
+ x   reject duplicates on primary key
     index on concatenated columns
     Secondary indexes
-    simple join on primary key condition
+ x   simple join on primary key condition
 
 Build   
     multi-column indexe inserts, updates and deletes

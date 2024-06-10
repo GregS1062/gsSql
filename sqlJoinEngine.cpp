@@ -13,14 +13,14 @@ class sqlJoinEngine : public sqlEngine
 
    public:
 
-   ParseResult	join(Statement*,resultList*);
+   ParseResult	join(Statement,resultList*);
    ParseResult  joinOnKey(Search*,vector<TempColumn*>,size_t);
 
 };
 /******************************************************
  * Join
  ******************************************************/
-ParseResult sqlJoinEngine::join(Statement* _statement, resultList* _results)
+ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 {
 	/*
 		1) Get condition
@@ -35,7 +35,7 @@ ParseResult sqlJoinEngine::join(Statement* _statement, resultList* _results)
 	if(_results->rows.size() == 0)
 		return ParseResult::SUCCESS;
 
-	statement = _statement;
+	statement = &_statement;
 
 	open();
 
@@ -63,10 +63,13 @@ ParseResult sqlJoinEngine::join(Statement* _statement, resultList* _results)
 	char* name;
 	for(size_t i = 0;i < row.size();i++)
 	{
+
 		if(row.at(i)->alias != nullptr)
 			name = row.at(i)->alias;
 		else
 			name = row.at(i)->name;
+		if(debug)
+			fprintf(traceFile,"\nmatching %s to column %s",key->name,name);
 		if(strcasecmp(key->name,name) == 0 )
 		{
 			keyColumnNbr = (int)i;

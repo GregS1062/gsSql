@@ -1,7 +1,7 @@
 #include "sqlCommon.h"
 #include "interfaces.h"
 #include "binding.cpp"
-void printParts(columnParts* parts)
+void printParts(std::shared_ptr<columnParts> parts)
 {
     fprintf(traceFile,"\n\t name: %s alias: %s tableName: %s function: %s",parts->columnName, parts->columnAlias, parts->tableAlias, parts->fuction);
 }
@@ -42,7 +42,7 @@ void printTable(sTable* tbl)
         }
     }
 }
-void printOrderBy(OrderBy* _orderBy)
+void printOrderBy(shared_ptr<OrderBy> _orderBy)
 {
     fprintf(traceFile,"\n*******************************************");
     fprintf(traceFile,"\n Order By");
@@ -56,7 +56,7 @@ void printOrderBy(OrderBy* _orderBy)
     else
         fprintf(traceFile,"\n\tdescending");
 }
-void printGroupBy(GroupBy* _groupBy)
+void printGroupBy(shared_ptr<GroupBy> _groupBy)
 {
     fprintf(traceFile,"\n*******************************************");
     fprintf(traceFile,"\n Group By");
@@ -92,7 +92,7 @@ void printQuery(iElements* _it,Binding* bind)
     fprintf(traceFile,"\n\n--------------------------------------------");
     fprintf(traceFile,"\n column names");
     fprintf(traceFile,"\n\n--------------------------------------------");
-    for(columnParts* parts : _it->lstColumns)
+    for(std::shared_ptr<columnParts> parts : _it->lstColumns)
     {
         printParts(parts);
     }

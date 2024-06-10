@@ -47,7 +47,7 @@ class ParseQuery
     ParseResult             parseTableList(char*);
     ParseResult             parseColumnNameValueList(char*);
     ParseResult             parseColumnList(char*);
-    columnParts*            parseColumnName(char*);
+    shared_ptr<columnParts> parseColumnName(char*);
     ParseResult             parseValueList(char*);
     ParseResult             parseOrderByList(char*);
     ParseResult             parseGroupByList(char*);
@@ -400,7 +400,7 @@ ParseResult ParseQuery::parseColumnNameValueList(char* _workingString)
 
     char* token;
     bool  isColumnFlag = true;
-    columnParts* parts{};
+    shared_ptr<columnParts>parts{};
     tokenParser* tok = new tokenParser(_workingString);
  
     while(!tok->eof)
@@ -425,7 +425,7 @@ ParseResult ParseQuery::parseColumnNameValueList(char* _workingString)
         }
 
         isColumnFlag = true;
-        parts->value = token;
+        strncpy(parts->value,token,MAXOBJECTNAMESIZE);
         iElement->lstColumns.push_back(parts);
     }
 
@@ -462,9 +462,9 @@ ParseResult ParseQuery::parseDelete()
     //--------------------------------------------------------
     // Mark delete column
     //---------------------------------------------------------
-    columnParts* parts = new columnParts();
-    parts->columnName = dupString("deleted");
-    parts->value = dupString("T");
+    shared_ptr<columnParts>parts{};
+    strncpy(parts->columnName,"deleted",8);
+    strncpy(parts->value,"T",2);
     iElement->lstColumns.push_back(parts);
         
     //---------------------------------------------------------
@@ -638,7 +638,7 @@ ParseResult ParseQuery::parseOrderByList(char* _workingString)
 
     char* token;
     tokenParser*    tok = new tokenParser();
-    OrderBy*        orderBy = new OrderBy();
+    shared_ptr<OrderBy> orderBy (new OrderBy);
     tok->parse(_workingString,true);
 
     while(!tok->eof)
@@ -663,10 +663,12 @@ ParseResult ParseQuery::parseOrderByList(char* _workingString)
             }
         }
     }
-    if(orderBy->order.size() > 0)
-        iElement->orderBy = orderBy;
-    else    
+
+    if(orderBy == nullptr)
         iElement->orderBy = nullptr;
+    else
+       iElement->orderBy = orderBy;
+
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -685,7 +687,7 @@ ParseResult ParseQuery::parseGroupByList(char* _workingString)
     
     char* token;
     tokenParser* tok = new tokenParser();
-    GroupBy* groupBy = new GroupBy();
+    shared_ptr<GroupBy> groupBy (new GroupBy);
     tok->parse(_workingString,true);
 
     while(!tok->eof)
@@ -694,17 +696,18 @@ ParseResult ParseQuery::parseGroupByList(char* _workingString)
         if(token != nullptr)
         {
             if(debug)
-                fprintf(traceFile,"\n order by tokens %s", token);
+                fprintf(traceFile,"\n group by tokens %s", token);
                 
-            OrderOrGroup    order;
-            order.name      = parseColumnName(token);
-            groupBy->group.push_back(order);
+            OrderOrGroup    group;
+            group.name      = parseColumnName(token);
+            groupBy->group.push_back(group);
         }
     }
-    if(groupBy->group.size() > 0)
+
+    if(groupBy == nullptr)
+       iElement->groupBy = nullptr;
+    else
         iElement->groupBy = groupBy;
-    else    
-        iElement->groupBy = nullptr;
 
     return ParseResult::SUCCESS;
 }
@@ -769,7 +772,7 @@ ParseResult ParseQuery::parseColumnList(char* _workingString)
 /******************************************************
  * Parse Column Name
  ******************************************************/
-columnParts* ParseQuery::parseColumnName(char* _str)
+shared_ptr<columnParts> ParseQuery::parseColumnName(char* _str)
 {
     /*
         Column name have the following forms
@@ -780,8 +783,8 @@ columnParts* ParseQuery::parseColumnName(char* _str)
         case 4) table/column        - customers.surname
         case 5) table alias column  - c.surname from customers c
     */
-    columnParts* parts = new columnParts();
-    parts->fullName = dupString(_str);
+    shared_ptr<columnParts> parts = make_unique<columnParts>(); 
+    strncpy(parts->fullName,_str,MAXOBJECTNAMESIZE);
 
     signed int columnAliasPosition = lookup::findDelimiter(_str,(char*)sqlTokenAs);
     if(columnAliasPosition == DELIMITERERR)
@@ -790,12 +793,11 @@ columnParts* ParseQuery::parseColumnName(char* _str)
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
         return nullptr;
     }
-
     //case 1) column alias        - surname AS last
     char* columnName  = _str;
     if(columnAliasPosition > NEGATIVE)
     {
-        parts->columnAlias = dupString(_str+columnAliasPosition+3);
+        strncpy(parts->columnAlias,_str+columnAliasPosition+3,MAXOBJECTNAMESIZE);
         _str[columnAliasPosition] = '\0';
     }
 
@@ -803,7 +805,7 @@ columnParts* ParseQuery::parseColumnName(char* _str)
     signed int posParen = lookup::findDelimiter(_str,(char*)sqlTokenOpenParen);
     if(posParen > NEGATIVE)
     {
-        parts->fuction = dupString(_str);
+        strncpy(parts->fuction,_str,MAXOBJECTNAMESIZE);
         parts->fuction[posParen-1] = '\0';
     }
     
@@ -832,13 +834,13 @@ columnParts* ParseQuery::parseColumnName(char* _str)
     // case 3) simple name         - surname
     if(tp->two == nullptr)
     {
-        parts->columnName = tp->one;
+        strncpy(parts->columnName,tp->one,MAXOBJECTNAMESIZE);
     }
     else
     {
     // case 4/5)
-        parts->tableAlias = tp->one;
-        parts->columnName = tp->two;
+        strncpy(parts->tableAlias,tp->one,MAXOBJECTNAMESIZE);
+        strncpy(parts->columnName,tp->two,MAXOBJECTNAMESIZE);
     }
 
     delete tp;
