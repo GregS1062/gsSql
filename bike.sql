@@ -1,6 +1,6 @@
-CREATE TABLE customers as "/home/greg/projects/test/testData/Customers.dat" 
+CREATE TABLE customers AS "/home/greg/projects/test/testData/Customers.dat" 
 ( 
-    deleted         bool,
+    deleted			bool,
     custid          char(11),
     givenname       char(21),
     middleinitial   char(2),
@@ -16,11 +16,11 @@ CREATE TABLE customers as "/home/greg/projects/test/testData/Customers.dat"
 	PRIMARY KEY (custid)
 )  
 
-CREATE INDEX customerid as "/home/greg/projects/test/testIndex/custid.idx"
+CREATE INDEX customerid AS "/home/greg/projects/test/testIndex/custid.idx"
 ON customers (custid)
 
 
-CREATE TABLE stores as "/home/greg/projects/test/testData/Stores.dat"
+CREATE TABLE stores AS "/home/greg/projects/test/testData/Stores.dat"
 (
     deleted         bool,
     custid          char(11),
@@ -36,13 +36,13 @@ CREATE TABLE stores as "/home/greg/projects/test/testData/Stores.dat"
 	PRIMARY KEY (custid)
 )
 
-CREATE INDEX storeid as "/home/greg/projects/test/testIndex/storeid.idx"
+CREATE INDEX storeid AS "/home/greg/projects/test/testIndex/storeid.idx"
 ON stores (custid)
 
-CREATE INDEX storename as "/home/greg/projects/test/testIndex/storename.idx"
+CREATE INDEX storename AS "/home/greg/projects/test/testIndex/storename.idx"
 ON stores (name)
 
-CREATE TABLE products as "/home/greg/projects/test/testData/Products.dat"
+CREATE TABLE products AS "/home/greg/projects/test/testData/Products.dat"
 (
     deleted             bool,
 	productid       	char(11),
@@ -58,10 +58,10 @@ CREATE TABLE products as "/home/greg/projects/test/testData/Products.dat"
 	PRIMARY KEY (productid)
 )
 
-CREATE INDEX productid as "/home/greg/projects/test/testIndex/productid.idx"
+CREATE INDEX productid AS "/home/greg/projects/test/testIndex/productid.idx"
 ON products (productid)
 
-CREATE TABLE orders as "/home/greg/projects/test/testData/Orders.dat"
+CREATE TABLE orders AS "/home/greg/projects/test/testData/Orders.dat"
 (
     deleted             bool,
 	status              int,
@@ -76,11 +76,11 @@ CREATE TABLE orders as "/home/greg/projects/test/testData/Orders.dat"
 	PRIMARY KEY (orderid)
 )
 
-CREATE INDEX orderid as "/home/greg/projects/test/testIndex/orderid.idx"
+CREATE INDEX orderid AS "/home/greg/projects/test/testIndex/orderid.idx"
 ON orders (orderid)
 
 
-CREATE TABLE items as "/home/greg/projects/test/testData/Items.dat"
+CREATE TABLE items AS "/home/greg/projects/test/testData/Items.dat"
 (
     deleted             bool,
 	orderid         	char(11),
@@ -89,18 +89,18 @@ CREATE TABLE items as "/home/greg/projects/test/testData/Items.dat"
 	price               double,
 	discount            double,
 	total               double,
-	PRIMARY KEY (orderid,productid)
+	PRIMARY KEY (orderid)
 )
 
-CREATE INDEX orderid as "/home/greg/projects/test/testIndex/itemOrder.idx"
+CREATE INDEX orderid AS "/home/greg/projects/test/testIndex/itemOrder.idx"
 ON orders (orderid)
 
-CREATE TABLE functionTable
+CREATE TABLE functionTable AS "systable"
 (
-	count           int,
+	count			int,
 	max				double,
-	min 			double,
-	sum 			double,
-	avg 			double
+	min				double,
+	sum				double,
+	avg				double
 )
 

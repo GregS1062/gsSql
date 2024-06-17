@@ -3,16 +3,97 @@
 #include <list>
 #include <vector>
 #include <algorithm>
+#include "defines.h"
 #include "interfaces.h"
 #include "sqlCommon.h"
-#include "tokenParser.cpp"
-#include "parseSQL.cpp"
-#include "utilities.cpp"
-#include "lookup.cpp"
 #include "parseClause.cpp"
+#include "tokenParser.cpp"
 
 
 using namespace std;
+/******************************************************
+ * Determine Actionm
+ ******************************************************/
+SQLACTION determineAction(string _token)
+{
+    try{
+
+        if(debug)
+            printf("\ndetermine action %s",_token.c_str());
+
+        if(strcasecmp(_token.c_str(),sqlTokenSelect) == 0)
+        {
+            return SQLACTION::SELECT;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenInsert) == 0)
+        {
+            return SQLACTION::INSERT;
+        }
+        
+        if(strcasecmp(_token.c_str(),sqlTokenUpdate) == 0)
+        {
+            return  SQLACTION::UPDATE;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenDelete) == 0)
+        {
+            return SQLACTION::DELETE;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenCreate) == 0)
+        {
+            return  SQLACTION::CREATE;
+        }
+
+
+        if(strcasecmp(_token.c_str(),sqlTokenJoin) == 0)
+        {
+            return  SQLACTION::JOIN;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenInner) == 0)
+        {
+            return  SQLACTION::INNER;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenOuter) == 0)
+        {
+            return  SQLACTION::OUTER;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenLeft) == 0)
+        {
+            return  SQLACTION::LEFT;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenRight) == 0)
+        {
+            return  SQLACTION::RIGHT;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenNatural) == 0)
+        {
+            return  SQLACTION::NATURAL;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenCross) == 0)
+        {
+            return  SQLACTION::CROSS;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenFull) == 0)
+        {
+            return  SQLACTION::FULL;
+        }
+
+
+        return  SQLACTION::INVALID;
+    }
+    catch_and_trace
+    return  SQLACTION::INVALID;
+
+}
 
 /******************************************************
  * 
@@ -24,191 +105,191 @@ using namespace std;
 
 class ParseQuery
 {
-    const char*             queryString;
-    signed int              queryStringLength   = 0;
+    string                  queryString{};
+    size_t                  queryStringLength   = 0;
     bool join               = true;
     bool notJoin            = false;
-
-    public:
-
-    iElements*              iElement = new iElements();
-
-    Condition*              condition       = nullptr;
     int                     rowsToReturn    = 0;
     bool                    isColumn        = false;
     bool                    isCondition     = false;
+    shared_ptr<Condition>   condition       = make_shared<Condition>();
     SQLACTION               sqlAction       = SQLACTION::NOACTION;
 
-    ParseResult             parse(const char*);
     ParseResult             parseSelect();
     ParseResult             parseInsert();
     ParseResult             parseUpdate();
     ParseResult             parseDelete();
-    ParseResult             parseTableList(char*);
-    ParseResult             parseColumnNameValueList(char*);
-    ParseResult             parseColumnList(char*);
-    shared_ptr<columnParts> parseColumnName(char*);
-    ParseResult             parseValueList(char*);
-    ParseResult             parseOrderByList(char*);
-    ParseResult             parseGroupByList(char*);
-    ParseResult             parseConditionList(char*, CONDITIONTYPE);
-    ParseResult             addCondition(char*,CONDITIONTYPE);
-    void                    clear();
+    ParseResult             parseTableList(string);
+    ParseResult             parseColumnNameValueList(string);
+    ParseResult             parseColumnList(string);
+    shared_ptr<columnParts> parseColumnName(string);
+    ParseResult             parseValueList(string);
+    ParseResult             parseOrderByList(string);
+    ParseResult             parseGroupByList(string);
+    ParseResult             parseConditionList(string, CONDITIONTYPE);
+    ParseResult             addCondition(string,CONDITIONTYPE);
+
+    public:
+        shared_ptr<iElements>   ielements        = make_shared<iElements>();
+        ParseResult             parse(string);
+        void                    clear();
 };
 /******************************************************
  * Clear
  ******************************************************/
 void ParseQuery::clear()
 {
-    iElement->clear();
+    try
+    {
+        ielements->clear();
+    }
+    catch_and_trace
 }
 
 /******************************************************
  * Parse
  ******************************************************/
-ParseResult ParseQuery::parse(const char* _queryString)
+ParseResult ParseQuery::parse(string _queryString)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n***************************************************************");
-        fprintf(traceFile,"\n                 BEGIN QUERY PARSE");
-        fprintf(traceFile,"\n\n***************************************************************");
-    }
-   
-    tokenParser* tok = new tokenParser();
-    queryString       = tok->cleanString((char*)_queryString);
+        if(debug)
+        {
+            printf("\n\n***************************************************************");
+            printf("\n                 BEGIN QUERY PARSE");
+            printf("\n\n***************************************************************");
+        }
+    
+        shared_ptr<char[]> queryStr = normalizeQuery((char*)_queryString.c_str(),MAXSQLSTRINGSIZE);
+        queryString = queryStr.get();
+        
+        if(debug)
+            printf("\n query=%s",queryString.c_str());;
+        
+        queryString.erase(0, queryString.find_first_not_of(SPACE));
+        queryStringLength = queryString.length();
+        
+        size_t pos = queryString.find(SPACE);
+        
+        if(pos == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot determine query action.");
+            return ParseResult::FAILURE;
+        }
 
-    iElement = new iElements();
-    
-    if(debug)
-     fprintf(traceFile,"\n query=%s",queryString);;
-    
-    queryStringLength = (signed int)strlen(queryString);
-    
-    tok->parse(queryString);
-    
-    char* token     = tok->getToken();
-    if(token == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Null returned where ACTION should be.");
+        sqlAction = determineAction(queryString.substr(0,pos));
+
+        
+        if(sqlAction == SQLACTION::INVALID)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot determine action: select, insert, update?");
+            return ParseResult::FAILURE;
+        }
+
+        switch(sqlAction)
+        {
+            case SQLACTION::NOACTION:
+                return ParseResult::FAILURE;
+                break;
+            case SQLACTION::INVALID:
+                return ParseResult::FAILURE;
+                break;
+            case SQLACTION::SELECT:
+                return parseSelect();
+                break;
+            case SQLACTION::INSERT:
+                return parseInsert();
+                break;
+            case SQLACTION::CREATE:
+                return ParseResult::FAILURE;
+                break;
+            case SQLACTION::UPDATE:
+                return parseUpdate();
+                break;
+            case SQLACTION::DELETE:
+                return parseDelete();
+                break;
+            case SQLACTION::JOIN:
+                return parseSelect();
+                break;
+            case SQLACTION::INNER:
+                return parseSelect();
+                break;
+            case SQLACTION::OUTER:
+                return parseSelect();
+                break;
+            case SQLACTION::LEFT:
+                return parseSelect();
+                break;        
+            case SQLACTION::RIGHT:
+                return parseSelect();
+                break;        
+            case SQLACTION::NATURAL:
+                return parseSelect();
+                break;
+            case SQLACTION::FULL:
+                return parseSelect();
+                break;
+            case SQLACTION::CROSS:
+                return parseSelect();
+                break;
+        }
+
         return ParseResult::FAILURE;
     }
-
-    sqlAction = lookup::determineAction(token);
-    
-    delete tok;
-    free(token);
-    
-    if(sqlAction == SQLACTION::INVALID)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot determine action: select, insert, update?");
-        return ParseResult::FAILURE;
-    }
-
-    switch(sqlAction)
-    {
-        case SQLACTION::NOACTION:
-            return ParseResult::FAILURE;
-            break;
-        case SQLACTION::INVALID:
-            return ParseResult::FAILURE;
-            break;
-        case SQLACTION::SELECT:
-            return parseSelect();
-            break;
-        case SQLACTION::INSERT:
-            return parseInsert();
-            break;
-        case SQLACTION::CREATE:
-            return ParseResult::FAILURE;
-            break;
-        case SQLACTION::UPDATE:
-            return parseUpdate();
-            break;
-        case SQLACTION::DELETE:
-            return parseDelete();
-            break;
-        case SQLACTION::JOIN:
-            return parseSelect();
-            break;
-        case SQLACTION::INNER:
-            return parseSelect();
-            break;
-        case SQLACTION::OUTER:
-            return parseSelect();
-            break;
-        case SQLACTION::LEFT:
-            return parseSelect();
-            break;        
-        case SQLACTION::RIGHT:
-            return parseSelect();
-            break;        
-        case SQLACTION::NATURAL:
-            return parseSelect();
-            break;
-        case SQLACTION::FULL:
-            return parseSelect();
-            break;
-        case SQLACTION::CROSS:
-            return parseSelect();
-            break;
-    }
-
+    catch_and_trace
     return ParseResult::FAILURE;
-
 }
 /******************************************************
  * Parse Select
  ******************************************************/
 ParseResult ParseQuery::parseSelect()
 {
-    
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-------------------------BEGIN PROCESS SELECT-------------------------------------------");
-        fprintf(traceFile,"\nQuery String = %s",queryString);
+        if(debug)
+        {
+            printf("\n\n-------------------------BEGIN PROCESS SELECT-------------------------------------------");
+            printf("\nQuery String = %s",queryString.c_str());
+        }
+
+        unique_ptr<ParseClause> parseClause = make_unique<ParseClause>();
+        parseClause->process(queryString);
+        
+        iClauses iclause = parseClause->iClause;
+
+        ielements->sqlAction = sqlAction;
+        ielements->rowsToReturn = iclause.topRows;
+        
+        if(parseTableList(iclause.strTables) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(parseColumnList(iclause.strColumns) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+        
+        if(parseConditionList(iclause.strConditions,CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(parseConditionList(iclause.strJoinConditions,CONDITIONTYPE::JOIN) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(parseOrderByList(iclause.strOrderBy) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(parseGroupByList(iclause.strGroupBy) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(parseConditionList(iclause.strHavingConditions,CONDITIONTYPE::HAVING) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        if(iclause.topRows > 0)
+            rowsToReturn = iclause.topRows;
+
+
+        return ParseResult::SUCCESS;
     }
-
-    ParseClause* parseClause = new ParseClause();
-    parseClause->process((char*)queryString);
-    iClauses* iclause = parseClause->iClause;
-
-    iElement = new iElements();
-    iElement->sqlAction = sqlAction;
-    iElement->rowsToReturn = iclause->topRows;
-     
-    ParseResult errorState = parseTableList(iclause->strTables);
-
-    if(errorState == ParseResult::SUCCESS)
-        errorState = parseColumnList(iclause->strColumns);
-    
-    if(errorState == ParseResult::SUCCESS) 
-        errorState = parseConditionList(iclause->strConditions,CONDITIONTYPE::SELECT);
-
-    if(errorState == ParseResult::SUCCESS) 
-        errorState = parseConditionList(iclause->strJoinConditions,CONDITIONTYPE::JOIN);
-
-    if(errorState == ParseResult::SUCCESS) 
-        errorState = parseOrderByList(iclause->strOrderBy);
-
-    if(errorState == ParseResult::SUCCESS) 
-        errorState = parseGroupByList(iclause->strGroupBy);
-
-    if(errorState == ParseResult::SUCCESS) 
-        errorState = parseConditionList(iclause->strHavingConditions,CONDITIONTYPE::HAVING);
-
-    if(iclause->topRows > 0)
-        rowsToReturn = iclause->topRows;
-
-    if(errorState == ParseResult::FAILURE) 
-    {
-        delete iclause;
-        delete iElement;
-        return ParseResult::FAILURE;
-    }
-
-    return ParseResult::SUCCESS;
-
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Insert
@@ -216,279 +297,282 @@ ParseResult ParseQuery::parseSelect()
 ParseResult ParseQuery::parseInsert()
 {
 
-    iElement = new iElements();
-    iElement->sqlAction = sqlAction;
-    //----------------------------------------------------------
-    // Create table list
-    //----------------------------------------------------------
-
-    signed int startTable = lookup::findDelimiter((char*)queryString, (char*)sqlTokenInto);
-    if(startTable == NEGATIVE
-    || startTable == DELIMITERERR)
+    try
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting the literal 'into'");
-        return ParseResult::FAILURE;
-    }
+        ielements->sqlAction = sqlAction;
+        //----------------------------------------------------------
+        // Create table list
+        //----------------------------------------------------------
 
-    char* strTableList = dupString(queryString+startTable+strlen((char*)sqlTokenInto)+1);
-    
-    // Distinguishing between  Insert into theTable (..column list..) and Insert into theTable Values(..value list list..)
-    signed int posValues       =lookup::findDelimiter(strTableList, (char*)sqlTokenValues);
-    signed int posOpenParen    =lookup::findDelimiter(strTableList, (char*)sqlTokenOpenParen);
-
-    if(posValues    == DELIMITERERR
-    || posOpenParen == DELIMITERERR)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
-        return ParseResult::FAILURE;
-    }
-
-    signed int endTable = 0;
-
-    if(posOpenParen < posValues)
-    {
-        endTable = posOpenParen;
-    }
-    else
-        endTable = posValues;
-    
-    if(debug)
-    {
-        fprintf(traceFile,"\n posOpenParen %d",posOpenParen);
-        fprintf(traceFile,"\n posValues %d",posValues);
-        fprintf(traceFile,"\n endTable %d",endTable);
-    }
-    
-    //Terminate table list
-    strTableList[endTable] = '\0';
-
-    if(parseTableList(strTableList) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    signed int posCloseParen = 0;
-
-    posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
-    posOpenParen    =lookup::findDelimiter((char*)queryString, (char*)sqlTokenOpenParen);
-
-    if(posValues > posOpenParen)
-    {
-        char* strColumnList = dupString(queryString+posOpenParen+1);
-        posCloseParen   =lookup::findDelimiter(strColumnList, (char*)sqlTokenCloseParen);
-        strColumnList[posCloseParen] = '\0';
-        if(parseColumnList(strColumnList) == ParseResult::FAILURE)
+        size_t startTable = findKeyword(queryString,sqlTokenInto);
+        if(startTable == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting the literal 'into'");
             return ParseResult::FAILURE;
+        }
+        queryString = snipString(queryString,sqlTokenInto,startTable);
+        
+        // Distinguishing between  Insert into Table (..column list..) and Insert into theTable Values(..value list list..)
+        size_t posValues       = findKeyword(queryString,sqlTokenValues);
+        size_t posOpenParen    = findKeyword(queryString,sqlTokenOpenParen);
+
+        if(posValues    == std::string::npos
+        || posOpenParen == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
+            return ParseResult::FAILURE;
+        }
+
+        size_t endTable = 0;
+
+        if(posOpenParen < posValues)
+        {
+            endTable = posOpenParen;
+        }
+        else
+            endTable = posValues;
+        
+        if(debug)
+        {
+            printf("\n posOpenParen %li",posOpenParen);
+            printf("\n posValues %li",posValues);
+            printf("\n endTable %li",endTable);
+        }
+        
+        //Terminate table list
+        string strTableList = clipString(queryString,endTable-1);
+
+        if(parseTableList(strTableList) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        size_t posCloseParen = 0;
+
+        posValues       = findKeyword(queryString,sqlTokenValues);
+        posOpenParen    = findKeyword(queryString,sqlTokenOpenParen);
+
+        if(posValues > posOpenParen)
+        {
+            string strColumnList = snipString(queryString,posOpenParen+1);
+            posCloseParen   = findKeyword(strColumnList, sqlTokenCloseParen);
+            strColumnList = clipString(strColumnList,posCloseParen);
+            if(parseColumnList(strColumnList) == ParseResult::FAILURE)
+                return ParseResult::FAILURE;
+        }
+
+        //----------------------------------------------------------
+        // Create value list
+        //----------------------------------------------------------
+        posValues       = findKeyword(queryString, sqlTokenValues);
+        if(posValues == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
+            return ParseResult::FAILURE;
+        }
+
+        string strValueList = snipString(queryString,sqlTokenValues,posValues);
+
+        //At this point value list will be enclosed in parenthesis - trim them
+
+        //trim closing parenthesis
+        posCloseParen   = findKeyword(strValueList, sqlTokenCloseParen);
+        strValueList    = clipString(strValueList,posCloseParen);
+
+        //trim open parenthesis
+        posOpenParen    = findKeyword(strValueList, sqlTokenOpenParen);
+        if(posOpenParen == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
+            return ParseResult::FAILURE;
+        }
+        
+        string strValues = snipString(strValueList,posOpenParen+1);
+        
+
+        if(parseValueList(strValues) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        return ParseResult::SUCCESS;
     }
-
-    //----------------------------------------------------------
-    // Create value list
-    //----------------------------------------------------------
-    posValues       =lookup::findDelimiter((char*)queryString, (char*)sqlTokenValues);
-    if(posValues == NEGATIVE
-    || posValues == DELIMITERERR)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
-        return ParseResult::FAILURE;
-    }
-
-    char* strValueList = dupString(queryString+posValues+strlen((char*)sqlTokenValues)+1);
-
-    //At this point value list will be enclosed in parenthesis - trim them
-
-    //trim closing parenthesis
-    posCloseParen    =lookup::findDelimiter(strValueList, (char*)sqlTokenCloseParen);
-    strValueList[posCloseParen] = '\0';
-
-    //trim open parenthesis
-    posOpenParen    =lookup::findDelimiter(strValueList, (char*)sqlTokenOpenParen);
-    if(posOpenParen == NEGATIVE
-    || posOpenParen == DELIMITERERR)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting a colonm list or a values statement");
-        return ParseResult::FAILURE;
-    }
-    
-    char* strValues = dupString(strValueList+posOpenParen+1);
-    
-    free(strValueList);
-
-    if(parseValueList(strValues) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Update
  ******************************************************/
 ParseResult ParseQuery::parseUpdate()
 {
-
-    iElement = new iElements();
-    iElement->sqlAction = sqlAction;
-    //---------------------------------------------------------
-    // Create table list
-    //---------------------------------------------------------
-    char* strTableList = dupString(queryString+strlen((char*)sqlTokenUpdate)+1);
-   
-    signed int posSet = lookup::findDelimiter(strTableList, (char*)sqlTokenSet);
-     
-    if(posSet < 1)
+    try
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find the token 'set' in string");
-        return ParseResult::FAILURE;
-    }
+        ielements->sqlAction = sqlAction;
 
-    //Terminate table list
-    strTableList[posSet-1] = '\0';
+        //---------------------------------------------------------
+        // Create table list
+        //---------------------------------------------------------
+        string strTableList = snipString(queryString,sqlTokenUpdate,1);
     
-    if(parseTableList(strTableList) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+        size_t posSet = findKeyword(strTableList, sqlTokenSet);
+        
+        if(posSet == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find the token 'set' in string");
+            return ParseResult::FAILURE;
+        }
+        
+        if(parseTableList(clipString(strTableList,posSet)) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
 
-    //---------------------------------------------------------
-    // Create column/value list
-    //---------------------------------------------------------
-    
-    //reset position of verb set
-    posSet = lookup::findDelimiter((char*)queryString, (char*)sqlTokenSet);
+        //---------------------------------------------------------
+        // Create column/value list
+        //---------------------------------------------------------
+        
+        //reset position of verb set
+        posSet = findKeyword(queryString, sqlTokenSet);
 
-    //create string
-    char* strColumnValues = dupString(queryString+posSet+strlen((char*)sqlTokenSet) +1);
+        //create string
+        string strColumnValues = snipString(queryString,sqlTokenSet, posSet);
 
-    signed int posEndOfColumnValues =lookup::findDelimiter(strColumnValues, (char*)sqlTokenWhere);
+        size_t posEndOfColumnValues = findKeyword(strColumnValues, sqlTokenWhere);
 
-    if(posEndOfColumnValues != NEGATIVE)
-        strColumnValues[posEndOfColumnValues] = '\0';
+        if(posEndOfColumnValues != std::string::npos)
+            strColumnValues = clipString(strColumnValues,posEndOfColumnValues);
 
-    
-    if(parseColumnNameValueList(strColumnValues) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+        
+        if(parseColumnNameValueList(strColumnValues) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
 
-    //---------------------------------------------------------
-    // Create condition list
-    //---------------------------------------------------------
-    
-    //find where clause in the original query string
-    signed int posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
-    if(posWhere == DELIMITERERR)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"delimiter error finding the token 'where' in string");
-        return ParseResult::FAILURE;
-    }
+        //---------------------------------------------------------
+        // Create condition list
+        //---------------------------------------------------------
+        
+        //find where clause in the original query string
+        size_t posWhere = findKeyword(queryString, sqlTokenWhere);
 
-    if(posWhere == NEGATIVE)
+        if(posWhere == std::string::npos)
+            return ParseResult::SUCCESS;
+
+        if(parseConditionList(snipString(queryString,sqlTokenWhere,posWhere),CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
         return ParseResult::SUCCESS;
 
-    char* strConditions = dupString(queryString+posWhere + strlen((char*)sqlTokenWhere));
-
-    if(parseConditionList(strConditions,CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    return ParseResult::SUCCESS;
+    }
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Column List (for Update)
  ******************************************************/
-ParseResult ParseQuery::parseColumnNameValueList(char* _workingString)
+ParseResult ParseQuery::parseColumnNameValueList(string _workingString)
 {
-    if(debug)
-    {
-        fprintf(traceFile,"\n\n-----------Column Value List----------------");
-        fprintf(traceFile,"\ntableString:%s",_workingString);
-    }
+    try{
+        if(debug)
+        {
+            printf("\n\n-----------Column Value List----------------");
+            printf("\ntableString:%s",_workingString.c_str());
+        }
 
-    if(_workingString == nullptr)
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+
+        string token;
+        bool  isColumnFlag = true;
+        shared_ptr<columnParts>parts{};
+        unique_ptr<tokenParser> tok = make_unique<tokenParser>(_workingString);
+    
+        while(!tok->eof)
+        {
+            token = tok->getToken();
+            if(tok->eof)
+                break;
+
+            if(tok == nullptr)
+                break;
+
+            if(strcmp(token.c_str(),sqlTokenEqual) == 0)
+            {
+                continue;
+            }
+
+            if(isColumnFlag)
+            {
+                isColumnFlag = false;
+                parts = parseColumnName(token);
+                continue;
+            }
+
+            isColumnFlag = true;
+            parts->value = token;
+            ielements->lstColumns.push_back(parts);
+        }
+
         return ParseResult::SUCCESS;
-
-    char* token;
-    bool  isColumnFlag = true;
-    shared_ptr<columnParts>parts{};
-    tokenParser* tok = new tokenParser(_workingString);
- 
-    while(!tok->eof)
-    {
-        token = tok->getToken();
-        if(tok->eof)
-            break;
-
-        if(tok == nullptr)
-            break;
-
-        if(strcmp(token,sqlTokenEqual) == 0)
-        {
-            continue;
-        }
-
-        if(isColumnFlag)
-        {
-            isColumnFlag = false;
-            parts = parseColumnName(token);
-            continue;
-        }
-
-        isColumnFlag = true;
-        strncpy(parts->value,token,MAXOBJECTNAMESIZE);
-        iElement->lstColumns.push_back(parts);
     }
-
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Delete
  ******************************************************/
 ParseResult ParseQuery::parseDelete()
 {
-    if(debug)
-        fprintf(traceFile,"\nQuery string %s",queryString);
-    //----------------------------------------------------------
-    // Parse Delete
-    //----------------------------------------------------------
-    signed int posDelete     = lookup::findDelimiter((char*)queryString, (char*)sqlTokenDelete);
-    
-    iElement->sqlAction = sqlAction;
-    
-    char* strTableList = dupString(queryString+posDelete+1+strlen(sqlTokenDelete));
+    try{
 
-    signed int posWhere =lookup::findDelimiter(strTableList, (char*)sqlTokenWhere);
-
-    if(posWhere == NEGATIVE)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"A 'where' statement is required for a delete");
-        return ParseResult::FAILURE;
-    }
-    
-    strTableList[posWhere] = '\0';
-    if(parseTableList(strTableList) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    //--------------------------------------------------------
-    // Mark delete column
-    //---------------------------------------------------------
-    shared_ptr<columnParts>parts{};
-    strncpy(parts->columnName,"deleted",8);
-    strncpy(parts->value,"T",2);
-    iElement->lstColumns.push_back(parts);
+        if(debug)
+            printf("\nQuery string %s",queryString.c_str());
+        //----------------------------------------------------------
+        // Parse Delete
+        //----------------------------------------------------------
+        size_t posFrom     = findKeyword(queryString, sqlTokenFrom);
         
-    //---------------------------------------------------------
-    // Create condition list
-    //---------------------------------------------------------
-    
-    //find where clause in the original query string
-    posWhere =lookup::findDelimiter((char*)queryString, (char*)sqlTokenWhere);
+        ielements->sqlAction = sqlAction;
+        
+        string strTableList = snipString(queryString, sqlTokenFrom, posFrom);
 
-    if(posWhere == NEGATIVE)
+        size_t posWhere = findKeyword(strTableList, sqlTokenWhere);
+
+        if(posWhere == std::string::npos)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"A 'where' statement is required for a delete");
+            return ParseResult::FAILURE;
+        }
+        
+        strTableList = clipString(strTableList,posWhere);
+        if(parseTableList(strTableList) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
+        //--------------------------------------------------------
+        // Mark delete column
+        //---------------------------------------------------------
+        shared_ptr<columnParts>parts = make_shared<columnParts>();
+        parts->columnName = "deleted";
+        parts->value = "T";
+        ielements->lstColumns.push_back(parts);
+            
+        //---------------------------------------------------------
+        // Create condition list
+        //---------------------------------------------------------
+        
+        //find where clause in the original query string
+        posWhere = findKeyword(queryString, sqlTokenWhere);
+
+        if(posWhere == std::string::npos)
+            return ParseResult::SUCCESS;
+
+        string strConditions = snipString(queryString, sqlTokenWhere,posWhere);
+
+        if(parseConditionList(strConditions,CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
+            return ParseResult::FAILURE;
+
         return ParseResult::SUCCESS;
-
-    char* strConditions = dupString(queryString+posWhere + strlen((char*)sqlTokenWhere));
-
-    if(parseConditionList(strConditions,CONDITIONTYPE::SELECT) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
-
-    return ParseResult::SUCCESS;
+    }
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 
 /******************************************************
  * Add Condition
  ******************************************************/
-ParseResult ParseQuery::addCondition(char* _token, CONDITIONTYPE _conditionType)
+ParseResult ParseQuery::addCondition(string _token, CONDITIONTYPE _conditionType)
 {
     /* First sprint: Looking for 4 things:
         A column name   - text not enclosed in quotes
@@ -498,281 +582,325 @@ ParseResult ParseQuery::addCondition(char* _token, CONDITIONTYPE _conditionType)
 
         Initially only looking for column, opeator, value in quotes
     */
+   try
+   {
 
-   if(debug)
-     fprintf(traceFile,"\ntoken=%s",_token);
-    
-    if(_token == nullptr)
-        return ParseResult::SUCCESS;
+        if(debug)
+            printf("\ntoken=%s",_token.c_str());
+        
+        if(_token.empty())
+            return ParseResult::SUCCESS;
 
-    //--------------------------------------------------------
-    // Initialize condition and condition predicates
-    //-------------------------------------------------------
-    if(condition == nullptr)
-    {
-        condition = new Condition();
-        condition->prefix = (char*)" ";
-        condition->suffix = (char*)" ";
-        condition->condition = (char*)" ";
-    }
-    
-    if(strcasecmp(_token,(char*)sqlTokenOpenParen) == 0)
-    {
-        condition->prefix = _token;
-        return ParseResult::SUCCESS;
-    }
+        _token.erase(0,_token.find_first_not_of(SPACE));
+        _token.erase(_token.find_last_not_of(SPACE)+1);
 
-    if(strcasecmp(_token,(char*)sqlTokenCloseParen) == 0)
-    {
-        condition->suffix = _token;
-        return ParseResult::SUCCESS;
-    }
-
-    if(strcasecmp(_token,(char*)sqlTokenAnd) == 0)
-    {
-        condition->condition = _token;
-        return ParseResult::SUCCESS;
-    }
-
-    if(strcasecmp(_token,(char*)sqlTokenOr) == 0)
-    {
-        condition->condition = _token;
-        return ParseResult::SUCCESS;
-    }
-
-    //--------------------------------------------------------
-    // Column name
-    //-------------------------------------------------------
-
-    //If name is null, it assumed to be a column name
-    if(condition->name == nullptr)
-    {
-        condition->name = parseColumnName(_token);
-        return ParseResult::SUCCESS;
-    }
-
-    //--------------------------------------------------------
-    // Operation
-    //-------------------------------------------------------
-    if(condition->op == nullptr)
-    {
-        if(strcasecmp(_token,sqlTokenLike) != 0
-        && strcasecmp(_token,sqlTokenGreater) != 0
-        && strcasecmp(_token,sqlTokenLessThan) != 0
-        && strcasecmp(_token,sqlTokenLessOrEqual) != 0
-        && strcasecmp(_token,sqlTokenGreaterOrEqual) != 0
-        && strcasecmp(_token,sqlTokenEqual) != 0
-        && strcasecmp(_token,sqlTokenNotEqual) != 0)
+        //--------------------------------------------------------
+        // Initialize condition and condition predicates
+        //-------------------------------------------------------
+        if(condition == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition operator missing. See ");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_token);
-            return ParseResult::FAILURE;
+            condition = make_shared<Condition>();
+            condition->prefix       = " ";
+            condition->suffix       = " ";
+            condition->condition    = " ";
         }
-        condition->op = _token;
-        return ParseResult::SUCCESS;
-    }
-
-    //--------------------------------------------------------
-    // Value or column to be compared to
-    //-------------------------------------------------------
-    // case 1: token  = "value"
-    // case 2: token  = 99.9
-    // case 3: token  in (1,1,2,3,4,5)
-    // case 4: token  = alias.column
-    // case 5: token  = column
-    if(condition->value == nullptr)
-    {
-        //case 1
-        if(lookup::findDelimiter(_token,(char*)sqlTokenQuote) != NEGATIVE)
+        
+        if(strcasecmp(_token.c_str(),sqlTokenOpenParen) == 0)
         {
-            stripQuotesFromToken(_token);
-            rTrim(_token);
+            condition->prefix = _token;
+            return ParseResult::SUCCESS;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenCloseParen) == 0)
+        {
+            condition->suffix = _token;
+            return ParseResult::SUCCESS;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenAnd) == 0)
+        {
+            condition->condition = _token;
+            return ParseResult::SUCCESS;
+        }
+
+        if(strcasecmp(_token.c_str(),sqlTokenOr) == 0)
+        {
+            condition->condition = _token;
+            return ParseResult::SUCCESS;
+        }
+
+        //--------------------------------------------------------
+        // Column name
+        //-------------------------------------------------------
+
+        //If name is null, it assumed to be a column name
+        if(condition->name == nullptr)
+        {
+            condition->name = parseColumnName(_token);
+            return ParseResult::SUCCESS;
+        }
+
+        //--------------------------------------------------------
+        // Operation
+        //-------------------------------------------------------
+        if(condition->op.empty())
+        {
+            if(strcasecmp(_token.c_str(),sqlTokenLike) != 0
+            && strcasecmp(_token.c_str(),sqlTokenGreater) != 0
+            && strcasecmp(_token.c_str(),sqlTokenLessThan) != 0
+            && strcasecmp(_token.c_str(),sqlTokenLessOrEqual) != 0
+            && strcasecmp(_token.c_str(),sqlTokenGreaterOrEqual) != 0
+            && strcasecmp(_token.c_str(),sqlTokenEqual) != 0
+            && strcasecmp(_token.c_str(),sqlTokenNotEqual) != 0)
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Condition operator missing. See ",_token);
+                return ParseResult::FAILURE;
+            }
+            condition->op = _token;
+            return ParseResult::SUCCESS;
+        }
+
+        //--------------------------------------------------------
+        // Value or column to be compared to
+        //-------------------------------------------------------
+        // case 1: token  = "value"
+        // case 2: token  = 99.9
+        // case 3: token  in (1,1,2,3,4,5)
+        // case 4: token  = alias.column
+        // case 5: token  = column
+
+        //if value NOT empty, process value
+        if(condition->value.empty())
+        {
+            //case 1
+            if(findKeyword(_token,sqlTokenQuote) != std::string::npos)
+            {
+                _token.erase(0,_token.find_first_not_of(QUOTE));
+                _token.erase(_token.find_last_not_of(QUOTE)+1);
+            }
+            
+            //may be replaced downstream
             condition->value = _token;
-        }
-        else
-        //case 2
-        if(isNumeric(_token))
-        {
-            condition->value = _token;
-        }
-        else
-        //case 3
-        if(lookup::findDelimiter(_token,(char*)sqlTokenOpenParen) != NEGATIVE)
-        {
-            //TODO processList();
-        }
-        else
-            condition->compareToName = parseColumnName(_token);
 
-        switch(_conditionType)
-        {
-            case CONDITIONTYPE::SELECT:
-                iElement->lstConditions.push_back(condition);
-                break;
-            case CONDITIONTYPE::JOIN:
-                iElement->lstJoinConditions.push_back(condition);
-                break;
-            case CONDITIONTYPE::HAVING:
-                iElement->lstHavingConditions.push_back(condition);
-                break;
-        }
+            //case 2
+            if(isNumeric(_token))
+            {
+                condition->value = _token;
+            }
+            else
+            //case 3
+            if(findKeyword(_token,sqlTokenOpenParen) != std::string::npos)
+            {
+                //TODO processList();
+            }
+            else
+                condition->compareToName = parseColumnName(_token);
 
-        condition = new Condition();
-        return ParseResult::SUCCESS;
-    }
-    return ParseResult::FAILURE;
+            switch(_conditionType)
+            {
+                case CONDITIONTYPE::SELECT:
+                    ielements->lstConditions.push_back(condition);
+                    break;
+                case CONDITIONTYPE::JOIN:
+                    ielements->lstJoinConditions.push_back(condition);
+                    break;
+                case CONDITIONTYPE::HAVING:
+                    ielements->lstHavingConditions.push_back(condition);
+                    break;
+            }
+
+            condition = make_shared<Condition>();
+            return ParseResult::SUCCESS;
+        }
+        return ParseResult::FAILURE;
+   }
+   catch_and_trace
+   return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Order
  ******************************************************/
-ParseResult ParseQuery::parseOrderByList(char* _workingString)
+ParseResult ParseQuery::parseOrderByList(string _workingString)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-----------Parse Order by----------------");
-        fprintf(traceFile,"\nOrderBy string:%s",_workingString);
-    }
 
-    if(_workingString == nullptr)
-        return ParseResult::SUCCESS;
-
-    char* token;
-    tokenParser*    tok = new tokenParser();
-    shared_ptr<OrderBy> orderBy (new OrderBy);
-    tok->parse(_workingString,true);
-
-    while(!tok->eof)
-    {
-        token = tok->getToken();
-        if(token != nullptr)
+        if(debug)
         {
-            if(debug)
-                fprintf(traceFile,"\n order by tokens %s", token);
-                
-            if(strcasecmp(token,(char*)sqlTokenOrderAcending) != 0
-            && strcasecmp(token,(char*)sqlTokenOrderDescending) != 0)
+            printf("\n\n-----------Parse Order by----------------");
+            printf("\nOrderBy string:%s",_workingString.c_str());
+        }
+
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+
+        string token;
+        unique_ptr<tokenParser>    tok = make_unique<tokenParser>();
+        shared_ptr<OrderBy> orderBy (new OrderBy);
+        tok->parse(_workingString,true);
+
+        while(!tok->eof)
+        {
+            token = tok->getToken();
+            if(token.empty())
             {
-                OrderOrGroup    order;
-                order.name      = parseColumnName(token);
-                orderBy->order.push_back(order);
-            }
-            else
-            {
-                if(strcasecmp(token,(char*)sqlTokenOrderDescending) == 0)
-                    orderBy->asc = false;
+                if(debug)
+                    printf("\n order by tokens %s", token.c_str());
+                    
+                if(strcasecmp(token.c_str(),sqlTokenOrderAcending) != 0
+                && strcasecmp(token.c_str(),sqlTokenOrderDescending) != 0)
+                {
+                    OrderOrGroup    order;
+                    order.name      = parseColumnName(token);
+                    orderBy->order.push_back(order);
+                }
+                else
+                {
+                    if(strcasecmp(token.c_str(),sqlTokenOrderDescending) == 0)
+                        orderBy->asc = false;
+                }
             }
         }
+
+        if(orderBy == nullptr)
+            ielements->orderBy = nullptr;
+        else
+        ielements->orderBy = orderBy;
+
+        return ParseResult::SUCCESS;
     }
-
-    if(orderBy == nullptr)
-        iElement->orderBy = nullptr;
-    else
-       iElement->orderBy = orderBy;
-
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Group
  ******************************************************/
-ParseResult ParseQuery::parseGroupByList(char* _workingString)
+ParseResult ParseQuery::parseGroupByList(string _workingString)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-----------Parse Group by----------------");
-        fprintf(traceFile,"\nGroup By string:%s",_workingString);
-    }
 
-    if(_workingString == nullptr)
-        return ParseResult::SUCCESS;
-    
-    char* token;
-    tokenParser* tok = new tokenParser();
-    shared_ptr<GroupBy> groupBy (new GroupBy);
-    tok->parse(_workingString,true);
-
-    while(!tok->eof)
-    {
-        token = tok->getToken();
-        if(token != nullptr)
+        if(debug)
         {
-            if(debug)
-                fprintf(traceFile,"\n group by tokens %s", token);
-                
-            OrderOrGroup    group;
-            group.name      = parseColumnName(token);
-            groupBy->group.push_back(group);
+            printf("\n\n-----------Parse Group by----------------");
+            printf("\nGroup By string:%s",_workingString.c_str());
         }
+
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+        
+        string token;
+        unique_ptr<tokenParser> tok = make_unique<tokenParser>();
+        shared_ptr<GroupBy> groupBy (new GroupBy);
+        tok->parse(_workingString,true);
+
+        while(!tok->eof)
+        {
+            token = tok->getToken();
+            if(token.empty())
+            {
+                if(debug)
+                    printf("\n group by tokens %s", token.c_str());
+                    
+                OrderOrGroup    group;
+                group.name      = parseColumnName(token);
+                groupBy->group.push_back(group);
+            }
+        }
+
+        if(groupBy == nullptr)
+        ielements->groupBy = nullptr;
+        else
+            ielements->groupBy = groupBy;
+
+        return ParseResult::SUCCESS;
     }
-
-    if(groupBy == nullptr)
-       iElement->groupBy = nullptr;
-    else
-        iElement->groupBy = groupBy;
-
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 
 /******************************************************
  * Parse Conditions
  ******************************************************/
-ParseResult ParseQuery::parseConditionList(char* _workingString,CONDITIONTYPE _conditionType)
+ParseResult ParseQuery::parseConditionList(string _workingString,CONDITIONTYPE _conditionType)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-----------Parse Conditions----------------");
-        if(_conditionType == CONDITIONTYPE::JOIN)
-            fprintf(traceFile,"\nJoin Condition:%s",_workingString);
-        else
-        if(_conditionType == CONDITIONTYPE::HAVING)
-            fprintf(traceFile,"\nHaving Condition:%s",_workingString);
-        else
-           fprintf(traceFile,"\nCondition:%s",_workingString);
-    }
-    if(_workingString == nullptr)
-        return ParseResult::SUCCESS;
-
-    char* token;
-    tokenParser* tok = new tokenParser();
-    tok->parse(_workingString,true);
+ 
+        if(debug)
+        {
+            printf("\n\n-----------Parse Conditions----------------");
+            if(_conditionType == CONDITIONTYPE::JOIN)
+                printf("\nJoin Condition:%s",_workingString.c_str());
+            else
+            if(_conditionType == CONDITIONTYPE::HAVING)
+                printf("\nHaving Condition:%s",_workingString.c_str());
+            else
+            printf("\nCondition:%s",_workingString.c_str());
+        }
     
-    while(!tok->eof)
-    {
-        token = tok->getToken();
-        if(token != nullptr)
-            if(addCondition(token,_conditionType) == ParseResult::FAILURE)
-                return ParseResult::FAILURE;
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+        
+        _workingString.erase(0,_workingString.find_first_not_of(SPACE));
+        _workingString.erase(_workingString.find_last_not_of(SPACE)+1);
+
+        string token;
+        unique_ptr<tokenParser> tok = make_unique<tokenParser>();
+        tok->parse(_workingString,false);
+        
+        while(!tok->eof)
+        {
+            token = tok->getToken();
+            if(!token.empty())
+                if(addCondition(token,_conditionType) == ParseResult::FAILURE)
+                    return ParseResult::FAILURE;
+        }
+        return ParseResult::SUCCESS;
     }
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Column List
  ******************************************************/
-ParseResult ParseQuery::parseColumnList(char* _workingString)
+ParseResult ParseQuery::parseColumnList(string _workingString)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-----------Parse Column List----------------");
-        fprintf(traceFile,"\nColumn string:%s",_workingString);
-    }
+        if(debug)
+        {
+            printf("\n\n-----------Parse Column List----------------");
+            printf("\nColumn string:%s",_workingString.c_str());
+        }
 
-    if(_workingString == nullptr)
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+
+        char * token;
+        token = strtok ((char*)_workingString.c_str(),",");
+        while (token != NULL)
+        {
+            string strToken = token;
+            shared_ptr<columnParts> parts = parseColumnName(strToken);
+            if(parts == nullptr)
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to parse column name  ",strToken);
+                return ParseResult::FAILURE;
+            }
+            ielements->lstColumns.push_back(parseColumnName(strToken));
+            token = strtok (NULL, ",");
+        }
+
         return ParseResult::SUCCESS;
-
-    char * token;
-    token = strtok (_workingString,",");
-    while (token != NULL)
-    {
-        lTrim(token,' ');
-        iElement->lstColumns.push_back(parseColumnName(token));
-        token = strtok (NULL, ",");
     }
-
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Column Name
  ******************************************************/
-shared_ptr<columnParts> ParseQuery::parseColumnName(char* _str)
+shared_ptr<columnParts> ParseQuery::parseColumnName(string _str)
 {
     /*
         Column name have the following forms
@@ -783,136 +911,135 @@ shared_ptr<columnParts> ParseQuery::parseColumnName(char* _str)
         case 4) table/column        - customers.surname
         case 5) table alias column  - c.surname from customers c
     */
-    shared_ptr<columnParts> parts = make_unique<columnParts>(); 
-    strncpy(parts->fullName,_str,MAXOBJECTNAMESIZE);
+   try{
 
-    signed int columnAliasPosition = lookup::findDelimiter(_str,(char*)sqlTokenAs);
-    if(columnAliasPosition == DELIMITERERR)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_str);
-        return nullptr;
-    }
-    //case 1) column alias        - surname AS last
-    char* columnName  = _str;
-    if(columnAliasPosition > NEGATIVE)
-    {
-        strncpy(parts->columnAlias,_str+columnAliasPosition+3,MAXOBJECTNAMESIZE);
-        _str[columnAliasPosition] = '\0';
-    }
+        shared_ptr<columnParts> parts = make_unique<columnParts>(); 
+        parts->fullName =_str;
 
-    // case 2) functions          - COUNT(), SUM(), AVG(), MAX(), MIN()
-    signed int posParen = lookup::findDelimiter(_str,(char*)sqlTokenOpenParen);
-    if(posParen > NEGATIVE)
-    {
-        strncpy(parts->fuction,_str,MAXOBJECTNAMESIZE);
-        parts->fuction[posParen-1] = '\0';
-    }
-    
-    char* colStr = dupString(_str+posParen+1); 
-    int ii = 0;
-    for(size_t i=0;i<strlen(_str);i++)
-    {
-        if(colStr[i] != CLOSEPAREN)
+        size_t columnAliasPosition = findKeyword(_str,sqlTokenAs);
+
+        //case 1) column alias        - surname AS last
+        string columnName  = _str;
+        if(columnAliasPosition > std::string::npos)
         {
-            colStr[ii] = colStr[i];
-            ii++;
+            parts->columnAlias = snipString(_str,columnAliasPosition+3);
         }
-    }
-    ii++;
-    
-    colStr[ii] = '\0';
 
-    TokenPair* tp = lookup::tokenSplit(colStr,(char*)sqlTokenPeriod);
-    if(tp == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name: ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
-        return nullptr; 
-    }
+        // case 2) functions          - COUNT(), SUM(), AVG(), MAX(), MIN()
+        size_t posParen = findKeyword(_str,sqlTokenOpenParen);
+        if(posParen != std::string::npos)
+        {
+            parts->fuction = clipString(_str,posParen-1);
+            columnName = snipString(_str,posParen+1); 
+            columnName.erase(columnName.find_last_of(CLOSEPAREN));
+        }
 
-    // case 3) simple name         - surname
-    if(tp->two == nullptr)
-    {
-        strncpy(parts->columnName,tp->one,MAXOBJECTNAMESIZE);
-    }
-    else
-    {
-    // case 4/5)
-        strncpy(parts->tableAlias,tp->one,MAXOBJECTNAMESIZE);
-        strncpy(parts->columnName,tp->two,MAXOBJECTNAMESIZE);
-    }
+        unique_ptr<TokenPair> tp = tokenSplit(columnName,(char*)sqlTokenPeriod);
+        if(tp == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name: ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
+            return nullptr; 
+        }
 
-    delete tp;
+        // case 3) simple name         - surname
+        if(tp->two.empty())
+        {
+            parts->columnName = tp->one;
+        }
+        else
+        {
+        // case 4/5)
+            parts->tableAlias = tp->one;
+            parts->columnName = tp->two;
+        }
 
-    if(debug)
-    {
-        fprintf(traceFile,"\n Column parts: function:%s name:%s alias:%s table Alias %s",parts->fuction, parts->columnName, parts->columnAlias, parts->tableAlias);
-    }
+        if(debug)
+        {
+            printf("\n Column parts: function:%s name:%s alias:%s table Alias %s",parts->fuction.c_str(), parts->columnName.c_str(), parts->columnAlias.c_str(), parts->tableAlias.c_str());
+        }
 
-    return parts;
+        return parts;
+   }
+   catch_and_trace
+   return nullptr;
 };
 /******************************************************
  * Parse Value List
  ******************************************************/
-ParseResult ParseQuery::parseValueList(char* _workingString)
+ParseResult ParseQuery::parseValueList(string _workingString)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-----------Parse Value List----------------");
-        fprintf(traceFile,"\ntableString:%s",_workingString);
-    }
     
-    if(_workingString == nullptr)
-        return ParseResult::SUCCESS;
-   
-    char* token;
-    tokenParser* tok = new tokenParser(_workingString);
-    while(!tok->eof)
-    {
-        token = tok->getToken();
-        if(token != nullptr)
-            iElement->lstValues.push_back(token);
-    }
+        if(debug)
+        {
+            printf("\n\n-----------Parse Value List----------------");
+            printf("\ntableString:%s",_workingString.c_str());
+        }
+        
+        _workingString.erase(0,_workingString.find_first_not_of(SPACE));
+        _workingString.erase(_workingString.find_last_not_of(SPACE)+1);
 
-    return ParseResult::SUCCESS;
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+    
+        string token;
+        unique_ptr<tokenParser> tok = make_unique<tokenParser>(_workingString);
+        while(!tok->eof)
+        {
+            token = tok->getToken();
+            if(!token.empty())
+                ielements->lstValues.push_back(token);
+        }
+
+        return ParseResult::SUCCESS;
+    }
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 /******************************************************
  * Parse Table List
  ******************************************************/
-ParseResult ParseQuery::parseTableList(char* _workingString)
+ParseResult ParseQuery::parseTableList(string _workingString)
 {
-    if(debug)
+    try
     {
-        fprintf(traceFile,"\n\n-----------Parse Table List----------------");
-        fprintf(traceFile,"\ntableString:%s",_workingString);
-    }
-
-    if(_workingString == nullptr)
-        return ParseResult::SUCCESS;
-
-    char* token;
-
-    token = strtok (_workingString,",");
-	while(token != NULL)
-    {
+    
         if(debug)
-            fprintf(traceFile,"\ntoken %s",token);
-        if(iElement->tableName != nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting only one table");
+            printf("\n\n-----------Parse Table List----------------");
+            printf("\ntableString:%s",_workingString.c_str());
+        }
+
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+
+        char* token;
+
+        token = strtok ((char*)_workingString.c_str(),",");
+        while(token != NULL)
+        {
+            if(debug)
+                printf("\ntoken %s",token);
+            if(!ielements->tableName.empty())
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting only one table");
+                return ParseResult::FAILURE;
+            }
+            ielements->tableName.append(token);
+            token = strtok (NULL, ",");
+        }
+
+        if(ielements->tableName.empty())
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting at least one table");
             return ParseResult::FAILURE;
         }
-        iElement->tableName = dupString(token);
-        token = strtok (NULL, ",");
+        return ParseResult::SUCCESS;
     }
-
-    if(iElement->tableName == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting at least one table");
-        return ParseResult::FAILURE;
-    }
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 
 

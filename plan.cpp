@@ -75,7 +75,7 @@ ParseResult Plan::prepare(char* _queryString)
     ParseQuery parseQuery;
 
     // 1)
-    shared_ptr<char[]> querystr = sanitizeQuery(_queryString,MAXSQLSTRINGSIZE);
+    shared_ptr<char[]> querystr = normalizeQuery(_queryString,MAXSQLSTRINGSIZE);
     if( querystr == nullptr)
         return ParseResult::FAILURE;
 
@@ -87,7 +87,7 @@ ParseResult Plan::prepare(char* _queryString)
     for(char* query : queries)
     {
         if(debug)
-            fprintf(traceFile,"\nQuery statements to be parse %s",_queryString);
+            printf("\nQuery statements to be parse %s",_queryString);
         if(parseQuery.parse(query) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
 
@@ -98,7 +98,7 @@ ParseResult Plan::prepare(char* _queryString)
         && parseQuery.iElement->lstValues.size() == 0
         && parseQuery.iElement->sqlAction == SQLACTION::SELECT)
         {
-            fprintf(traceFile,"\n nothing in column list ");
+            printf("\n nothing in column list ");
             break;
         }
         
@@ -111,7 +111,7 @@ ParseResult Plan::prepare(char* _queryString)
     for(iElements* ielement : lstElements)
     {
         if(debug)
-            fprintf(traceFile,"\n iElement tablename %s",ielement->tableName);
+            printf("\n iElement tablename %s",ielement->tableName);
         // 6)
         lstStatements.push_back(*binding->bind(ielement));
         if(binding->orderBy != nullptr )
@@ -285,7 +285,7 @@ ParseResult Plan::execute()
         && functions)
         {
             if(debug)
-                fprintf(traceFile,"\n------------- print functions ----------------");
+                printf("\n------------- print functions ----------------");
             printFunctions(results);
             return ParseResult::SUCCESS;
         }
@@ -362,7 +362,7 @@ ParseResult Plan::printFunctions(resultList* _results)
 ParseResult Plan::split(shared_ptr<char[]> _queryString)
 {
     if(debug)
-        fprintf(traceFile,"\n------------- split ----------------");
+        printf("\n------------- split ----------------");
     int offset = 6;
     list<char*>lstDelimiters;
     char* queryString = _queryString.get();
@@ -380,7 +380,7 @@ ParseResult Plan::split(shared_ptr<char[]> _queryString)
     if(found == NEGATIVE)
     {
         if(debug)
-            fprintf(traceFile,"\nNo delimiters found %s",queryString);
+            printf("\nNo delimiters found %s",queryString);
         queries.push_back(queryString);
         return ParseResult::SUCCESS;
     }
@@ -390,7 +390,7 @@ ParseResult Plan::split(shared_ptr<char[]> _queryString)
         query = dupString(queryString);
         query[found+offset] = '\0';
         if(debug)
-            fprintf(traceFile,"\n%s",query);
+            printf("\n%s",query);
         queries.push_back(query);
         queryString = dupString(queryString+found+offset);
         found = lookup::findDelimiterFromList(queryString+offset,lstDelimiters);
@@ -398,7 +398,7 @@ ParseResult Plan::split(shared_ptr<char[]> _queryString)
     if(strlen(queryString) > 0)
     {
         if(debug)
-            fprintf(traceFile,"\ndrop though %s",queryString);
+            printf("\ndrop though %s",queryString);
         queries.push_back(queryString);
     }
     return ParseResult::SUCCESS;

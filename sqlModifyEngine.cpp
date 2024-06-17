@@ -378,7 +378,7 @@ ParseResult sqlModifyEngine::formatInput(char* _buff, Column* _col)
 		}
 		case t_edit::t_char:
 		{
-			//fprintf(traceFile,"\n %d %s %d",_col->position, _col->value, _col->length);
+			//printf("\n %d %s %d",_col->position, _col->value, _col->length);
 			memmove(&_buff[_col->position], _col->value, _col->length);
 			break;
 		}
@@ -417,7 +417,7 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 			return ParseResult::SUCCESS;
 
 		if(debug)
-			fprintf(traceFile,"\n index %s",idx->name);
+			printf("\n index %s",idx->name);
 
 		if(idx->columns.size() == 0)
 		{
@@ -452,14 +452,14 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 				if(!iColumn->primary)
 				{
 					if(debug)
-						fprintf(traceFile,"\ncolumn name %s position %d length %d",qColumn->name,qColumn->position,qColumn->length);
+						printf("\ncolumn name %s position %d length %d",qColumn->name,qColumn->position,qColumn->length);
 					
 					char buffBeforValue[60];
 					memcpy(&buffBeforValue,line+qColumn->position, qColumn->length);
 					buffBeforValue[qColumn->length] = '\0';
 					
 					if(debug)
-						fprintf(traceFile,"\nUpdate before value %s \nchanged value %s",buffBeforValue,qColumn->value);
+						printf("\nUpdate before value %s \nchanged value %s",buffBeforValue,qColumn->value);
 					
 					if(strcasecmp(buffBeforValue,qColumn->value) != 0)
 					{
@@ -533,14 +533,14 @@ bool sqlModifyEngine::writeRecord(void* _ptr, long _address, fstream* _file, int
 		if (!_file->seekp(_address))
 		{
 			if(debug)
-				fprintf(traceFile,"\nwrite Record seek failure address %ld size %i line %s",_address,_size,(char*)_ptr);
+				printf("\nwrite Record seek failure address %ld size %i line %s",_address,_size,(char*)_ptr);
 			return false;
 		}
 
 		if (!_file->write((char*)_ptr, _size))
 		{
 			if(debug)
-				fprintf(traceFile,"\nwrite failure address %ld size %i line %s",_address,_size,(char*)_ptr);
+				printf("\nwrite failure address %ld size %i line %s",_address,_size,(char*)_ptr);
 			return false;
 		}
 

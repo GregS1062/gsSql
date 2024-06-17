@@ -4,18 +4,19 @@
 #include <universal.h>
 #include "defines.h"
 #include "utilities.cpp"
+#include "userException.h"
 
 using namespace std;
 
 struct columnParts
 {
     public:
-        char fullName       [MAXOBJECTNAMESIZE];
-        char tableAlias     [MAXOBJECTNAMESIZE];
-        char columnName     [MAXOBJECTNAMESIZE];
-        char columnAlias    [MAXOBJECTNAMESIZE];
-        char fuction        [MAXOBJECTNAMESIZE];
-        char value          [MAXSQLSTRINGSIZE];
+        string fullName;
+        string tableAlias;
+        string columnName;
+        string columnAlias;
+        string fuction;
+        string value;
 };
 
 /******************************************************
@@ -33,11 +34,10 @@ ReturnResult returnResult;
 /******************************************************
  * Token Pair
  ******************************************************/
-class TokenPair
+struct TokenPair
 {
-    public:
-    char* one;
-    char* two;
+    string one;
+    string two;
 };
 
 /******************************************************
@@ -46,15 +46,15 @@ class TokenPair
 class Column
 {
     public:
-    char*       tableName;
-    char*       name;
-    char*       alias;
-    bool        primary = false;
-    t_function functionType;
-    t_edit      edit;
-    int         length = 0;
-    int         position = 0;
-    char*       value;
+    string          tableName{};
+    string          name{};
+    string          alias{};
+    bool            primary         = false;
+    t_function      functionType    = t_function::NONE;
+    t_edit          edit            = t_edit::t_undefined;
+    int             length          = 0;
+    int             position        = 0;
+    string          value{};
 };
 /******************************************************
  * Temp Column 
@@ -62,7 +62,7 @@ class Column
 class TempColumn : public Column
 {
     public:
-    char*   charValue       = nullptr;
+    string  charValue       {};
     int     intValue        = 0;
     double  doubleValue     = 0;
     bool    boolValue       = false;
@@ -76,18 +76,18 @@ class Condition
     public:
         shared_ptr<columnParts>    name            = nullptr;
         shared_ptr<columnParts>   compareToName   = nullptr;
-        char*           op              = nullptr;  // operator is a reserved word
-        char*           prefix          = nullptr;  // (
-        char*           condition       = nullptr;	// and/or
-        char*           suffix          = nullptr;  // )
-        char*           value           = nullptr;
+        string           op             {};  // operator is a reserved word
+        string           prefix         {};  // (
+        string           condition      {};	// and/or
+        string           suffix         {};  // )
+        string           value          {};
         int             intValue        = 0;
         double          doubleValue     = 0;
         bool            boolValue       = false;
         t_tm            dateValue       {};
         Column*         col             {};
         Column*         compareToColumn {};
-        list<char*>     valueList       {};
+        list<string>     valueList       {};
 };
 /******************************************************
  * Base Order/Group
@@ -125,13 +125,13 @@ class GroupBy
 class BaseData
 {
     public:
-        fstream*            fileStream = nullptr;
-        char*               name;
-        char*               fileName;
-        list<Column*>       columns{};
-        fstream*            open();
-        void                close();
-        Column*             getColumn(char*);
+        fstream*                    fileStream = nullptr;
+        string                      name;
+        string                      fileName;
+        list<shared_ptr<Column>>    columns{};
+        fstream*                    open();
+        void                        close();
+        shared_ptr<Column>          getColumn(string);
 };
 /******************************************************
  * Base Open
@@ -139,7 +139,7 @@ class BaseData
 fstream* BaseData::open()
 {
     
-    if(fileName == nullptr)
+    if(fileName.length() == 0)
         return nullptr;
 
     ////Open index file
@@ -168,11 +168,11 @@ void BaseData::close()
 /******************************************************
  * Base Get Column
  ******************************************************/
-Column* BaseData::getColumn(char* _name)
+shared_ptr<Column> BaseData::getColumn(string _name)
 {
 
-    for (Column* col : columns) {
-        if(strcasecmp(col->name,_name) == 0)
+    for (shared_ptr<Column> col : columns) {
+        if(strcasecmp(col->name.c_str(),_name.c_str()) == 0)
             return col;
     }
     return nullptr;
@@ -193,12 +193,12 @@ class sIndex : public BaseData
  ******************************************************/
 bool sIndex::openIndex()
 {
-    if(strlen(name) == 0)
+    if(name.length() == 0)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index name not set");
         return false;
     }
-    if(strlen(fileName) == 0)
+    if(fileName.length() == 0)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,"Index filename not set");
         return false;
@@ -215,10 +215,10 @@ bool sIndex::openIndex()
 class sTable : public BaseData
 {  
     public:
-        list<sIndex*>    indexes{};
-        list<Condition*> conditions{};
-        int              recordLength = 0;
-        char*            alias;
+        list<shared_ptr<sIndex>>    indexes{};
+        list<shared_ptr<Condition>> conditions{};
+        int                         recordLength = 0;
+        string                      alias;
 };
 
 /******************************************************
@@ -232,7 +232,7 @@ class Statement
         shared_ptr<GroupBy> groupBy         {};     
         int                 rowsToReturn    = 0;
         id_t                exectionOrder   = 0;
-        sTable*             table           {};
+        shared_ptr<sTable>  table           {};
 };
 
 FILE* traceFile;

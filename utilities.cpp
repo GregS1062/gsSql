@@ -385,13 +385,13 @@ bool isDateValid(char* _cdate)
 /******************************************************
  * Is Numeric
  ******************************************************/
-bool isNumeric(char* _token)
+bool isNumeric(string _token)
 {
 
-    if(_token == nullptr)
+    if(_token.empty())
         return false;
 
-    for(size_t i=0;i<strlen(_token);i++)
+    for(size_t i=0;i<_token.length();i++)
     {
         if(_token[i] == '.')
             continue;
@@ -401,27 +401,4 @@ bool isNumeric(char* _token)
     return true;
 }
 
-/*******************************************************
-   Strip quotes from token
-*******************************************************/
-void stripQuotesFromToken(char _token[])
-{
-	//strip quotes from value
-	size_t s = 0;
-	size_t len = strlen(_token);
-	for(size_t i = 0;i< len; i++)
-	{
-		if(_token[i] == QUOTE)
-			s++;
-
-		if(_token[s] == QUOTE)
-		{
-			_token[i] = '\0';
-		}
-		else{
-			_token[i] = _token[s];
-		}
-		s++;  
-	}
-}
 		

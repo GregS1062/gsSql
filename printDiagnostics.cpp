@@ -1,122 +1,176 @@
 #include "sqlCommon.h"
 #include "interfaces.h"
-#include "binding.cpp"
+//#include "binding.cpp"
 void printParts(std::shared_ptr<columnParts> parts)
 {
-    fprintf(traceFile,"\n\t name: %s alias: %s tableName: %s function: %s",parts->columnName, parts->columnAlias, parts->tableAlias, parts->fuction);
+    printf("\n\t name: %s alias: %s tableName: %s function: %s",parts->columnName.c_str(), parts->columnAlias.c_str(), parts->tableAlias.c_str(), parts->fuction.c_str());
 }
-void printTable(sTable* tbl)
+void printAction(SQLACTION _action)
 {
-    fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n Statement Table");
-    fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n table name %s", tbl->name);
-    fprintf(traceFile," alias %s", tbl->alias);
-    for(Column* col : tbl->columns)
+    switch(_action)
     {
-        fprintf(traceFile,"\n\t column name %s", col->name);
-        fprintf(traceFile," alias %s", col->alias);
-        fprintf(traceFile," value %s", col->value);
-        fprintf(traceFile," function %i", (int)col->functionType);
-        if(col->primary)
-            fprintf(traceFile," PRIMARY");
+        case SQLACTION::SELECT:
+            printf("\nAction = Select");
+            break;
+        case SQLACTION::UPDATE:
+            printf("\nAction = Update");
+            break;
+        case SQLACTION::DELETE:
+            printf("\nAction = Delete");
+            break;
+        case SQLACTION::INSERT:
+            printf("\nAction = Insert");
+            break;
+        case SQLACTION::JOIN:
+            printf("\nAction = Join");
+            break;
+        default:
+            break;
     }
-    fprintf(traceFile,"\n\n Conditions");
-    for(Condition* con : tbl->conditions)
+}
+void printTable(shared_ptr<sTable> tbl)
+{
+    printf("\n*******************************************");
+    printf("\n Statement Table");
+    printf("\n*******************************************");
+    printf("\n table name %s", tbl->name.c_str());
+    printf(" alias %s", tbl->alias.c_str());
+    for(shared_ptr<Column> col : tbl->columns)
+    {
+        printf("\n\t column name %s", col->name.c_str());
+        printf(" alias %s", col->alias.c_str());
+        printf(" value %s", col->value.c_str());
+        printf(" function %i", (int)col->functionType);
+        if(col->primary)
+            printf(" PRIMARY");
+    }
+    printf("\n\n Conditions");
+    for(shared_ptr<Condition> con : tbl->conditions)
     {
         printParts(con->name);
         if(con->compareToName != nullptr)
             printParts(con->compareToName);
-        fprintf(traceFile,"\n\t condition condition %s", con->condition);
-        fprintf(traceFile,"\n\t condition op        %s", con->op);
-        fprintf(traceFile,"\n\t condition value     %s", con->value);
+        printf("\n\t condition condition %s", con->condition.c_str());
+        printf("\n\t condition op        %s", con->op.c_str());
+        printf("\n\t condition value     %s", con->value.c_str());
     }
-    fprintf(traceFile,"\n\n Indexes ");
-    for(sIndex* idx : tbl->indexes)
+    printf("\n\n Indexes ");
+    for(shared_ptr<sIndex> idx : tbl->indexes)
     {
-        fprintf(traceFile,"\n\t index name %s", idx->name);
-        fprintf(traceFile,"  file name %s", idx->fileName);
-        for(Column* col : idx->columns)
+        printf("\n\t index name %s", idx->name.c_str());
+        printf("  file name %s", idx->fileName.c_str());
+        for(shared_ptr<Column> col : idx->columns)
         {
-            fprintf(traceFile,"\n\t\t index column name %s", col->name);
+            printf("\n\t\t index column name %s", col->name.c_str());
         }
     }
 }
 void printOrderBy(shared_ptr<OrderBy> _orderBy)
 {
-    fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n Order By");
-    fprintf(traceFile,"\n*******************************************");
+    printf("\n*******************************************");
+    printf("\n Order By");
+    printf("\n*******************************************");
     for(OrderOrGroup order :_orderBy->order)
     {
         printParts(order.name);
     }
     if(_orderBy->asc)
-        fprintf(traceFile,"\n\tascending");
+        printf("\n\tascending");
     else
-        fprintf(traceFile,"\n\tdescending");
+        printf("\n\tdescending");
 }
 void printGroupBy(shared_ptr<GroupBy> _groupBy)
 {
-    fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n Group By");
-    fprintf(traceFile,"\n*******************************************");
+    printf("\n*******************************************");
+    printf("\n Group By");
+    printf("\n*******************************************");
     for(OrderOrGroup group :_groupBy->group)
     {
         printParts(group.name);
     }
 
-    fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n Having");
-    fprintf(traceFile,"\n*******************************************");
+    printf("\n*******************************************");
+    printf("\n Having");
+    printf("\n*******************************************");
 
     for(Condition* con :_groupBy->having)
     {
         printParts(con->name);
-        fprintf(traceFile,"\n\t condition condition %s", con->condition);
-        fprintf(traceFile,"\n\t condition op        %s", con->op);
-        fprintf(traceFile,"\n\t condition value     %s", con->value);
+        printf("\n\t condition condition %s", con->condition.c_str());
+        printf("\n\t condition op        %s", con->op.c_str());
+        printf("\n\t condition value     %s", con->value.c_str());
     }
 
 }
-void printQuery(iElements* _it,Binding* bind)
+void printQuery(shared_ptr<iElements> _element)
 {
-    fprintf(traceFile,"\n*******************************************");
-    fprintf(traceFile,"\n Query Tables");
-    fprintf(traceFile,"\n*******************************************");
-    for(sTable* tbl : bind->lstTables)
+    printf("\n\n\n*******************************************");
+    printf("\n Print Diagnostics: Query Tables");
+    printf("\n*******************************************");
+    printAction(_element->sqlAction);
+    printf("\nRow Count:%i",_element->rowsToReturn);
+    printf("\nTable Name:%s",_element->tableName.c_str());
+    if(_element->lstColumns.size() == 0)
     {
-        printTable(tbl);
+        printf("\n No column");
     }
-    return;
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    fprintf(traceFile,"\n column names");
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    for(std::shared_ptr<columnParts> parts : _it->lstColumns)
+    else
     {
-        printParts(parts);
+        printf("\n\n--------------------------------------------");
+        printf("\n column names");
+        printf("\n\n--------------------------------------------");
+        for(std::shared_ptr<columnParts> parts : _element->lstColumns)
+        {
+            printParts(parts);
+        }
     }
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    fprintf(traceFile,"\n column values");
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    for(char* c : _it->lstValues)
+    if(_element->lstValues.size() == 0)
     {
-        fprintf(traceFile,"\n value:%s",c);
+        printf("\n No column values");
     }
-    if(_it->lstConditions.size() == 0)
+    else
     {
-        fprintf(traceFile,"\n No conditions");
-        return;
+        printf("\n\n--------------------------------------------");
+        printf("\n column values");
+        printf("\n\n--------------------------------------------");
+        for(string val : _element->lstValues)
+        {
+            printf("\n value:%s",val.c_str());
+        }
     }
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    fprintf(traceFile,"\n Conditions");
-    fprintf(traceFile,"\n\n--------------------------------------------");
-    for(Condition* con : _it->lstConditions)
+    if(_element->lstConditions.size() == 0)
     {
-        printParts(con->name);
-        fprintf(traceFile,"\n\t condition condition %s", con->condition);
-        fprintf(traceFile,"\n\t condition op        %s", con->op);
-        fprintf(traceFile,"\n\t condition value     %s", con->value);
+        printf("\n No Select conditions");
+    }
+    else
+    {
+        printf("\n\n--------------------------------------------");
+        printf("\n Select Conditions");
+        printf("\n\n--------------------------------------------");
+        for(shared_ptr<Condition> con : _element->lstConditions)
+        {
+            printParts(con->name);
+            printf("\n\t condition condition %s", con->condition.c_str());
+            printf("\n\t condition op        %s", con->op.c_str());
+            printf("\n\t condition value     %s", con->value.c_str());
+        }
+    }
+    if(_element->lstJoinConditions.size() == 0)
+    {
+        printf("\n No Join conditions");
+    }
+    else
+    {
+        printf("\n\n--------------------------------------------");
+        printf("\n Join Conditions");
+        printf("\n\n--------------------------------------------");
+        for(shared_ptr<Condition> con : _element->lstJoinConditions)
+        {
+            printParts(con->name);
+            printf("\n\t condition condition %s", con->condition.c_str());
+            printf("\n\t condition op        %s", con->op.c_str());
+            printf("\n\t condition value     %s", con->value.c_str());
+        }
     }
 }
 

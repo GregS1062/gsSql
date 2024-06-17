@@ -24,7 +24,7 @@ sTable* lookup::getTableByAlias(list<sTable*> _tables, char* _alias)
 {
     for(sTable* tbl : _tables)
     {
-       // fprintf(traceFile,"\n looking for %s found %s",_alias,tbl->alias);
+       // printf("\n looking for %s found %s",_alias,tbl->alias);
        if(tbl->alias == nullptr)
             continue;
         if(strcasecmp(tbl->alias, _alias) == 0)
@@ -42,7 +42,7 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
 
     for(sTable* tbl : _tables)
     {
-       // fprintf(traceFile,"\n looking for %s found %s",_tableName,tbl->name);
+       // printf("\n looking for %s found %s",_tableName,tbl->name);
         if(strcasecmp(tbl->name, _tableName) == 0)
             return tbl;
     }
@@ -82,7 +82,7 @@ Column* lookup::getColumnByAlias(list<Column*> _columns, char* _name)
 /******************************************************
  * Find Delimiter char*
  ******************************************************/
-signed int lookup::findDelimiter(char* _string, char* _delimiter)
+size_t lookup::findDelimiter(string _string, string _delimiter)
 {
     if(_string == nullptr
     || _delimiter == nullptr)
@@ -119,7 +119,7 @@ signed int lookup::findDelimiter(char* _string, char* _delimiter)
     }
     buff[strlen(str)] = '\0';
    // if(debug)
-   //    fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
+   //    printf("\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
 
     char *s;
     s = strstr(buff, _delimiter);      // search for string "hassasin" in buff
@@ -172,84 +172,6 @@ signed int lookup::findDelimiterFromList(char* _string, list<char*> _list)
     if(found < len)
         return found;
     return NEGATIVE;
-}
-/******************************************************
- * Determine Actionm
- ******************************************************/
-SQLACTION lookup::determineAction(char* _token)
-{
-    if(debug)
-      fprintf(traceFile,"\n determine action");
-
-    if(strcasecmp(_token,sqlTokenSelect) == 0)
-    {
-        return SQLACTION::SELECT;
-    }
-
-    if(strcasecmp(_token,sqlTokenInsert) == 0)
-    {
-        return SQLACTION::INSERT;
-    }
-    
-    if(strcasecmp(_token,sqlTokenUpdate) == 0)
-    {
-        return  SQLACTION::UPDATE;
-    }
-
-    if(strcasecmp(_token,sqlTokenDelete) == 0)
-    {
-        return SQLACTION::DELETE;
-    }
-
-    if(strcasecmp(_token,sqlTokenCreate) == 0)
-    {
-        return  SQLACTION::CREATE;
-    }
-
-
-    if(strcasecmp(_token,sqlTokenJoin) == 0)
-    {
-        return  SQLACTION::JOIN;
-    }
-
-    if(strcasecmp(_token,sqlTokenInner) == 0)
-    {
-        return  SQLACTION::INNER;
-    }
-
-    if(strcasecmp(_token,sqlTokenOuter) == 0)
-    {
-        return  SQLACTION::OUTER;
-    }
-
-    if(strcasecmp(_token,sqlTokenLeft) == 0)
-    {
-        return  SQLACTION::LEFT;
-    }
-
-    if(strcasecmp(_token,sqlTokenRight) == 0)
-    {
-        return  SQLACTION::RIGHT;
-    }
-
-    if(strcasecmp(_token,sqlTokenNatural) == 0)
-    {
-        return  SQLACTION::NATURAL;
-    }
-
-    if(strcasecmp(_token,sqlTokenCross) == 0)
-    {
-        return  SQLACTION::CROSS;
-    }
-
-    if(strcasecmp(_token,sqlTokenFull) == 0)
-    {
-        return  SQLACTION::FULL;
-    }
-
-
-    return  SQLACTION::INVALID;
-
 }
 /******************************************************
  * Token Split

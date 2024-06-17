@@ -69,7 +69,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 		else
 			name = row.at(i)->name;
 		if(debug)
-			fprintf(traceFile,"\nmatching %s to column %s",key->name,name);
+			printf("\nmatching %s to column %s",key->name,name);
 		if(strcasecmp(key->name,name) == 0 )
 		{
 			keyColumnNbr = (int)i;
@@ -105,7 +105,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 		return ParseResult::FAILURE;
 	}
 	if(debug)
-		fprintf(traceFile,"\njoin on index %s",index->name);
+		printf("\njoin on index %s",index->name);
 
 	search = new Search(index->fileStream);
 	
@@ -130,7 +130,7 @@ ParseResult sqlJoinEngine::joinOnKey(Search* _search,vector<TempColumn*> _row, s
 	long location = _search->find(_row.at(_keyColumnNbr)->charValue);
 
 	if(debug)
-		fprintf(traceFile,"\n join key %s location %ld",_row.at(_keyColumnNbr)->charValue,location);
+		printf("\n join key %s location %ld",_row.at(_keyColumnNbr)->charValue,location);
 
 	// A no-hit is legit
 	if( location == NEGATIVE)

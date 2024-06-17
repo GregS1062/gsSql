@@ -111,11 +111,6 @@ enum MESSAGETYPE
     INFORMATION
 };
 
-enum PRESENTATION
-{
-    HTML,
-    TEXT
-};
 enum ParseResult
 {
     SUCCESS,
@@ -181,4 +176,4 @@ enum class t_function
 
 string errText;
 string msgText;
-PRESENTATION presentationType;
+

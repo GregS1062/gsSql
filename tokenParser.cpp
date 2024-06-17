@@ -12,28 +12,27 @@ class tokenParser
 
     public:
     tokenParser(){}
-    tokenParser(const char*);
+    tokenParser(string);
     
-    void        parse(const char*);
-    void        parse(const char*,bool);
-    char*       getToken();
-    char*       cleanString(char*);
+    void        parse(string);
+    void        parse(string,bool);
+    string      getToken();
+    string      cleanString(string);
     bool        delimiterAhead();
     bool        eof = false;
-    const char* parseString;
-    signed int parseStringLength;
-    signed int pos;
+    string      parseString;
+    size_t      parseStringLength;
+    size_t      pos;
 };
 
-char* tokenParser::cleanString(char* _string)
+string tokenParser::cleanString(string _string)
 {
     // ABC  DEF
-    size_t  len = strlen(_string);
-    char*   newString = dupString(_string);
+    size_t  len = _string.length();
     char    c;
-    size_t  posNewString = 0;
     bool    betweenQuotes = false;
     bool    priorSpace = false;
+    string  newString;
 
     for(size_t posString = 0; posString<len; posString++)
     {
@@ -65,15 +64,12 @@ char* tokenParser::cleanString(char* _string)
         {
             if(_string[posString-1] != SPACE)
             {
-                newString[posNewString] = SPACE;
-                posNewString++;
+                newString += SPACE;
             }
-            newString[posNewString] = c;
-            posNewString++;
+            newString += c;
             if(_string[posString+1] != SPACE)
             {
-                newString[posNewString] = SPACE;
-                posNewString++;
+                newString += SPACE;
                 priorSpace = false;
             }
             continue;
@@ -91,34 +87,32 @@ char* tokenParser::cleanString(char* _string)
         if(c != SPACE)
             priorSpace = false;
 
-        newString[posNewString] = c;
-        posNewString++;
+        newString += c;
     }
-    newString[posNewString] = '\0';
     return newString;
 }
-tokenParser::tokenParser(const char* _parseString)
+tokenParser::tokenParser(string _parseString)
 {
     parseString         = _parseString;
-    parseStringLength   = (signed int)strlen(parseString);
+    parseStringLength   = parseString.length();
     pos = 0;
 }
-void tokenParser::parse(const char* _parseString)
+void tokenParser::parse(string _parseString)
 {
     parseString         = _parseString;
-    parseStringLength   = (signed int)strlen(parseString);
+    parseStringLength   = parseString.length();
     pos = 0;
 }
-void tokenParser::parse(const char* _parseString, bool _keepQuotes)
+void tokenParser::parse(string _parseString, bool _keepQuotes)
 {
     parseString         = _parseString;
-    parseStringLength   = (signed int)strlen(parseString);
+    parseStringLength   = parseString.length();
     keepQuotes          = _keepQuotes;
     pos                 = 0;
 }
 bool tokenParser::delimiterAhead()
 {
-    signed int lookAhead   = pos; // Look ahead position
+    size_t lookAhead   = pos; // Look ahead position
     char c = ' ';
     while(lookAhead < parseStringLength)
     {
@@ -142,13 +136,12 @@ bool tokenParser::delimiterAhead()
 /******************************************************
  * Get Token
  ******************************************************/
-char* tokenParser::getToken()
+string tokenParser::getToken()
 {
-    bool betweenQuotes = false;
-    char token[MAXSQLTOKENSIZE];            //token buffer space            
+    bool betweenQuotes = false;      
     char c = ' ';                           //character in question
     int  t = 0;                             //token character pointer
-    token[0] = '\0';
+    string token;
 
     //read string loop
     while(pos <= parseStringLength)
@@ -169,10 +162,9 @@ char* tokenParser::getToken()
         && parseString[pos] == EQUAL)
         {
            pos++; 
-           token[0] = c;
-           token[1] = EQUAL;
-           token[2] = '\0';
-           return dupString(token);
+           token += c;
+           token += EQUAL;
+           return token;
         }
 
         if(c == QUOTE)
@@ -182,34 +174,30 @@ char* tokenParser::getToken()
                 betweenQuotes = false;
                 if(keepQuotes)
                 {
-                    token[t] = c;
+                    token += c;
                     t++;
                 }
                 // Looking for end of value list without a comma
                 // example Update tablename set column = "" where....
                 if(!delimiterAhead())
-                {
-                    token[t] = '\0';
-                    return dupString(token);
-                }
+                    return token;
             }
             else
-            {
                 betweenQuotes = true; 
-            }
+
             if(keepQuotes)
             {
-                token[t] = c;
+                token += c;
                 t++;
             }
+
             continue;
         }
         
         if( betweenQuotes
         &&  c == SPACE)
         {
-            token[t] = c;
-            t++;
+            token += c;
             continue;
         }
 
@@ -220,9 +208,8 @@ char* tokenParser::getToken()
         || c == FORMFEED
         || c == TAB
         || c == VTAB))
-        {
             continue;
-        }
+
 
         if(c == COMMA
         || c == SPACE
@@ -233,10 +220,8 @@ char* tokenParser::getToken()
         || c == VTAB)
         {
             if(t > 0)
-            {
-                token[t] = '\0';
-                return dupString(token);
-            }
+                return token;
+
             continue;
         }
 
@@ -246,26 +231,18 @@ char* tokenParser::getToken()
         {
             if(t > 0)
             {
-                pos = pos -1;
-                token[t] = '\0';
-                return dupString(token);
+                token.pop_back();
+                return token;
             }
             else
             {
-                token[0] = c;
-                token[1] = '\0';
-                return dupString(token);
+                token += c;
+                return token;
             }
          }
-        
-        token[t] = c;
         t++;
-    }
-    if(t > 0)
-    {
-        token[t] = '\0';
-        return dupString(token);
+        token += c;
     }
     eof = true;
-    return nullptr;
+    return token;
 }

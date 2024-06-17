@@ -10,33 +10,33 @@ class Binding
 {
     private:
 
-    sTable*          defaultTable;    
-    sTable*          defaultSQLTable;
-    tokenParser*     tok;
-    iSQLTables*      isqlTables;
-    iElements*       ielements;
+    shared_ptr<sTable>          defaultTable;    
+    shared_ptr<sTable>          defaultSQLTable;
+    tokenParser*                tok;
+    iSQLTables*                 isqlTables;
+    iElements*                  ielements;
     
-    ParseResult     bindColumnList();
-    ParseResult     bindFunctionColumn(std::shared_ptr<columnParts>);
-    sTable*         assignTable(std::shared_ptr<columnParts>);
-    Column*         assignTemplateColumn(std::shared_ptr<columnParts>,char*);
-    ParseResult     bindValueList();
-    ParseResult     bindConditions();
-    ParseResult     bindCondition(Condition*,bool);
-    ParseResult     bindHaving();
-    ParseResult     bindOrderBy();
-    ParseResult     bindGroupBy();
-    ParseResult     populateTable(sTable*,sTable*);
-    bool            valueSizeOutofBounds(char*, Column*);
-    ParseResult     editColumn(Column*,char*);
-    ParseResult     editCondition(Condition*);
+    ParseResult                 bindColumnList();
+    ParseResult                 bindFunctionColumn(std::shared_ptr<columnParts>);
+    sTable*                     assignTable(std::shared_ptr<columnParts>);
+    Column*                     assignTemplateColumn(std::shared_ptr<columnParts>,char*);
+    ParseResult                 bindValueList();
+    ParseResult                 bindConditions();
+    ParseResult                 bindCondition(Condition*,bool);
+    ParseResult                 bindHaving();
+    ParseResult                 bindOrderBy();
+    ParseResult                 bindGroupBy();
+    ParseResult                 populateTable(sTable*,sTable*);
+    bool                        valueSizeOutofBounds(char*, Column*);
+    ParseResult                 editColumn(Column*,char*);
+    ParseResult                 editCondition(Condition*);
 
     public:
 
-    shared_ptr<OrderBy> orderBy = make_shared<OrderBy>(); 
-    shared_ptr<GroupBy> groupBy = make_shared<GroupBy>(); 
-    ParseResult         bindTableList(list<char*>);
-    list<sTable*>    lstTables;  //public for diagnostic purposes
+    shared_ptr<OrderBy>         orderBy = make_shared<OrderBy>(); 
+    shared_ptr<GroupBy>         groupBy = make_shared<GroupBy>(); 
+    ParseResult                 bindTableList(list<char*>);
+    list<shared_ptr<sTable>>    lstTables;  //public for diagnostic purposes
 
     Binding(iSQLTables*);
     Statement*     bind(iElements*);
@@ -55,7 +55,7 @@ Statement* Binding::bind(iElements* _ielements)
 {
 
     if(debug)
-        fprintf(traceFile,"\n\n-------------------------BEGIN BIND-------------------------------------------");
+        printf("\n\n-------------------------BEGIN BIND-------------------------------------------");
     
     ielements = _ielements;
 
@@ -66,7 +66,7 @@ Statement* Binding::bind(iElements* _ielements)
     }
     
     if(debug)
-            fprintf(traceFile,"\nstatement table name %s",ielements->tableName);
+            printf("\nstatement table name %s",ielements->tableName);
 
     TokenPair* tp = lookup::tokenSplit(ielements->tableName,(char*)" ");
 
@@ -108,7 +108,7 @@ Statement* Binding::bind(iElements* _ielements)
     if(bindColumnList() == ParseResult::FAILURE)
     {
         if(debug)
-            fprintf(traceFile,"\n column Binding failure");
+            printf("\n column Binding failure");
         return nullptr;
     }
 
@@ -137,7 +137,7 @@ ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
     for(char* token : _lstDeclaredTables)
     {
         if(debug)
-            fprintf(traceFile,"\n table name %s|| \n",token);
+            printf("\n table name %s|| \n",token);
 
         table = new sTable();
 
@@ -150,7 +150,7 @@ ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
         }
 
         if(debug)
-            fprintf(traceFile,"\n tp1:%s| tp2:%s|",tp->one, tp->two);
+            printf("\n tp1:%s| tp2:%s|",tp->one, tp->two);
 
         temp = lookup::getTableByName(isqlTables->tables,tp->one);
         if(temp != nullptr)
@@ -184,7 +184,7 @@ ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
 ParseResult Binding::bindColumnList()
 {
     if(debug)
-        fprintf(traceFile,"\n-------------------- bind column list ----------------");
+        printf("\n-------------------- bind column list ----------------");
     
     // case Insert into table values(....)
     if(ielements->lstColumns.size() == 0
@@ -319,7 +319,7 @@ Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char*
  ParseResult Binding::bindFunctionColumn(std::shared_ptr<columnParts> _parts)
 {
     if(debug)
-        fprintf(traceFile,"\n------------------bind function------------");
+        printf("\n------------------bind function------------");
 
     t_function ag = t_function::NONE;
 
@@ -403,7 +403,7 @@ Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char*
             altAlias = (char*)sqlTokenSum;
             break;
         case t_function::NONE:
-            fprintf(traceFile,"\nCounld not find function type");
+            printf("\nCounld not find function type");
             return ParseResult::FAILURE;
     }
     if(strlen(_parts->columnAlias) > 0)
@@ -458,7 +458,7 @@ ParseResult Binding::bindValueList()
 ParseResult Binding::populateTable(sTable* _table,sTable* _sqlTbl)
 {
     if(debug)
-        fprintf(traceFile,"\n-------------------- Populate table  ----------------");
+        printf("\n-------------------- Populate table  ----------------");
     for (Column* col : _sqlTbl->columns) 
     {
         _table->columns.push_back(col);
@@ -549,13 +549,13 @@ ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
             return ParseResult::SUCCESS;
 
         if(debug)
-            fprintf(traceFile,"\nbinding condition compareToName %s %s",_con->compareToName->columnName, _con->compareToName->columnAlias);
+            printf("\nbinding condition compareToName %s %s",_con->compareToName->columnName, _con->compareToName->columnAlias);
         columnName = _con->compareToName;
     }
     else
     {
         if(debug)
-            fprintf(traceFile,"\nbinding condition name %s %s",_con->name->columnName, _con->name->columnAlias);
+            printf("\nbinding condition name %s %s",_con->name->columnName, _con->name->columnAlias);
         columnName = _con->name;
     }
         
@@ -604,7 +604,7 @@ ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
 ParseResult Binding::bindOrderBy()
 {
     if(debug)
-        fprintf(traceFile,"\n----------------------- bind order by -----------------------------------");
+        printf("\n----------------------- bind order by -----------------------------------");
     sTable* tbl;
     Column* col;
 
@@ -653,7 +653,7 @@ ParseResult Binding::bindOrderBy()
         orderBy->order.push_back(order);
         
         if(debug)
-            fprintf(traceFile,"\n bind order Column name:%s table: %s  sort# %d",col->name, col->tableName, order.columnNbr);
+            printf("\n bind order Column name:%s table: %s  sort# %d",col->name, col->tableName, order.columnNbr);
         
     }
     return ParseResult::SUCCESS;
@@ -664,11 +664,11 @@ ParseResult Binding::bindOrderBy()
 ParseResult Binding::bindGroupBy()
 {
     if(debug)
-        fprintf(traceFile,"\n----------------------- bind group by -----------------------------------");
+        printf("\n----------------------- bind group by -----------------------------------");
 
     if(ielements->groupBy == nullptr)
     {
-        fprintf(traceFile,"\nielemenst->groupBy = null");
+        printf("\nielemenst->groupBy = null");
         return ParseResult::SUCCESS;
     }
 
@@ -714,7 +714,7 @@ ParseResult Binding::bindGroupBy()
         
 
         if(debug)
-            fprintf(traceFile,"\n bind group Column name:%s table: %s  sort# %d",col->name, col->tableName, group.columnNbr);
+            printf("\n bind group Column name:%s table: %s  sort# %d",col->name, col->tableName, group.columnNbr);
         
         bindHaving();
     }
@@ -780,7 +780,7 @@ ParseResult Binding::editColumn(Column* _col,char* _value)
                 _col->value = _value;
             else
             {
-                fprintf(traceFile,"\n bool value %s",_value);
+                printf("\n bool value %s",_value);
                 return ParseResult::FAILURE;
             }
             break; 
