@@ -54,10 +54,10 @@ int main(int argc, char* argv[])
                     script = "t80-insert-store";               
                     break;
             case 11:
-                    script = "t81-select-store-by-name";        //segment fault
+                    script = "t81-select-store-by-name";        
                     break; 
             case 12:
-                    script = "t90-select-columns-with-alias";   //conditions failed
+                    script = "t90-select-columns-with-alias";   
                     break;
             case 13:
                     script = "t100-functions-table-column-alias";
@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
         presentationType = PRESENTATION::TEXT;
         
         auto sql = make_unique<parseSql>(sqlFile);
-
+        debug = true;
         if(sql->parse() == ParseResult::FAILURE)
         {
             fprintf(traceFile,"\n******************SQL Parser FAILED*****************");
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
             return 0;
         }
 
-        debug = false;
+        debug = true;
 
         Plan plan(sql->isqlTables);
         
@@ -145,12 +145,21 @@ int main(int argc, char* argv[])
 
         for(shared_ptr<Statement> statement : plan.lstStatements)
             printStatement(statement);
+        if(plan.orderBy != nullptr)
+            printOrderBy(plan.orderBy);
+        if(plan.groupBy != nullptr)
+            printGroupBy(plan.groupBy);
+
+        plan.execute();
+
+
 
         fprintf(traceFile,"\n\n");
         fclose(traceFile);
-
+        if(!returnResult.resultTable.empty())
+            printf("\n%s",returnResult.resultTable.c_str());
         if(!errText.empty())
-            fprintf(traceFile,"\nERROR %s",errText.c_str());
+            printf("\nERROR %s",errText.c_str());
         
         return 0; 
         }

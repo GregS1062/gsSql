@@ -134,6 +134,9 @@ ParseResult parseSql::parseTable(string _tableString)
 
         posFileName = posFileName+strlen(sqlTokenAs);
         string fileName = _tableString.substr(posFileName,posOpenParen-posFileName);
+        fileName = trim(fileName);
+        fileName.erase(0, fileName.find_first_not_of(QUOTE));
+        fileName.erase(fileName.find_last_not_of(QUOTE)+1);
         tbl->fileName = (char*)fileName.c_str();
         
         //break into column strings
@@ -149,6 +152,7 @@ ParseResult parseSql::parseTable(string _tableString)
                 return ParseResult::FAILURE;
             token = strtok (NULL, ",");
         }
+        calculateTableColumnValues(tbl);
         isqlTables->tables.push_back(tbl);
 
         return ParseResult::SUCCESS;
@@ -207,6 +211,9 @@ ParseResult parseSql::parseIndex(string _indexString)
             return ParseResult::FAILURE;
         }
         idx->fileName = indexString.substr(pos,findLocation-pos);
+        idx->fileName = trim(idx->fileName);
+        idx->fileName.erase(0, idx->fileName.find_first_not_of(QUOTE));
+        idx->fileName.erase(idx->fileName.find_last_not_of(QUOTE)+1);
 
         //Position at the beginning of table name
         pos = findLocation+target.length();
@@ -458,15 +465,15 @@ ParseResult parseSql::calculateTableColumnValues(shared_ptr<sTable> _table)
 {
     try
     {
-        int     recordLength        = 0;
+        size_t  recordLength        = 0;
         int     position            = 0;
         for (shared_ptr<Column> col : _table->columns)
         {
             col->position   = position;
-            position        = position + col->length;
-            recordLength    = recordLength + col->length;
+            position        = position + (int)col->length;
+            recordLength    = recordLength + (int)col->length;
         }
-        _table->recordLength = recordLength;
+        _table->recordLength = (int)recordLength;
         return ParseResult::SUCCESS;
     }
     catch(const std::exception& e)

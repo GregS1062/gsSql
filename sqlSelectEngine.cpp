@@ -2,7 +2,7 @@
 #include "defines.h"
 #include "sqlCommon.h"
 #include "sqlEngine.cpp"
-#include "resultList.h"
+#include "tempFiles.cpp"
 /******************************************************
  * SQL SELECT ENGINE
  ******************************************************/
@@ -14,21 +14,21 @@ class sqlSelectEngine : public sqlEngine
 
    public:
 
-   ParseResult		execute			(Statement);
-   ParseResult		tableScan		(list<Column*>);
-   ParseResult		searchForward	(Search*, char*, size_t , SEARCH);
-   ParseResult 		searchBack		(Search*, char*, size_t);
+   ParseResult		execute			(shared_ptr<Statement>);
+   ParseResult		tableScan		(list<shared_ptr<Column>>);
+   ParseResult		searchForward	(Search*, string, size_t , SEARCH);
+   ParseResult 		searchBack		(Search*, string, size_t);
 };
 /******************************************************
  * Select
  ******************************************************/
-ParseResult sqlSelectEngine::execute(Statement _statement)
+ParseResult sqlSelectEngine::execute(shared_ptr<Statement> _statement)
 {
 
 	if(debug)
         fprintf(traceFile,"\n\n-------------------------BEGIN SELECT ENGINE-------------------------------------------");
 
-	statement = &_statement;
+	statement = _statement;
 	
 	if(statement == nullptr)
 	{
@@ -42,7 +42,7 @@ ParseResult sqlSelectEngine::execute(Statement _statement)
 	}
 
 	//checks the index columns against the queryColumns
-	searchIndexes* searchOn = determineIndex();
+	shared_ptr<searchIndexes> searchOn = determineIndex();
 
 	//query condition but not on an indexed column
 	if(searchOn == nullptr)
@@ -58,7 +58,7 @@ ParseResult sqlSelectEngine::execute(Statement _statement)
 		return ParseResult::FAILURE;
 
 	//TODO assuming single column searches for this sprint
-	Column* col = searchOn->col.front();
+	shared_ptr<Column> col = searchOn->col.front();
 
 	if(searchPath == SEARCH::BACK)
 		return searchBack(search,col->value, statement->rowsToReturn);
@@ -69,7 +69,7 @@ ParseResult sqlSelectEngine::execute(Statement _statement)
 /******************************************************
  * Table Scan
  ******************************************************/
-ParseResult sqlSelectEngine::tableScan(list<Column*> _columns)
+ParseResult sqlSelectEngine::tableScan(list<shared_ptr<Column>> _columns)
 {
 /*
 	Input: list of columns to be read
@@ -122,10 +122,10 @@ ParseResult sqlSelectEngine::tableScan(list<Column*> _columns)
 /******************************************************
  * Search Forward
  ******************************************************/
-ParseResult sqlSelectEngine::searchForward(Search* _search, char* _value, size_t _rowsToReturn, SEARCH _op)
+ParseResult sqlSelectEngine::searchForward(Search* _search, string _valueStr, size_t _rowsToReturn, SEARCH _op)
 {
 
-
+	char* _value = (char*)_valueStr.c_str();
 	QueryResultList* searchResults = _search->findRange(_value, (int)_rowsToReturn, _op);
 	
 	while(searchResults != nullptr)
@@ -157,14 +157,14 @@ ParseResult sqlSelectEngine::searchForward(Search* _search, char* _value, size_t
 /******************************************************
  * Search Back
  ******************************************************/
-ParseResult sqlSelectEngine::searchBack(Search* _search, char* _value, size_t _rowsToReturn)
+ParseResult sqlSelectEngine::searchBack(Search* _search, string _value, size_t _rowsToReturn)
 {
-
+	char* __value = (char*)_value.c_str();
 	long location		= 0;
 	char* key;
-	Node* _leaf = _search->findLeafBase(_value);
-	ScrollNode* scrollNode = _search->scrollIndexBackward(_leaf,_value);
-	key = _value;
+	Node* _leaf = _search->findLeafBase(__value);
+	ScrollNode* scrollNode = _search->scrollIndexBackward(_leaf,__value);
+	key = __value;
 
 	while(true)
 	{

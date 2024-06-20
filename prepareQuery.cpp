@@ -479,3 +479,21 @@ shared_ptr<Column> getColumnByAlias(list<shared_ptr<Column>> _columns, string _a
     }
     catch_and_trace
 }
+/******************************************************
+ * Is Join
+ ******************************************************/
+size_t isJoin(string _string)
+{
+    try
+    {
+        list<string> lstJoin;
+        lstJoin.push_back(sqlTokenJoin);
+        lstJoin.push_back(sqlTokenInnerJoin);
+        lstJoin.push_back(sqlTokenOuterJoin);
+        lstJoin.push_back(sqlTokenLeftJoin);
+        lstJoin.push_back(sqlTokenRightJoin);
+        return findKeywordFromList(_string,lstJoin);
+    }
+    catch_and_trace
+    return std::string::npos;
+}

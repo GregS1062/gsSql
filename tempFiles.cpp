@@ -3,6 +3,7 @@
 #include <vector>
 #include <bits/stdc++.h> 
 #include "sqlCommon.h"
+#include "compare.cpp"
 #include "functions.cpp"
 /*----------------------------------------------------------------------
     Case: return results in HTML form
@@ -15,39 +16,39 @@ using namespace std;
 /******************************************************
  * Result List
  ******************************************************/
-class resultList
+class tempFiles
 {
-	ParseResult					printHeader		(vector<TempColumn*>);
-	string  					htmlHeader		(vector<TempColumn*>,int32_t);
-	string  					textHeader		(vector<TempColumn*>);
-	void						printRow		(vector<TempColumn*>);
-	vector<vector<TempColumn*>> groupRows{};
+	ParseResult					printHeader		(vector<shared_ptr<TempColumn>>);
+	string  					htmlHeader		(vector<shared_ptr<TempColumn>>,size_t);
+	string  					textHeader		(vector<shared_ptr<TempColumn>>);
+	void						printRow		(vector<shared_ptr<TempColumn>>);
+	vector<vector<shared_ptr<TempColumn>>> groupRows{};
 
 public:
-	resultList();
+	tempFiles();
 
-	vector<vector<TempColumn*>> rows{};
+	vector<vector<shared_ptr<TempColumn>>> rows{};
     int                         rowCount = 0;
     PRESENTATION                presentation;
 	list<int>					lstSort;
-    ParseResult                 addRow			(vector<TempColumn*>);
-    string                      formatColumn	(TempColumn*);
-	void						printColumn		(TempColumn*);
-	TempColumn*					getCountColumn	(int);
+    ParseResult                 addRow			(vector<shared_ptr<TempColumn>>);
+    string                      formatColumn	(shared_ptr<TempColumn>);
+	void						printColumn		(shared_ptr<TempColumn>);
+	shared_ptr<TempColumn>		getCountColumn	(int);
     ParseResult                 Sort			(list<int>,bool);
 	ParseResult					orderBy(shared_ptr<OrderBy>);
 	ParseResult					groupBy(shared_ptr<GroupBy>,bool);
 	void						print();
     
 };
-resultList::resultList()
+tempFiles::tempFiles()
 {
 
 }
 /******************************************************
  * Add Row
  ******************************************************/
-ParseResult resultList::addRow(vector<TempColumn*> _row)
+ParseResult tempFiles::addRow(vector<shared_ptr<TempColumn>> _row)
 {
 	rows.push_back(_row);
     return ParseResult::SUCCESS;
@@ -56,16 +57,16 @@ ParseResult resultList::addRow(vector<TempColumn*> _row)
 /******************************************************
  * Print
  ******************************************************/
-void resultList::print()
+void tempFiles::print()
 {
 	if(rows.size() == 0)
 		return;
 	if(debug)
 		fprintf(traceFile,"\n\nprinting\n");
-	vector<TempColumn*> row = rows.front();
+	vector<shared_ptr<TempColumn>> row = rows.front();
 	printHeader(row);
 	for (size_t i = 0; i < rows.size(); i++) { 
-		row = (vector<TempColumn*>)rows[i];
+		row = (vector<shared_ptr<TempColumn>>)rows[i];
 		if(row.size() > 0)
 			printRow(row);
 	}
@@ -74,7 +75,7 @@ void resultList::print()
 /******************************************************
  * Print Row Vector
  ******************************************************/
-void resultList::printRow(vector<TempColumn*> _row)
+void tempFiles::printRow(vector<shared_ptr<TempColumn>> _row)
 {
 	if(_row.size() == 0)
 		return;
@@ -89,7 +90,7 @@ void resultList::printRow(vector<TempColumn*> _row)
 	}
 	 for (auto it = begin (_row); it != end (_row); ++it) 
 	 {
- 		TempColumn* col = (TempColumn*)*it;
+ 		shared_ptr<TempColumn> col = (shared_ptr<TempColumn>)*it;
 		if(col != nullptr)
 			printColumn(col);
     }
@@ -104,13 +105,13 @@ void resultList::printRow(vector<TempColumn*> _row)
 /******************************************************
  * sort
  ******************************************************/
-ParseResult resultList::Sort(list<int> _n, bool _ascending)
+ParseResult tempFiles::Sort(list<int> _n, bool _ascending)
 {
 	if(_n.size() == 0)
 		return ParseResult::FAILURE;
 
      std::sort(rows.begin(), rows.end(),
-            [&](const vector<TempColumn*> row1,const vector<TempColumn*> row2) {
+            [&](const vector<shared_ptr<TempColumn>> row1,const vector<shared_ptr<TempColumn>> row2) {
                 // compare last names first
               int x = 0;
 				for(int nbr : _n)
@@ -155,7 +156,7 @@ ParseResult resultList::Sort(list<int> _n, bool _ascending)
 /******************************************************
  * Order By
  ******************************************************/
-ParseResult resultList::orderBy(shared_ptr<OrderBy> _orderBy)
+ParseResult tempFiles::orderBy(shared_ptr<OrderBy> _orderBy)
 {
 	list<int> n;
 	for(OrderOrGroup order : _orderBy->order)
@@ -170,7 +171,7 @@ ParseResult resultList::orderBy(shared_ptr<OrderBy> _orderBy)
 /******************************************************
  * Group By
  ******************************************************/
-ParseResult resultList::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
+ParseResult tempFiles::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 {
 
 	if(debug)
@@ -194,7 +195,7 @@ ParseResult resultList::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 	list<int> n;
 	for(OrderOrGroup group : _groupBy->group)
 	{
-		if(group.col->name == nullptr)
+		if(group.col->name.empty())
 			return ParseResult::FAILURE;
 
 		n.push_back(group.columnNbr);
@@ -207,16 +208,16 @@ ParseResult resultList::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 		return ParseResult::FAILURE;
 
 	// 3)
-	vector<TempColumn*> priorRow = (vector<TempColumn*>)rows[0];
-	vector<TempColumn*> reportRow = (vector<TempColumn*>)rows[0];
-	vector<TempColumn*> tempRow;
+	vector<shared_ptr<TempColumn>> priorRow = (vector<shared_ptr<TempColumn>>)rows[0];
+	vector<shared_ptr<TempColumn>> reportRow = (vector<shared_ptr<TempColumn>>)rows[0];
+	vector<shared_ptr<TempColumn>> tempRow;
 
 	int avgCount = 1;  //includes first row
 	bool controlBreak = false;
 
 	// 4) Read 
 	for (size_t i = 1; i < rows.size(); i++) { 
-		vector<TempColumn*> row = (vector<TempColumn*>)rows[i];
+		vector<shared_ptr<TempColumn>> row = (vector<shared_ptr<TempColumn>>)rows[i];
 		
 		// 5)
 		for(OrderOrGroup group : _groupBy->group)
@@ -306,9 +307,9 @@ ParseResult resultList::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 /******************************************************
  * Get Group Row
  ******************************************************/
-TempColumn* resultList::getCountColumn(int count)
+shared_ptr<TempColumn> tempFiles::getCountColumn(int count)
 {
-	TempColumn* countCol = new TempColumn();
+	shared_ptr<TempColumn> countCol = make_shared<TempColumn>();
 	countCol->name 		= (char*)"Count";
 	countCol->edit 		= t_edit::t_int;
 	countCol->intValue 	= count;
@@ -318,7 +319,7 @@ TempColumn* resultList::getCountColumn(int count)
 /******************************************************
  * print Column
  ******************************************************/
-void resultList::printColumn(TempColumn* col)
+void tempFiles::printColumn(shared_ptr<TempColumn> col)
 {
 	size_t pad = 0;
 	string result = "";
@@ -354,7 +355,7 @@ void resultList::printColumn(TempColumn* col)
 /******************************************************
  * Format Ouput
  ******************************************************/
-string resultList::formatColumn(TempColumn* _col)
+string tempFiles::formatColumn(shared_ptr<TempColumn> _col)
 {
 
 	std::stringstream ss;
@@ -367,7 +368,7 @@ string resultList::formatColumn(TempColumn* _col)
 	{
 		case t_edit::t_char:
 		{
-			if(_col->charValue == nullptr)
+			if(_col->charValue.empty())
 				return "";
 			return formatString.append(_col->charValue);
 			break;
@@ -404,18 +405,19 @@ string resultList::formatColumn(TempColumn* _col)
 			formatString.append(std::to_string(_col->dateValue.year));
 			return formatString;
 		}
-		
+		default:
+		 	break;
 	}
 	return "";
 }
 /******************************************************
  * Pring Header
  ******************************************************/
-ParseResult resultList::printHeader(vector<TempColumn*> _cols)
+ParseResult tempFiles::printHeader(vector<shared_ptr<TempColumn>> _cols)
 {
 	string header;
-	int sumOfColumnSize = 0;
-	for( TempColumn* col: _cols)
+	size_t sumOfColumnSize = 0;
+	for( shared_ptr<TempColumn> col: _cols)
 	{
 		if(col->edit == t_edit::t_date)
 		{
@@ -437,7 +439,7 @@ ParseResult resultList::printHeader(vector<TempColumn*> _cols)
 /******************************************************
  * HTML Header
  ******************************************************/
-string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumnSize)
+string tempFiles::htmlHeader(vector<shared_ptr<TempColumn>> _columns, size_t _sumOfColumnSize)
 {
 	double percentage = 0;
 	int pad = 0;
@@ -446,24 +448,24 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 
 	if(_sumOfColumnSize < 100)
 	{
-		pad = 100 - _sumOfColumnSize;
+		pad = 100 - (int)_sumOfColumnSize;
 		//fprintf(traceFile,"\n pad = %d",pad);
 		_sumOfColumnSize = _sumOfColumnSize + pad;
 	}
-	for (Column* col : _columns) 
+	for (shared_ptr<Column> col : _columns) 
 	{
 		header.append("\n\t");
 		header.append(hdrBegin);
 		header.append(" style="" width:");
 		if(col->edit == t_edit::t_date)
 		{
-			percentage = 12 / _sumOfColumnSize * 100;
+			percentage = 12 / (int)_sumOfColumnSize * 100;
 		}
 		else
-			percentage = (double)col->length / _sumOfColumnSize * 100;
+			percentage = (double)col->length / (int)_sumOfColumnSize * 100;
 		header.append(to_string((int)percentage));
 		header.append("%"">");
-		if(col->alias != nullptr)
+		if(!col->alias.empty())
 		{
 			header.append(col->alias);
 		}
@@ -476,8 +478,8 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 		header.append("\n\t");
 		header.append(hdrBegin);
 		header.append(" style="" width:");
-		percentage = (double)pad / _sumOfColumnSize * 100;
-		fprintf(traceFile,"\n sum of col = %d",_sumOfColumnSize);
+		percentage = (double)pad / (int)_sumOfColumnSize * 100;
+		fprintf(traceFile,"\n sum of col = %li",_sumOfColumnSize);
 		fprintf(traceFile,"\n pad percent = %f",percentage);
 		header.append(to_string((int)percentage));
 		header.append("%"">");
@@ -489,24 +491,24 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 /******************************************************
  * Text Header
  ******************************************************/
-string resultList::textHeader(vector<TempColumn*> _columns)
+string tempFiles::textHeader(vector<shared_ptr<TempColumn>> _columns)
 {
 	size_t pad = 0;
 	string header;
 	header.append("\n");
-	for (Column* col : _columns) 
+	for (shared_ptr<Column> col : _columns) 
 	{
-		if((size_t)col->length > strlen(col->name))
+		if(col->length > col->name.length())
 		{
-			if(col->alias != nullptr)
+			if(!col->alias.empty())
 			{
 				header.append(col->alias);
-				pad = col->length - strlen(col->alias);
+				pad = col->length - col->alias.length();
 			}
 			else
 			{
 				header.append(col->name);
-				pad = col->length - strlen(col->name);
+				pad = col->length - col->name.length();
 			}
 			for(size_t i =0;i<pad;i++)
 			{
@@ -515,14 +517,14 @@ string resultList::textHeader(vector<TempColumn*> _columns)
 		}
 		else
 		{
-			if(col->alias != nullptr)
+			if(!col->alias.empty())
 				header.append(col->alias);
 			else
 				header.append(col->name);
 			header.append(" ");
 		}
 	}
-
+	header.append("\n");
 	return header;
 }
 

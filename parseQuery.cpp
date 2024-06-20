@@ -733,7 +733,7 @@ ParseResult ParseQuery::parseOrderByList(string _workingString)
         while(!tok->eof)
         {
             token = tok->getToken();
-            if(token.empty())
+            if(!token.empty())
             {
                 if(debug)
                     fprintf(traceFile,"\n order by tokens %s", token.c_str());
@@ -788,7 +788,7 @@ ParseResult ParseQuery::parseGroupByList(string _workingString)
         while(!tok->eof)
         {
             token = tok->getToken();
-            if(token.empty())
+            if(!token.empty())
             {
                 if(debug)
                     fprintf(traceFile,"\n group by tokens %s", token.c_str());

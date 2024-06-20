@@ -1,3 +1,4 @@
+#pragma once
 #include "sqlCommon.h"
 #include "interfaces.h"
 #include "binding.cpp"
@@ -35,6 +36,7 @@ void printTable(shared_ptr<sTable> tbl)
     fprintf(traceFile,"\n*******************************************");
     fprintf(traceFile,"\n table name %s", tbl->name.c_str());
     fprintf(traceFile," alias %s", tbl->alias.c_str());
+    fprintf(traceFile," record length %i", tbl->recordLength);
     for(shared_ptr<Column> col : tbl->columns)
     {
         fprintf(traceFile,"\n\t column name %s", col->name.c_str());

@@ -14,7 +14,6 @@ class ParseClause
         ParseResult     parseSelect(string);
         ParseResult     parseJoin(string);
         size_t          parseOrderByGroup(string);
-        size_t isJoin(string);
 };
 /******************************************************
  * Process Process
@@ -209,19 +208,7 @@ ParseResult ParseClause::parseJoin(string _queryString)
         return ParseResult::FAILURE;
     }
 }
-/******************************************************
- * Is Join
- ******************************************************/
-size_t ParseClause::isJoin(string _string)
-{
-    list<string> lstJoin;
-    lstJoin.push_back(sqlTokenJoin);
-    lstJoin.push_back(sqlTokenInnerJoin);
-    lstJoin.push_back(sqlTokenOuterJoin);
-    lstJoin.push_back(sqlTokenLeftJoin);
-    lstJoin.push_back(sqlTokenRightJoin);
-    return findKeywordFromList(_string,lstJoin);
-}
+
 /******************************************************
  * Order By / Group By
  ******************************************************/

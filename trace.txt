@@ -1,33 +1,121 @@
 
- query=select top 50 * from orders where orderid = "SO43697"
+ query=Select top 5 * from stores where name = "Yet another store"
  
 
-ielemenst->groupBy = null
-row count = 50
+------------- split ----------------
+Split Select top 5 * from stores where name = "Yet another store" 
+-----------------------------------------------------
+
+***************************************************************
+                 BEGIN QUERY PARSE
+
+***************************************************************
+ query=Select top 5 * from stores where name = "Yet another store" 
+determine action Select
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = Select top 5 * from stores where name = "Yet another store" 
+
+-------------------------PARSE CLAUSES - SELECT -------------------------------------------
+Query String = Select top 5 * from stores where name = "Yet another store" 
+
+-----------Parse Table List----------------
+tableString:stores 
+token stores 
+
+-----------Parse Column List----------------
+Column string: * 
+Column parts: function: name:* alias: table Alias 
+
+-----------Parse Conditions----------------
+Condition:name = "Yet another store" 
+token=name
+Column parts: function: name:name alias: table Alias 
+token==
+token="Yet another store"
+
+-----------Parse Conditions----------------
+Join Condition:
+
+-----------Parse Order by----------------
+OrderBy string:
+
+-----------Parse Group by----------------
+Group By string:
+
+-----------Parse Conditions----------------
+Having Condition:
+ table name stores|| 
+
+ iElement tablename stores
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name stores
+-------------------- bind column list ----------------
+-------------------- Populate table  ----------------
+binding condition name name 
+row count = 5
 *******************************************
  Statement Table
 *******************************************
- table name orders alias 
+ table name stores alias  record length 207
 	 column name deleted alias  value  function 0
-	 column name status alias  value  function 0
-	 column name orderid alias  value  function 0 PRIMARY
-	 column name custid alias  value  function 0
-	 column name orderdate alias  value  function 0
-	 column name duedate alias  value  function 0
-	 column name shipdate alias  value  function 0
-	 column name tax alias  value  function 0
-	 column name freight alias  value  function 0
-	 column name totaldue alias  value  function 0
+	 column name custid alias  value  function 0 PRIMARY
+	 column name name alias  value  function 0
+	 column name phone alias  value  function 0
+	 column name email alias  value  function 0
+	 column name street1 alias  value  function 0
+	 column name street2 alias  value  function 0
+	 column name city alias  value  function 0
+	 column name state alias  value  function 0
+	 column name country alias  value  function 0
+	 column name zipcode alias  value  function 0
 
  Conditions
-	 name: orderid alias:  tableName:  function: 
+	 name: name alias:  tableName:  function: 
 	 condition condition 
 	 condition op        =
-	 condition value     SO43697
+	 condition value     Yet another store
 
  Indexes 
-	 index name orderid  file name "/home/greg/projects/test/testIndex/orderid.idx"
-		 index column name orderid
-	 index name orderid  file name "/home/greg/projects/test/testIndex/itemOrder.idx"
-		 index column name orderid
+	 index name storeid  file name /home/greg/projects/test/testIndex/storeid.idx
+		 index column name custid
+	 index name storename  file name /home/greg/projects/test/testIndex/storename.idx
+		 index column name name
+*******************************************
+ Order By
+*******************************************
+	ascending
+*******************************************
+ Group By
+*******************************************
+*******************************************
+ Having
+*******************************************
+*******************************************
+ Statement Table
+*******************************************
+ table name stores alias  record length 207
+	 column name deleted alias  value  function 0
+	 column name custid alias  value  function 0 PRIMARY
+	 column name name alias  value  function 0
+	 column name phone alias  value  function 0
+	 column name email alias  value  function 0
+	 column name street1 alias  value  function 0
+	 column name street2 alias  value  function 0
+	 column name city alias  value  function 0
+	 column name state alias  value  function 0
+	 column name country alias  value  function 0
+	 column name zipcode alias  value  function 0
 
+ Conditions
+	 name: name alias:  tableName:  function: 
+	 condition condition 
+	 condition op        =
+	 condition value     Yet another store
+
+ Indexes 
+	 index name storeid  file name /home/greg/projects/test/testIndex/storeid.idx
+		 index column name custid
+	 index name storename  file name /home/greg/projects/test/testIndex/storename.idx
+		 in

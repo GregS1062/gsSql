@@ -18,16 +18,16 @@
 #include "defines.h"
 #include "sqlCommon.h"
 #include "compare.cpp"
-#include "resultList.h"
+#include "tempFiles.cpp"
 
 
 using namespace std;
 
 struct searchIndexes
 {
-		sIndex* 		index;
-		char*			op;
-		list<Column*> 	col;
+		shared_ptr<sIndex> 			index;
+		string						op;
+		list<shared_ptr<Column>> 	col;
 };
 
 
@@ -43,21 +43,21 @@ class sqlEngine
 		fstream* 		tableStream;
 		fstream* 		indexStream;
 		char* 			line;
-		Statement*		statement;
+		shared_ptr<Statement>	statement;
 		Search*			search;
 
 		ParseResult 	open			();
 		ParseResult 	close			();
-		SEARCH 			indexRead		(searchIndexes*);
+		SEARCH 			indexRead		(shared_ptr<searchIndexes>);
 		char* 			getRecord		(long, fstream*, int);
-		searchIndexes* 	determineIndex	();
+		shared_ptr<searchIndexes> 	determineIndex	();
 		bool			isRecordDeleted (bool);
-		vector<TempColumn*>	outputLine	(list<Column*>);
+		vector<shared_ptr<TempColumn>>	outputLine	(list<shared_ptr<Column>>);
 		void			rowsUpdatedMsg 	(int);
 		void 			rowsReturnedMsg ();
 
 	public:
-		resultList*		results			= new resultList();
+		shared_ptr<tempFiles>		results			= make_shared<tempFiles>();
 
 };
 
@@ -78,7 +78,7 @@ ParseResult sqlEngine::open()
 
 		if(statement->table->indexes.size() > 0)
 		{
-			for(sIndex* idx : statement->table->indexes)
+			for(shared_ptr<sIndex> idx : statement->table->indexes)
 			{
 				if(idx->open() == nullptr)
 				{
@@ -101,7 +101,7 @@ ParseResult sqlEngine::close()
 	
 	if(statement->table->indexes.size() > 0)
 	{
-		for(sIndex* idx : statement->table->indexes)
+		for(shared_ptr<sIndex> idx : statement->table->indexes)
 		{
 			//TODO test that file
 			idx->close();
@@ -130,20 +130,20 @@ bool sqlEngine::isRecordDeleted(bool _ignoreDelete)
 /******************************************************
  * Output Line
  ******************************************************/
-vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
+vector<shared_ptr<TempColumn>>	sqlEngine::outputLine(list<shared_ptr<Column>> _columns)
 {
 
-	vector<TempColumn*> row;
-	for(Column* col : _columns )
+	vector<shared_ptr<TempColumn>> row;
+	for(shared_ptr<Column> col : _columns )
 	{
-		TempColumn* temp = new TempColumn();
+		shared_ptr<TempColumn> temp = make_shared<TempColumn>();
 		temp->name		= col->name;
 		temp->length	= col->length;
 		temp->edit		= col->edit;
 		temp->alias		= col->alias;
 		temp->functionType		= col->functionType;
 		if(col->functionType == t_function::COUNT
-		&& strcasecmp(col->name,(char*)sqlTokenCount) == 0)
+		&& strcasecmp(col->name.c_str(),sqlTokenCount) == 0)
 		{
 			temp->intValue = 1;
 			row.push_back(temp);
@@ -180,6 +180,8 @@ vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
 				memcpy(&temp->dateValue,line+col->position,col->length);
 				break;
 			}
+			default:
+				break;
 		}
 		row.push_back(temp);
 	}
@@ -188,20 +190,20 @@ vector<TempColumn*>	sqlEngine::outputLine(list<Column*> _columns)
 /******************************************************
  * Determine Index
  ******************************************************/
-searchIndexes* sqlEngine::determineIndex()
+shared_ptr<searchIndexes> sqlEngine::determineIndex()
 {
-	searchIndexes* searchOn = nullptr;
-	for(sIndex* idx : statement->table->indexes)
+	shared_ptr<searchIndexes> searchOn = make_shared<searchIndexes>();
+	for(shared_ptr<sIndex> idx : statement->table->indexes)
 	{
-		for(Column* col : idx->columns)
+		for(shared_ptr<Column> col : idx->columns)
 		{
-			for(Condition* condition : statement->table->conditions)
+			for(shared_ptr<Condition> condition : statement->table->conditions)
 			{
-				if(strcasecmp(col->name,condition->col->name) == 0 )
+				if(strcasecmp(col->name.c_str(),condition->col->name.c_str()) == 0 )
 				{
 					//TODO  only affects char* indexes
 				   if(searchOn == nullptr)
-						searchOn = new searchIndexes();
+						searchOn = make_unique<searchIndexes>();
 					searchOn->index = idx;
 					searchOn->op	= condition->op;
 					condition->col->value = condition->value;
@@ -217,7 +219,7 @@ searchIndexes* sqlEngine::determineIndex()
 /******************************************************
  * Index read
  ******************************************************/
-SEARCH sqlEngine::indexRead(searchIndexes* _searchOn)
+SEARCH sqlEngine::indexRead(shared_ptr<searchIndexes> _searchOn)
 {
 
 	search = new Search(_searchOn->index->fileStream);
@@ -226,32 +228,33 @@ SEARCH sqlEngine::indexRead(searchIndexes* _searchOn)
 	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,_searchOn->index->name);
 
 	//TODO using one column
-	Column* col = _searchOn->col.front();
+	shared_ptr<Column> col = _searchOn->col.front();
 
 	if(col == nullptr)
 	{
 		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column is null ");
 		return SEARCH::FAILED;
 	}
-	if(col->value == nullptr)
+	if(col->value.empty())
 	{
 		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Seach on column value is null ");
 		return SEARCH::FAILED;;
 	}
-	upperCase(col->value);
 
-	if(strcasecmp(_searchOn->op,(char*)sqlTokenEqual) == 0)
+	transform(col->value.begin(), col->value.end(), col->value.begin(), ::toupper);
+
+	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenEqual) == 0)
 		return SEARCH::EXACT;
 
-	if(strcasecmp(_searchOn->op,(char*)sqlTokenGreater) == 0
-	|| strcasecmp(_searchOn->op,(char*)sqlTokenGreaterOrEqual) == 0)
+	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenGreater) == 0
+	|| strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenGreaterOrEqual) == 0)
 		return SEARCH::FORWARD;
 
-	if(strcasecmp(_searchOn->op,(char*)sqlTokenLessThan) == 0
-	|| strcasecmp(_searchOn->op,(char*)sqlTokenLessOrEqual) == 0)
+	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenLessThan) == 0
+	|| strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenLessOrEqual) == 0)
 		return SEARCH::BACK;
 
-	if(strcasecmp(_searchOn->op,(char*)sqlTokenLike) == 0)
+	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenLike) == 0)
 		return SEARCH::LIKE;
 	
 	//should not get here

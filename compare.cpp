@@ -6,9 +6,10 @@
 /******************************************************
  * Evaluate Comparisons
  ******************************************************/
-ParseResult evaluateComparisons(char* _op, int compareResult)
+ParseResult evaluateComparisons(string _op, int compareResult)
 {
-	if(strcasecmp(_op,sqlTokenNotEqual) == 0)
+	char* op = (char*)_op.c_str();
+	if(strcasecmp(op,sqlTokenNotEqual) == 0)
 	{
 		if(compareResult != 0)
 			return ParseResult::SUCCESS;
@@ -16,8 +17,8 @@ ParseResult evaluateComparisons(char* _op, int compareResult)
 			return ParseResult::FAILURE;
 	}
 	
-	if(strcasecmp(_op,sqlTokenEqual) == 0
-	|| strcasecmp(_op,sqlTokenLike) == 0)
+	if(strcasecmp(op,sqlTokenEqual) == 0
+	|| strcasecmp(op,sqlTokenLike) == 0)
 	{
 		if (compareResult == 0)
 			return ParseResult::SUCCESS;
@@ -25,7 +26,7 @@ ParseResult evaluateComparisons(char* _op, int compareResult)
 			return ParseResult::FAILURE;
 	}
 
-	if(strcasecmp(_op,sqlTokenGreater) == 0)
+	if(strcasecmp(op,sqlTokenGreater) == 0)
 	{
 		if (compareResult > 0)
 			return ParseResult::SUCCESS;
@@ -33,7 +34,7 @@ ParseResult evaluateComparisons(char* _op, int compareResult)
 			return ParseResult::FAILURE;
 	}
 
-	if(strcasecmp(_op,sqlTokenLessThan) == 0)
+	if(strcasecmp(op,sqlTokenLessThan) == 0)
 	{
 		if (compareResult < 0)
 			return ParseResult::SUCCESS;
@@ -41,7 +42,7 @@ ParseResult evaluateComparisons(char* _op, int compareResult)
 			return ParseResult::FAILURE;
 	}
 
-	if(strcasecmp(_op,sqlTokenLessOrEqual) == 0)
+	if(strcasecmp(op,sqlTokenLessOrEqual) == 0)
 	{
 		if(compareResult == 0)
 			return ParseResult::SUCCESS;
@@ -52,7 +53,7 @@ ParseResult evaluateComparisons(char* _op, int compareResult)
 		return ParseResult::FAILURE;
 	}
 
-	if(strcasecmp(_op,sqlTokenGreaterOrEqual) == 0)
+	if(strcasecmp(op,sqlTokenGreaterOrEqual) == 0)
 	{
 		if(compareResult == 0)
 			return ParseResult::SUCCESS;
@@ -68,17 +69,17 @@ ParseResult evaluateComparisons(char* _op, int compareResult)
 /******************************************************
  * Compare like
  ******************************************************/
-ParseResult compareLike(Condition* _condition, char* _line)
+ParseResult compareLike(shared_ptr<Condition> _condition, char* _line)
 {
 	//Like condition compares the condition value length to the record
 	// so "sch" = "schiller" because only three characters are being compared
 	
 	char buffRecord[60];
-	Column* column = _condition->col;
-	strncpy(buffRecord, _line+column->position, strlen(_condition->value));
-	buffRecord[strlen(_condition->value)] = '\0';
+	shared_ptr<Column> column = _condition->col;
+	strncpy(buffRecord, _line+column->position, _condition->value.length());
+	buffRecord[_condition->value.length()] = '\0';
 		
-	if(strcasecmp(_condition->value,buffRecord) == 0)
+	if(strcasecmp(_condition->value.c_str(),buffRecord) == 0)
 	{
 		return ParseResult::SUCCESS;
 	}
@@ -88,14 +89,14 @@ ParseResult compareLike(Condition* _condition, char* _line)
 /******************************************************
  * Compare String To String
  ******************************************************/
-ParseResult compareStringToString(char* _op, char* _str1, char* _str2)
+ParseResult compareStringToString(string _op, string _str1, string _str2)
 {
-	return evaluateComparisons(_op, strcasecmp(_str1,_str2));
+	return evaluateComparisons(_op, strcasecmp(_str1.c_str(),_str2.c_str()));
 }
 /******************************************************
  * Compare String Condition
  ******************************************************/
-ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
+ParseResult compareStringToConditionValue(shared_ptr<Condition> _condition, char* _line)
 {
 	//Equal or Not Equal condition compares the full column length to the value to the record
 	// so "sch" != "schiller" 
@@ -103,18 +104,18 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 	//Everything else compares only the length of the value
 
 	char buffRecord[60];
-	Column* column = _condition->col;
+	shared_ptr<Column> column = _condition->col;
 	
 	strncpy(buffRecord, _line+column->position, column->length);
 	
-	if (strcasecmp(_condition->op,sqlTokenEqual) == 0
-	|| strcasecmp(_condition->op,sqlTokenNotEqual) == 0)
+	if (strcasecmp(_condition->op.c_str(),sqlTokenEqual) == 0
+	|| strcasecmp(_condition->op.c_str(),sqlTokenNotEqual) == 0)
 	{
 		buffRecord[_condition->col->length] = '\0';
 		rTrim(buffRecord);
 	}
 	else
-		buffRecord[strlen(_condition->value)] = '\0';
+		buffRecord[_condition->value.length()] = '\0';
 		
 
 	return compareStringToString(_condition->op, buffRecord,_condition->value);
@@ -122,7 +123,7 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 /******************************************************
  * Compare Integer To Integer
  ******************************************************/
- ParseResult compareIntegerToInteger(char* _op, int _int1, int _int2 )
+ ParseResult compareIntegerToInteger(string _op, int _int1, int _int2 )
  {
 	int compareResult = 0;
 
@@ -143,18 +144,18 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 /******************************************************
  * Compare Integer Condition
  ******************************************************/
- ParseResult compareIntegerToConditionValue(Condition* _condition, char* _line)
+ ParseResult compareIntegerToConditionValue(shared_ptr<Condition> _condition, char* _line)
 {
 	int  recordInt;
-	Column* column = _condition->col;
+	shared_ptr<Column> column = _condition->col;
 	memcpy(&recordInt, _line+column->position, column->length);
 
-	return compareIntegerToInteger(_condition->op, recordInt, _condition->intValue);
+	return compareIntegerToInteger(_condition->op.c_str(), recordInt, _condition->intValue);
 }
 /******************************************************
  * Compare Double To Double
  ******************************************************/
- ParseResult compareDoubleToDouble(char* _op, double _dbl1, double _dbl2 )
+ ParseResult compareDoubleToDouble(string _op, double _dbl1, double _dbl2 )
  {
 
 	int compareResult = 0;
@@ -176,10 +177,10 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 /******************************************************
  * Compare double Condition
  ******************************************************/
- ParseResult compareDoubleToConditionValue(Condition* _condition, char* _line)
+ ParseResult compareDoubleToConditionValue(shared_ptr<Condition> _condition, char* _line)
 {
 	double  recordf;
-	Column* column = _condition->col;
+	shared_ptr<Column> column = _condition->col;
 	memcpy(&recordf, _line+column->position, column->length);
 
 	return compareDoubleToDouble(_condition->op, recordf, _condition->doubleValue);
@@ -209,10 +210,10 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 /******************************************************
  * Compare Date Condition
  ******************************************************/
- ParseResult compareDateToConditionValue(Condition* _condition, char* _line)
+ ParseResult compareDateToConditionValue(shared_ptr<Condition> _condition, char* _line)
 {
 	t_tm recordDate;
-	Column* column = _condition->col;
+	shared_ptr<Column> column = _condition->col;
 	memcpy(&recordDate, _line+column->position, column->length);
 
 	return evaluateComparisons(_condition->op, compareDateToDate(_condition->dateValue, recordDate));
@@ -221,7 +222,7 @@ ParseResult compareStringToConditionValue(Condition* _condition, char* _line)
 /******************************************************
  * Query Conditions Met
  ******************************************************/
-ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
+ParseResult queryContitionsMet(list<shared_ptr<Condition>> _conditions,char* _line)
 {
 	//Nothing to see, move along
 	if(_conditions.size() == 0)
@@ -230,7 +231,7 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 	ParseResult queryResult = ParseResult::FAILURE;
 	ParseResult queryResults = ParseResult::FAILURE;
 
-	for(Condition* condition : _conditions)
+	for(shared_ptr<Condition> condition : _conditions)
 	{	
 
 		switch(condition->col->edit)
@@ -258,29 +259,31 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 				
 			case t_edit::t_bool:
 				break;
+			default:
+				break;
 		}
 
 		
 		if(_conditions.size() == 1)
 			return queryResult;
 
-		if(condition->condition != nullptr)
+		if(!condition->condition.empty())
 		{
 
-			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) != 0
-			&& strcasecmp(condition->condition,(char*)sqlTokenOr) != 0)
+			if(strcasecmp(condition->condition.c_str(),(char*)sqlTokenAnd) != 0
+			&& strcasecmp(condition->condition.c_str(),(char*)sqlTokenOr) != 0)
 			{
 				if (_conditions.size() == 1
 				&& queryResult == ParseResult::FAILURE)
 					return ParseResult::FAILURE;
 			}
 
-			if(strcasecmp(condition->condition,(char*)sqlTokenAnd) == 0
+			if(strcasecmp(condition->condition.c_str(),(char*)sqlTokenAnd) == 0
 			&& (queryResult == ParseResult::FAILURE
 			|| queryResults == ParseResult::FAILURE))
 				return ParseResult::FAILURE;
 
-			if(strcasecmp(condition->condition,(char*)sqlTokenOr)  == 0
+			if(strcasecmp(condition->condition.c_str(),(char*)sqlTokenOr)  == 0
 			&& (queryResult == ParseResult::SUCCESS
 			|| queryResults == ParseResult::SUCCESS))
 				return ParseResult::SUCCESS;
@@ -296,7 +299,7 @@ ParseResult queryContitionsMet(list<Condition*> _conditions,char* _line)
 /******************************************************
  * Compare Temp Column
  ******************************************************/
-signed int compareTempColumns(TempColumn* col1,TempColumn* col2)
+signed int compareTempColumns(shared_ptr<TempColumn> col1,shared_ptr<TempColumn> col2)
 {
 	//Assuming col1 and col2 are same edit
 	if(col1->edit != col2->edit)
@@ -307,7 +310,7 @@ signed int compareTempColumns(TempColumn* col1,TempColumn* col2)
 	{
 		case t_edit::t_char:
 		{
-			x = strcmp(col1->charValue, col2->charValue);
+			x = strcmp(col1->charValue.c_str(), col2->charValue.c_str());
 			break;
 		}
 		case t_edit::t_int:
@@ -353,13 +356,15 @@ signed int compareTempColumns(TempColumn* col1,TempColumn* col2)
 				x = 1;
 			else
 				x = -1;
+		default:
+			break;
 	}
 	return x;
 }
 /******************************************************
  * Compare Having Condition
  ******************************************************/
-ParseResult compareHavingCondition(TempColumn* _rowCol, Condition* _con)
+ParseResult compareHavingCondition(shared_ptr<TempColumn> _rowCol, shared_ptr<Condition> _con)
 {
 	// Assuming both rowCol and condition col have the proper edit values int, double, date etc
 	if(_rowCol->edit != _con->col->edit)
@@ -381,6 +386,8 @@ ParseResult compareHavingCondition(TempColumn* _rowCol, Condition* _con)
 			break;
 		case t_edit::t_bool: //NOTE: group by having - should not test a boolean
 			break;
+		default:
+			break;
 	}
 
 	// error if we get here
@@ -389,7 +396,7 @@ ParseResult compareHavingCondition(TempColumn* _rowCol, Condition* _con)
 /******************************************************
  * Having Conditions Met
  ******************************************************/
-ParseResult compareHavingConditions(vector<TempColumn*> _row, list<Condition*> _conditions)
+ParseResult compareHavingConditions(vector<shared_ptr<TempColumn>> _row, list<shared_ptr<Condition>> _conditions)
 {
 	ParseResult ret;
 	// 1) roll through all having conditions
@@ -398,14 +405,14 @@ ParseResult compareHavingConditions(vector<TempColumn*> _row, list<Condition*> _
 	//		4) match on column name
 	// 5) if match found compare values
 	// 6) if values fail compare return FAILURE
-	for(Condition* con : _conditions)
+	for(shared_ptr<Condition> con : _conditions)
 	{
 		for(size_t i = 0;i < _row.size();i++)
 		{
-			if(con->col->alias != nullptr 
-			&& _row.at(i)->alias != nullptr)
+			if(!con->col->alias.empty() 
+			&& !_row.at(i)->alias.empty())
 			{
-				if(strcasecmp(con->col->alias,_row.at(i)->alias) == 0 )
+				if(strcasecmp(con->col->alias.c_str(),_row.at(i)->alias.c_str()) == 0 )
 				{
 					ret = compareHavingCondition(_row.at(i),con);
 					if(ret != ParseResult::SUCCESS)
@@ -414,7 +421,7 @@ ParseResult compareHavingConditions(vector<TempColumn*> _row, list<Condition*> _
 			}
 			else
 			{
-				if(strcasecmp(con->col->name,_row.at(i)->name) == 0 )
+				if(strcasecmp(con->col->name.c_str(),_row.at(i)->name.c_str()) == 0 )
 				{
 					ret = compareHavingCondition(_row.at(i),con);
 					if(ret != ParseResult::SUCCESS)

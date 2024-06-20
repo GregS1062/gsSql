@@ -6,8 +6,8 @@ class lookup
 {
     public:
 
-    static Column*     getColumnByName(list<Column*>, char*);
-    static Column*     getColumnByAlias(list<Column*>, char*);
+    static shared_ptr<Column>     getColumnByName(list<shared_ptr<Column>>, char*);
+    static shared_ptr<Column>     getColumnByAlias(list<shared_ptr<Column>>, char*);
     static sTable*     getTableByName(list<sTable*>, char*);
     static sTable*     getTableByAlias(list<sTable*>, char*);
     static TokenPair*  tokenSplit(char*,char*);
@@ -52,11 +52,11 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
 /******************************************************
  * Get Column By Alias
  ******************************************************/
-Column* lookup::getColumnByAlias(list<Column*> _columns, char* _name)
+shared_ptr<Column> lookup::getColumnByAlias(list<shared_ptr<Column>> _columns, char* _name)
 {
     if(_name == nullptr)
         return nullptr;
-    for(Column* col : _columns)
+    for(shared_ptr<Column> col : _columns)
     {
         if(col->alias != nullptr)
             if(strcasecmp(col->alias,_name) == 0)

@@ -12,13 +12,13 @@ class sqlModifyEngine : public sqlEngine
     */
 
    public:
-        ParseResult insert(Statement);
-        ParseResult update(Statement);
+        ParseResult insert(shared_ptr<Statement>);
+        ParseResult update(shared_ptr<Statement>);
 		ParseResult tableScan(SQLACTION);
-        ParseResult formatInput(char*, Column*);
+        ParseResult formatInput(char*, shared_ptr<Column>);
         ParseResult updateIndexes(long, SQLACTION);
 		ParseResult useIndex(searchIndexes*, SQLACTION);
-		ParseResult checkPrimaryKey(Column*);
+		ParseResult checkPrimaryKey(shared_ptr<Column>);
 		ParseResult searchForward(Search*, char*, size_t, SEARCH,SQLACTION);
 		ParseResult searchBack(Search*, char*, size_t, SQLACTION);
 		long 		appendRecord(void*, fstream*, int);
@@ -27,17 +27,17 @@ class sqlModifyEngine : public sqlEngine
 /******************************************************
  * Insert
  ******************************************************/
-ParseResult sqlModifyEngine::insert(Statement _statement)
+ParseResult sqlModifyEngine::insert(shared_ptr<Statement> _Statement)
 {
-	statement = &_statement;
+	shared_ptr<Statement> statement = _Statement;
 
 	open();
 
 	size_t count = 0;
 	ParseResult returnValue = ParseResult::FAILURE;
 	char* buff = (char*)malloc(statement->table->recordLength);
-	Column* primaryKey;
-	for(Column* col : statement->table->columns)
+	shared_ptr<Column> primaryKey;
+	for(shared_ptr<Column> col : statement->table->columns)
 	{
 		if(col->primary)
 			primaryKey = col;
@@ -76,16 +76,16 @@ ParseResult sqlModifyEngine::insert(Statement _statement)
 /******************************************************
  * Check Primary Key
  ******************************************************/
-ParseResult sqlModifyEngine::checkPrimaryKey(Column* _primaryKey)
+ParseResult sqlModifyEngine::checkPrimaryKey(shared_ptr<Column> _primaryKey)
 {
-	for(sIndex* idx : statement->table->indexes)
+	for(shared_ptr<sIndex> idx : statement->table->indexes)
 	{
-		for(Column* col : idx->columns)
+		for(shared_ptr<Column> col : idx->columns)
 		{
-			if(strcasecmp(col->name,_primaryKey->name) == 0 )
+			if(strcasecmp(col->name.c_str(),_primaryKey->name.c_str()) == 0 )
 			{
 				search = new Search(idx->fileStream);
-				if(search->find(_primaryKey->value) == NEGATIVE)
+				if(search->find((char*)_primaryKey->value.c_str()) == NEGATIVE)
 					return ParseResult::SUCCESS;
 				else
 				{
@@ -102,19 +102,19 @@ ParseResult sqlModifyEngine::checkPrimaryKey(Column* _primaryKey)
 /******************************************************
  * Update Record
  ******************************************************/
-ParseResult sqlModifyEngine::update(Statement _statement)
+ParseResult sqlModifyEngine::update(shared_ptr<Statement> _statement)
 {
 	/*
 		NOTE: Update and Delete use the same logic
 	*/
-	statement = &_statement;
+	shared_ptr<Statement> statement = _statement;
 
 	ParseResult returnValue = ParseResult::FAILURE;;
 
 	open();
 	
 	//checks the index columns against the queryColumns
-	searchIndexes* searchOn = determineIndex();
+	shared_ptr<searchIndexes> searchOn = determineIndex();
 
 	//query condition but not on an indexed column
 	if(searchOn == nullptr)
@@ -137,7 +137,7 @@ ParseResult sqlModifyEngine::useIndex(searchIndexes* _searchOn, SQLACTION _actio
 		return ParseResult::FAILURE;
 
 	//TODO assuming single column searches for this sprint
-	Column* col = _searchOn->col.front();
+	shared_ptr<Column> col = _searchOn->col.front();
 
 	if(searchPath == SEARCH::BACK)
 		return searchBack(search,col->value, statement->rowsToReturn, _action);
@@ -193,7 +193,7 @@ ParseResult sqlModifyEngine::tableScan(SQLACTION _action)
 					return ParseResult::FAILURE;
 				}
 
-				for (Column* col :statement->table->columns) 
+				for (shared_ptr<Column> col :statement->table->columns) 
 				{
 					if(formatInput(line,col) == ParseResult::FAILURE)
 					{
@@ -226,7 +226,7 @@ ParseResult sqlModifyEngine::searchForward(Search* _search, char* _value, size_t
 {
 	int rowCount = 0;
 
-	QueryResultList* searchResults = _search->findRange(_value, (int)_rowsToReturn, _op);
+	QuerytempFiles* searchResults = _search->findRange(_value, (int)_rowsToReturn, _op);
 	
 	while(searchResults != nullptr)
 	{
@@ -256,7 +256,7 @@ ParseResult sqlModifyEngine::searchForward(Search* _search, char* _value, size_t
 					return ParseResult::FAILURE;
 				}
 
-				for (Column* col :statement->table->columns) 
+				for (shared_ptr<Column> col :statement->table->columns) 
 				{
 					if(formatInput(line,col) == ParseResult::FAILURE)
 					{
@@ -328,7 +328,7 @@ ParseResult sqlModifyEngine::searchBack(Search* _search, char* _value, size_t _r
 					return ParseResult::FAILURE;
 				}
 
-				for (Column* col :statement->table->columns) 
+				for (shared_ptr<Column> col :statement->table->columns) 
 				{
 					if(formatInput(line,col) == ParseResult::FAILURE)
 					{
@@ -355,7 +355,7 @@ ParseResult sqlModifyEngine::searchBack(Search* _search, char* _value, size_t _r
 /******************************************************
  * Format Input
  ******************************************************/
-ParseResult sqlModifyEngine::formatInput(char* _buff, Column* _col)
+ParseResult sqlModifyEngine::formatInput(char* _buff, shared_ptr<Column> _col)
 {
 	if(_col->value == nullptr)
 	{
@@ -408,9 +408,9 @@ ParseResult sqlModifyEngine::formatInput(char* _buff, Column* _col)
  ******************************************************/
 ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 {	
-	Column* qColumn;
+	shared_ptr<Column> qColumn;
 	//TODO joins are a problem here
-	for(sIndex* idx : statement->table->indexes)
+	for(shared_ptr<sIndex> idx : statement->table->indexes)
 	{
 
 		if(idx == nullptr)
@@ -426,7 +426,7 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 		}
 
 		//TODO ONLY WORKS FOR SINGLE COLUMN INDEXES
-		for(Column* iColumn : idx->columns)
+		for(shared_ptr<Column> iColumn : idx->columns)
 		{
 
 			qColumn = statement->table->getColumn(iColumn->name);

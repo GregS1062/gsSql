@@ -52,7 +52,7 @@ class Column
     bool            primary         = false;
     t_function      functionType    = t_function::NONE;
     t_edit          edit            = t_edit::t_undefined;
-    int             length          = 0;
+    size_t          length          = 0;
     int             position        = 0;
     string          value{};
 };
@@ -147,7 +147,7 @@ fstream* BaseData::open()
     fileStream = new fstream{};
     fileStream->open(fileName, ios::in | ios::out | ios::binary);
     if (!fileStream->is_open()) {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,fileName);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,fileName);
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," not opened ");
         return nullptr;
     }

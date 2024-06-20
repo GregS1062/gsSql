@@ -5,7 +5,7 @@
 /******************************************************
  * SUM 
  ******************************************************/
-TempColumn* Sum(TempColumn* _reportCol, TempColumn* _readCol)
+shared_ptr<TempColumn> Sum(shared_ptr<TempColumn> _reportCol, shared_ptr<TempColumn> _readCol)
 {
     if(_readCol->edit == t_edit::t_double)
         _reportCol->doubleValue = _reportCol->doubleValue + _readCol->doubleValue;
@@ -18,7 +18,7 @@ TempColumn* Sum(TempColumn* _reportCol, TempColumn* _readCol)
 /******************************************************
  * MAX
  ******************************************************/
-TempColumn* Max(TempColumn* _reportCol, TempColumn* _readCol)
+shared_ptr<TempColumn> Max(shared_ptr<TempColumn> _reportCol, shared_ptr<TempColumn> _readCol)
 {
     if(_readCol->edit == t_edit::t_double)
     {
@@ -35,7 +35,7 @@ TempColumn* Max(TempColumn* _reportCol, TempColumn* _readCol)
 /******************************************************
  * MIN
  ******************************************************/
-TempColumn* Min(TempColumn* _reportCol, TempColumn* _readCol)
+shared_ptr<TempColumn> Min(shared_ptr<TempColumn> _reportCol, shared_ptr<TempColumn> _readCol)
 {
     if(_readCol->edit == t_edit::t_double)
     {
@@ -53,7 +53,7 @@ TempColumn* Min(TempColumn* _reportCol, TempColumn* _readCol)
 /******************************************************
  * Call functions
  ******************************************************/
-void callFunctions(vector<TempColumn*> _reportRow, vector<TempColumn*> _row)
+void callFunctions(vector<shared_ptr<TempColumn>> _reportRow, vector<shared_ptr<TempColumn>> _row)
 {
     for (size_t nbr = 0;nbr < _row.size();nbr++) 
     {

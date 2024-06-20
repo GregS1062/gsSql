@@ -13,14 +13,14 @@ class sqlJoinEngine : public sqlEngine
 
    public:
 
-   ParseResult	join(Statement,resultList*);
-   ParseResult  joinOnKey(Search*,vector<TempColumn*>,size_t);
+   ParseResult	join(Statement,tempFiles*);
+   ParseResult  joinOnKey(Search*,vector<shared_ptr<TempColumn>>,size_t);
 
 };
 /******************************************************
  * Join
  ******************************************************/
-ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
+ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 {
 	/*
 		1) Get condition
@@ -41,7 +41,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 
 	//Assuming indexed read on one key column
 
-	Column* key{};
+	shared_ptr<Column> key{};
 
 	// 1)
 	for(Condition* condition : statement->table->conditions)
@@ -55,8 +55,8 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 		return ParseResult::FAILURE;
 	}
 
-	vector<vector<TempColumn*>> rows = _results->rows;
-	vector<TempColumn*>row = rows.at(0);
+	vector<vector<shared_ptr<TempColumn>>> rows = _results->rows;
+	vector<shared_ptr<TempColumn>>row = rows.at(0);
 
 	// 2)
 	int keyColumnNbr = NEGATIVE;
@@ -88,7 +88,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 	sIndex* index{};
 	for(sIndex* idx : statement->table->indexes)
 	{
-		for(Column* col : idx->columns)
+		for(shared_ptr<Column> col : idx->columns)
 		{
 			if(strcasecmp(col->name,key->name) == 0 )
 			{
@@ -112,7 +112,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 	// 4)
 	for (size_t i = 0; i < _results->rows.size(); i++) 
 	{ 
-		row = (vector<TempColumn*>)_results->rows[i];
+		row = (vector<shared_ptr<TempColumn>>)_results->rows[i];
 		if(joinOnKey(search,row,(size_t)keyColumnNbr) == ParseResult::FAILURE)
 			break;
 	}
@@ -124,9 +124,9 @@ ParseResult sqlJoinEngine::join(Statement _statement, resultList* _results)
 /******************************************************
  * Join On Key
  ******************************************************/
-ParseResult sqlJoinEngine::joinOnKey(Search* _search,vector<TempColumn*> _row, size_t _keyColumnNbr)
+ParseResult sqlJoinEngine::joinOnKey(Search* _search,vector<shared_ptr<TempColumn>> _row, size_t _keyColumnNbr)
 {
-	vector<TempColumn*>	newRow;
+	vector<shared_ptr<TempColumn>>	newRow;
 	long location = _search->find(_row.at(_keyColumnNbr)->charValue);
 
 	if(debug)

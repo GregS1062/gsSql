@@ -7,10 +7,11 @@
 #include "prepareQuery.cpp"
 #include "parseQuery.cpp"
 #include "binding.cpp"
-//#include "sqlSelectEngine.cpp"
+#include "sqlSelectEngine.cpp"
 //#include "sqlJoinEngine.cpp"
 //#include "sqlModifyEngine.cpp"
 #include "functions.cpp"
+#include "printDiagnostics.cpp"
 
 /******************************************************
  * Plan
@@ -50,9 +51,8 @@ class Plan
     list<shared_ptr<iElements>> lstElements;
     list<Column>                reportColumns;
     shared_ptr<iSQLTables>      isqlTables;
-    shared_ptr<OrderBy>         orderBy;
-    shared_ptr<GroupBy>         groupBy; 
-  //  ParseResult                 printFunctions(resultList* _results);
+
+    ParseResult                 printFunctions(shared_ptr<tempFiles> _results);
     
     public:
         Plan(shared_ptr<iSQLTables>);
@@ -60,7 +60,11 @@ class Plan
         ParseResult             prepare(string);
         ParseResult             execute();
         ParseResult             determineExecutionOrder();
-        list<shared_ptr<Statement>>        lstStatements; //public for diagnostic purposes
+
+        //public for diagnostic purposes
+        list<shared_ptr<Statement>>        lstStatements; 
+        shared_ptr<OrderBy>         orderBy;
+        shared_ptr<GroupBy>         groupBy; 
 };
 Plan::Plan(shared_ptr<iSQLTables> _isqlTables)
 {
@@ -86,20 +90,23 @@ ParseResult Plan::prepare(string _queryString)
     for(string query : queries)
     {
         if(debug)
-            fprintf(traceFile,"\nQuery statements to be parsed %s",_queryString.c_str());
+        {
+            fprintf(traceFile,"\nSplit %s",query.c_str());
+            fprintf(traceFile,"\n-----------------------------------------------------");
+        }
         if(parseQuery.parse(query) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
 
         if(!parseQuery.ielements->tableName.empty())
             lstDeclaredTables.push_back(parseQuery.ielements->tableName);
         
-        if(parseQuery.ielements->lstColumns.size() == 0
+       /*  if(parseQuery.ielements->lstColumns.size() == 0
         && parseQuery.ielements->lstValues.size() == 0
         && parseQuery.ielements->sqlAction == SQLACTION::SELECT)
         {
             fprintf(traceFile,"\n nothing in column list ");
             break;
-        }
+        } */
         
         lstElements.push_back(parseQuery.ielements);
     }
@@ -134,7 +141,7 @@ ParseResult Plan::execute()
         return ParseResult::FAILURE;
     }
 
- /*    resultList*		results;
+     shared_ptr<tempFiles>		results;
 
     for(shared_ptr<Statement> statement : lstStatements)
     {
@@ -186,20 +193,20 @@ ParseResult Plan::execute()
             }
             case SQLACTION::INSERT:
             {
-                sqlModifyEngine sqlModify;
+/*                 sqlModifyEngine sqlModify;
                 if(sqlModify.insert(statement) == ParseResult::FAILURE)
                 {
                     return ParseResult::FAILURE;
-                };
+                }; */
                 break;
             }
             case SQLACTION::UPDATE:
             {
-                sqlModifyEngine sqlModify;
+/*                 sqlModifyEngine sqlModify;
                 if(sqlModify.update(statement) == ParseResult::FAILURE)
                 {
                     return ParseResult::FAILURE;
-                };
+                }; */
                 break;
             }
             case SQLACTION::DELETE:
@@ -207,11 +214,11 @@ ParseResult Plan::execute()
 
                 //    NOTE: Update and Delete use the same logic
 
-                sqlModifyEngine sqlModify;
+/*                 sqlModifyEngine sqlModify;
                 if(sqlModify.update(statement) == ParseResult::FAILURE)
                 {
                     return ParseResult::FAILURE;
-                };
+                }; */
                 break;
             }
             case SQLACTION::INVALID:
@@ -222,12 +229,12 @@ ParseResult Plan::execute()
             }
             case SQLACTION::JOIN:
             {
-                sqlJoinEngine sqlJoin;;
+/*                 sqlJoinEngine sqlJoin;;
                 if(sqlJoin.join(statement, results) == ParseResult::FAILURE)
                 {
                     return ParseResult::FAILURE;
                 };
-                results = sqlJoin.results;
+                results = sqlJoin.results; */
                 break;
             }
             case SQLACTION::LEFT:
@@ -297,15 +304,15 @@ ParseResult Plan::execute()
 
     }
     results->print();
-    */
+    
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Print Functions
  ******************************************************/
-/*ParseResult Plan::printFunctions(resultList* _results)
+ParseResult Plan::printFunctions(shared_ptr<tempFiles> _results)
 {
-    
+    /*
         Logic:
             1) Capture and save an image of the results
                 Which will be used for printing, since
@@ -319,19 +326,19 @@ ParseResult Plan::execute()
 
             5) Execute the required function
     */
-/* 	if(_results->rows.size() == 0)
+ 	if(_results->rows.size() == 0)
 		return ParseResult::FAILURE;
 
     // 1)
-	vector<TempColumn*> reportRow = _results->rows.front();
+	vector<shared_ptr<TempColumn>> reportRow = _results->rows.front();
 
-    vector<TempColumn*> row;
+    vector<shared_ptr<TempColumn>> row;
 
     int avgCount = 0;
 
     // 2)
 	for (size_t i = 0; i < _results->rows.size(); i++) { 
-		row = (vector<TempColumn*>)_results->rows[i];
+		row = (vector<shared_ptr<TempColumn>>)_results->rows[i];
 		if(row.size() < 1)
            continue;
 
@@ -340,7 +347,7 @@ ParseResult Plan::execute()
         callFunctions(reportRow,row);
         avgCount++;
     }	
-    resultList* functionResults = new resultList();
+    tempFiles* functionResults = new tempFiles();
     for (size_t nbr = 0;nbr < reportRow.size();nbr++) 
     {
         if( reportRow.at(nbr)->functionType == t_function::AVG)
@@ -354,52 +361,69 @@ ParseResult Plan::execute()
     functionResults->addRow(reportRow);
     functionResults->print(); 
     return ParseResult::SUCCESS;
-}*/
+}
 
 /******************************************************
  * Process Split
  ******************************************************/
 ParseResult Plan::split(string _queryString)
 {
-    if(debug)
-        fprintf(traceFile,"\n------------- split ----------------");
-    list<string>lstDelimiters;
-    string queryString = _queryString;
-    string query;
-    lstDelimiters.push_back(sqlTokenInsert);
-    lstDelimiters.push_back(sqlTokenDelete);
-    lstDelimiters.push_back(sqlTokenUpdate);
-    lstDelimiters.push_back(sqlTokenSelect);
-    lstDelimiters.push_back(sqlTokenInnerJoin);
-    lstDelimiters.push_back(sqlTokenOuterJoin);
-    lstDelimiters.push_back(sqlTokenLeftJoin);
-    lstDelimiters.push_back(sqlTokenRightJoin);
-    lstDelimiters.push_back(sqlTokenJoin);
-    size_t found = findKeywordFromList(queryString,lstDelimiters);
-    if(found == std::string::npos)
+    try
     {
+        
         if(debug)
-            fprintf(traceFile,"\nNo delimiters found %s",queryString.c_str());
-        queries.push_back(queryString);
+            fprintf(traceFile,"\n------------- split ----------------");
+        
+        string queryString = _queryString;
+
+        size_t joinFound = isJoin(queryString);
+
+        if(joinFound == std::string::npos)
+        {
+            queries.push_back(queryString);
+            return ParseResult::SUCCESS;
+        }
+        else
+        {
+            queries.push_back(queryString.substr(0,joinFound));
+            //return portion of string AFTER join
+            queryString = snipString(queryString,joinFound);
+        }
+
+        size_t posJoin = findKeyword(queryString,sqlTokenJoin);
+        size_t posInnerJoin = findKeyword(queryString,sqlTokenInnerJoin);
+        size_t posOuterJoin = findKeyword(queryString,sqlTokenOuterJoin);
+        size_t posLeftJoin = findKeyword(queryString,sqlTokenLeftJoin);
+        size_t posRightJoin = findKeyword(queryString,sqlTokenRightJoin);
+
+        list<size_t> stack;
+        if(posJoin != std::string::npos)
+            stack.push_back(posJoin);
+        if(posInnerJoin != std::string::npos)
+            stack.push_back(posInnerJoin);
+        if(posOuterJoin != std::string::npos)
+            stack.push_back(posOuterJoin);
+        if(posLeftJoin != std::string::npos)
+            stack.push_back(posLeftJoin);
+        if(posRightJoin != std::string::npos)
+            stack.push_back(posRightJoin);
+
+        stack.sort();
+        stack.reverse();
+
+        for(size_t join : stack)
+        {
+            //return portion of string AFTER join
+            queryString = snipString(queryString,join);
+            queries.push_back(queryString);
+            //erase portion of string AFTER join
+            queryString = clipString(queryString,join);
+        }
+
         return ParseResult::SUCCESS;
     }
-    while(found != std::string::npos)
-    {
-        //select * from orders Join Author 
-        query = snipString(queryString,found);
-        if(debug)
-            fprintf(traceFile,"\n%s",query.c_str());
-        queries.push_back(query);
-        queryString = clipString(queryString,found);
-        found = findKeywordFromList(queryString,lstDelimiters);
-    }
-    if(!queryString.empty())
-    {
-        if(debug)
-            fprintf(traceFile,"\ndrop though %s",queryString.c_str());
-        queries.push_back(queryString);
-    }
-    return ParseResult::SUCCESS;
+    catch_and_trace
+    return ParseResult::FAILURE;
 }
 ParseResult Plan::determineExecutionOrder()
 {
