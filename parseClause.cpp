@@ -69,8 +69,8 @@ ParseResult ParseClause::parseSelect(string _queryString)
    {
         if(debug)
         {
-            printf("\n\n-------------------------PARSE CLAUSES - SELECT -------------------------------------------");
-            printf("\nQuery String = %s",_queryString.c_str());
+            fprintf(traceFile,"\n\n-------------------------PARSE CLAUSES - SELECT -------------------------------------------");
+            fprintf(traceFile,"\nQuery String = %s",_queryString.c_str());
         }
 
         size_t positionSelect = findKeyword(_queryString,sqlTokenSelect);
@@ -159,7 +159,7 @@ ParseResult ParseClause::parseJoin(string _queryString)
 
     try{
         if(debug)
-            printf("\n********************* parseJoin *******************");
+            fprintf(traceFile,"\n********************* parseJoin *******************");
         
 
        size_t OrderByGroupBy = parseOrderByGroup(_queryString);
@@ -272,7 +272,7 @@ size_t ParseClause::parseOrderByGroup(string _queryString)
             iClause.strGroupBy = snipString(_queryString,sqlTokenGroupBy,positionOfGroupBy);
             
             if(debug)
-                printf("\nGroup by clause: %s",iClause.strGroupBy.c_str());
+                fprintf(traceFile,"\nGroup by clause: %s",iClause.strGroupBy.c_str());
                 
             _queryString = clipString(_queryString,positionOfGroupBy);
 
@@ -282,7 +282,7 @@ size_t ParseClause::parseOrderByGroup(string _queryString)
         {
             iClause.strHavingConditions = snipString(_queryString,sqlTokenHaving,positionOfHaving);
             if(debug)
-                printf("\nHaving clause: %s",iClause.strHavingConditions.c_str());
+                fprintf(traceFile,"\nHaving clause: %s",iClause.strHavingConditions.c_str());
             _queryString = clipString(_queryString,positionOfHaving);
         }
     }

@@ -61,7 +61,7 @@ void resultList::print()
 	if(rows.size() == 0)
 		return;
 	if(debug)
-		printf("\n\nprinting\n");
+		fprintf(traceFile,"\n\nprinting\n");
 	vector<TempColumn*> row = rows.front();
 	printHeader(row);
 	for (size_t i = 0; i < rows.size(); i++) { 
@@ -161,7 +161,7 @@ ParseResult resultList::orderBy(shared_ptr<OrderBy> _orderBy)
 	for(OrderOrGroup order : _orderBy->order)
 	{
 		if(debug)
-			printf("\n sorting on column# %d", order.columnNbr);
+			fprintf(traceFile,"\n sorting on column# %d", order.columnNbr);
 		n.push_back(order.columnNbr);
 	}
 	Sort(n,_orderBy->asc);
@@ -174,7 +174,7 @@ ParseResult resultList::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 {
 
 	if(debug)
-		printf("\n-----------------------Group by-----------------------");
+		fprintf(traceFile,"\n-----------------------Group by-----------------------");
 
 	/*
 	Pre-condition: a table of rows input from the sqlEngine
@@ -447,7 +447,7 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 	if(_sumOfColumnSize < 100)
 	{
 		pad = 100 - _sumOfColumnSize;
-		//printf("\n pad = %d",pad);
+		//fprintf(traceFile,"\n pad = %d",pad);
 		_sumOfColumnSize = _sumOfColumnSize + pad;
 	}
 	for (Column* col : _columns) 
@@ -477,8 +477,8 @@ string resultList::htmlHeader(vector<TempColumn*> _columns, int32_t _sumOfColumn
 		header.append(hdrBegin);
 		header.append(" style="" width:");
 		percentage = (double)pad / _sumOfColumnSize * 100;
-		printf("\n sum of col = %d",_sumOfColumnSize);
-		printf("\n pad percent = %f",percentage);
+		fprintf(traceFile,"\n sum of col = %d",_sumOfColumnSize);
+		fprintf(traceFile,"\n pad percent = %f",percentage);
 		header.append(to_string((int)percentage));
 		header.append("%"">");
 		header.append(hdrEnd);

@@ -1,7 +1,7 @@
 #pragma once
 #include "sqlCommon.h"
 #include "interfaces.h"
-#include "lookup.cpp"
+#include "prepareQuery.cpp"
 
 /******************************************************
  * Binding
@@ -12,161 +12,172 @@ class Binding
 
     shared_ptr<sTable>          defaultTable;    
     shared_ptr<sTable>          defaultSQLTable;
-    tokenParser*                tok;
-    iSQLTables*                 isqlTables;
-    iElements*                  ielements;
+    shared_ptr<iSQLTables>      isqlTables;
     
     ParseResult                 bindColumnList();
     ParseResult                 bindFunctionColumn(std::shared_ptr<columnParts>);
-    sTable*                     assignTable(std::shared_ptr<columnParts>);
-    Column*                     assignTemplateColumn(std::shared_ptr<columnParts>,char*);
+    shared_ptr<sTable>          assignTable(std::shared_ptr<columnParts>);
+    shared_ptr<Column>          assignTemplateColumn(std::shared_ptr<columnParts>,string);
     ParseResult                 bindValueList();
     ParseResult                 bindConditions();
-    ParseResult                 bindCondition(Condition*,bool);
+    ParseResult                 bindCondition(shared_ptr<Condition>,bool);
     ParseResult                 bindHaving();
     ParseResult                 bindOrderBy();
     ParseResult                 bindGroupBy();
-    ParseResult                 populateTable(sTable*,sTable*);
-    bool                        valueSizeOutofBounds(char*, Column*);
-    ParseResult                 editColumn(Column*,char*);
-    ParseResult                 editCondition(Condition*);
+    ParseResult                 populateTable(shared_ptr<sTable>,shared_ptr<sTable>);
+    bool                        valueSizeOutofBounds(string, shared_ptr<Column>);
+    ParseResult                 editColumn(shared_ptr<Column>,string);
+    ParseResult                 editCondition(shared_ptr<Condition>);
 
     public:
 
     shared_ptr<OrderBy>         orderBy = make_shared<OrderBy>(); 
     shared_ptr<GroupBy>         groupBy = make_shared<GroupBy>(); 
-    ParseResult                 bindTableList(list<char*>);
+    ParseResult                 bindTableList(list<string>);
     list<shared_ptr<sTable>>    lstTables;  //public for diagnostic purposes
+    shared_ptr<iElements>       ielements = make_shared<iElements>();
+    shared_ptr<Statement> statement = make_shared<Statement>();     
 
-    Binding(iSQLTables*);
-    Statement*     bind(iElements*);
+    Binding(shared_ptr<iSQLTables>);
+    shared_ptr<Statement>        bind(shared_ptr<iElements>);
 };
 /******************************************************
  * Constructor
  ******************************************************/
-Binding::Binding(iSQLTables* _isqlTables) 
+Binding::Binding(shared_ptr<iSQLTables> _isqlTables) 
 {
     isqlTables = _isqlTables;
 };
 /******************************************************
  * Bind
  ******************************************************/
-Statement* Binding::bind(iElements* _ielements)
+shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
 {
-
-    if(debug)
-        printf("\n\n-------------------------BEGIN BIND-------------------------------------------");
-    
-    ielements = _ielements;
-
-    if(lstTables.size() == 0)
+    try
     {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind empty table list ");
-        return nullptr;
-    }
-    
-    if(debug)
-            printf("\nstatement table name %s",ielements->tableName);
 
-    TokenPair* tp = lookup::tokenSplit(ielements->tableName,(char*)" ");
-
-    if(tp == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Table name is null");
-        return nullptr;
-    }
-
-    Statement* statement = new Statement();
-    statement->table = lookup::getTableByName(lstTables,tp->one);
-    if(statement->table == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"statement table name is null");
-        delete tp;
-        return nullptr;
-    }
-
-    delete tp;
-
-    statement->action = ielements->sqlAction;
-    statement->rowsToReturn = ielements->rowsToReturn;
-
-
-    defaultTable = statement->table;
-    if(defaultTable == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default table");
-        return nullptr;
-    }
-    defaultSQLTable = lookup::getTableByName(isqlTables->tables,defaultTable->name);
-    if(defaultSQLTable == nullptr)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default SQL table");
-        return nullptr;
-    }
-
-
-    if(bindColumnList() == ParseResult::FAILURE)
-    {
         if(debug)
-            printf("\n column Binding failure");
-        return nullptr;
+            fprintf(traceFile,"\n\n-------------------------BEGIN BIND-------------------------------------------");
+        
+        ielements = _ielements;
+
+        if(lstTables.size() == 0)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind empty table list ");
+            return nullptr;
+        }
+        
+        if(debug)
+                fprintf(traceFile,"\nstatement table name %s",ielements->tableName.c_str());
+
+        //Table name may be formated with an alias - trim this off.
+        ielements->tableName = trim(ielements->tableName);
+        size_t posSpace = ielements->tableName.find(SPACE);
+        if(posSpace != std::string::npos)
+            ielements->tableName = clipString(ielements->tableName,posSpace);
+
+        statement->table = getTableByName(lstTables,ielements->tableName);
+        if(statement->table == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"statement table name is null");
+            return nullptr;
+        }
+
+
+        statement->action = ielements->sqlAction;
+        statement->rowsToReturn = ielements->rowsToReturn;
+
+
+        //Will contain ONLY columns called in this query
+        defaultTable = statement->table;
+        if(defaultTable == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default table");
+            return nullptr;
+        }
+
+        //Contains ALL columns for table
+        defaultSQLTable = getTableByName(isqlTables->tables,defaultTable->name);
+        if(defaultSQLTable == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default SQL table");
+            return nullptr;
+        }
+
+
+        if(bindColumnList() == ParseResult::FAILURE)
+        {
+            if(debug)
+                fprintf(traceFile,"\n column Binding failure");
+            return nullptr;
+        }
+
+        if(bindValueList() == ParseResult::FAILURE)
+            return nullptr;
+
+        if(bindConditions() == ParseResult::FAILURE)
+            return nullptr;
+
+        if(bindOrderBy() == ParseResult::FAILURE)
+            return nullptr;
+
+        if(bindGroupBy() == ParseResult::FAILURE)
+            return nullptr;
+
+        return statement;
     }
-
-    if(bindValueList() == ParseResult::FAILURE)
-        return nullptr;
-
-    if(bindConditions() == ParseResult::FAILURE)
-       return nullptr;
-
-    if(bindOrderBy() == ParseResult::FAILURE)
-       return nullptr;
-
-    if(bindGroupBy() == ParseResult::FAILURE)
-       return nullptr;
-
-    return statement;
+    catch_and_trace
+    return nullptr;
 }
 /******************************************************
  * Bind Table List
  ******************************************************/
-ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
+ParseResult Binding::bindTableList(list<string> _lstDeclaredTables)
 {
-    TokenPair* tp;
-    sTable* temp;
-    sTable* table;
-    for(char* token : _lstDeclaredTables)
+    shared_ptr<sTable> table;
+    for(string token : _lstDeclaredTables)
     {
-        if(debug)
-            printf("\n table name %s|| \n",token);
-
-        table = new sTable();
-
-        tp = lookup::tokenSplit(token,(char*)" ");
-
-        if(tp == nullptr)
+        if(token.empty())
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Table name is null");
             return ParseResult::FAILURE;
         }
-
         if(debug)
-            printf("\n tp1:%s| tp2:%s|",tp->one, tp->two);
+            fprintf(traceFile,"\n table name %s|| \n",token.c_str());
 
-        temp = lookup::getTableByName(isqlTables->tables,tp->one);
+        table = make_shared<sTable>();
+
+        token = trim(token);
+        string tableName{};
+        string aliasTableName{};
+
+        //Note: table name pattern  NANE ALIAS (customers c)
+        size_t posSpace = token.find(SPACE);
+        if(posSpace == std::string::npos)
+        {
+             // case 3) simple name         - surname
+            tableName = token;
+        }
+        else
+        {
+            tableName = clipString(token,posSpace);
+            aliasTableName = snipString(token,posSpace+1);
+        }
+
+
+        shared_ptr<sTable> temp =  make_shared<sTable>();
+        temp = getTableByName(isqlTables->tables,tableName);
         if(temp != nullptr)
         {
-            table->name         = temp->name;
+            table->name         = tableName;
             table->fileName     = temp->fileName;
-            if(tp->two != nullptr)
-                table->alias        = dupString(tp->two);
+            table->alias        = aliasTableName;
             table->recordLength = temp->recordLength;
-            for(sIndex* idx : temp->indexes)
+            for(shared_ptr<sIndex> idx : temp->indexes)
             {
                 table->indexes.push_back(idx);
             }
             lstTables.push_back(table);
-            delete tp;
-            continue;
         }
     }
 
@@ -184,7 +195,7 @@ ParseResult Binding::bindTableList(list<char*> _lstDeclaredTables)
 ParseResult Binding::bindColumnList()
 {
     if(debug)
-        printf("\n-------------------- bind column list ----------------");
+        fprintf(traceFile,"\n-------------------- bind column list ----------------");
     
     // case Insert into table values(....)
     if(ielements->lstColumns.size() == 0
@@ -195,12 +206,12 @@ ParseResult Binding::bindColumnList()
         return ParseResult::SUCCESS;
     }
 
-    sTable* tbl;
-    Column* col;
+    shared_ptr<sTable> tbl;
+    shared_ptr<Column> col;
     for(std::shared_ptr<columnParts> parts : ielements->lstColumns)
     {
         //Case 1: function
-        if(strlen(parts->fuction) > 0)
+        if(!parts->function.empty())
         {
            if(bindFunctionColumn(parts) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
@@ -208,7 +219,7 @@ ParseResult Binding::bindColumnList()
         }
 
         //Case 2: Name = *
-        if(strcmp(parts->columnName,(char*)sqlTokenAsterisk) == 0)
+        if(parts->columnName.compare(sqlTokenAsterisk) == 0)
         {
             if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
@@ -232,10 +243,10 @@ ParseResult Binding::bindColumnList()
             return ParseResult::FAILURE;
         }
         
-        if(strlen(parts->columnAlias) > 0)
+        if(!parts->columnAlias.empty())
             col->alias = parts->columnAlias;
 
-        if(strlen(parts->value) > 0)
+        if(!parts->value.empty())
         {
             if(editColumn(col,parts->value) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
@@ -249,29 +260,34 @@ ParseResult Binding::bindColumnList()
 /******************************************************
  * Assign Table
  ******************************************************/
-sTable* Binding::assignTable(std::shared_ptr<columnParts> _parts)
+shared_ptr<sTable> Binding::assignTable(std::shared_ptr<columnParts> _parts)
 {
-    sTable* tbl;
-    if(strlen(_parts->tableAlias) > 0)
+    if(_parts == nullptr)
+    {
+        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name parts are null ");
+        return nullptr;
+    }
+    shared_ptr<sTable> tbl = make_shared<sTable>();
+    if(!_parts->tableAlias.empty())
     {
         // case 1:  theTable.theColumn  prefix is table name
-        tbl = lookup::getTableByName(lstTables,_parts->tableAlias);
+        tbl = getTableByName(lstTables,_parts->tableAlias);
         if(tbl != nullptr)
             return tbl;
 
         // case 2: t.theColumn  prefix is an alias
-        tbl = lookup::getTableByAlias(lstTables,_parts->tableAlias);
+        tbl = getTableByAlias(lstTables,_parts->tableAlias);
         if(tbl != nullptr)
             return tbl;
     }
 
     // case 3: order by and group by can reference a column alias   tax AS ripoff   order by ripoff
-    Column* col = lookup::getColumnByAlias(defaultTable->columns,_parts->columnName);
+    shared_ptr<Column> col = getColumnByAlias(defaultTable->columns,_parts->columnName);
     if(col != nullptr)
         return defaultTable;
 
     // case 4: order by and group by can reference a function   count(*)   order by count
-    tbl = lookup::getTableByName(isqlTables->tables,(char*)sqlTokenFumctionTable);
+    tbl = getTableByName(isqlTables->tables,sqlTokenFumctionTable);
     
     if(tbl == nullptr)
     {
@@ -279,7 +295,7 @@ sTable* Binding::assignTable(std::shared_ptr<columnParts> _parts)
         return nullptr;
     }
 
-    col = lookup::getColumnByName(tbl->columns,_parts->columnName);
+    col = getColumnByName(tbl->columns,_parts->columnName);
     if(col != nullptr)
         return tbl;
 
@@ -289,18 +305,18 @@ sTable* Binding::assignTable(std::shared_ptr<columnParts> _parts)
 /******************************************************
  * Assign Template Column
  ******************************************************/
-Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char* _tableName)
+shared_ptr<Column>  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,string _tableName)
 {
-    sTable* tbl = lookup::getTableByName(isqlTables->tables, _tableName);
+    shared_ptr<sTable> tbl = getTableByName(isqlTables->tables, _tableName);
     if(tbl == nullptr)
         return nullptr;
 
-    Column* col;
-    Column* newCol = new Column();
-    col = lookup::getColumnByName(tbl->columns,_parts->columnName);
+    shared_ptr<Column> col;
+    shared_ptr<Column> newCol = make_shared<Column>();
+    col = getColumnByName(tbl->columns,_parts->columnName);
 
     if(col == nullptr)
-        col = lookup::getColumnByAlias(tbl->columns,_parts->columnName);
+        col = getColumnByAlias(tbl->columns,_parts->columnName);
 
     if(col == nullptr)
         return nullptr;
@@ -319,43 +335,43 @@ Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char*
  ParseResult Binding::bindFunctionColumn(std::shared_ptr<columnParts> _parts)
 {
     if(debug)
-        printf("\n------------------bind function------------");
+        fprintf(traceFile,"\n------------------bind function------------");
 
     t_function ag = t_function::NONE;
 
-    if(lookup::findDelimiter(_parts->fuction,(char*)sqlTokenCount) > NEGATIVE)
+    if(findKeyword(_parts->function,(char*)sqlTokenCount) != std::string::npos)
         ag = t_function::COUNT;
     else
-        if(lookup::findDelimiter(_parts->fuction,(char*)sqlTokenSum) > NEGATIVE)
+        if(findKeyword(_parts->function,(char*)sqlTokenSum) != std::string::npos)
             ag = t_function::SUM;
         else
-            if(lookup::findDelimiter(_parts->fuction,(char*)sqlTokenMax) > NEGATIVE)
+            if(findKeyword(_parts->function,(char*)sqlTokenMax) != std::string::npos)
                 ag = t_function::MAX;
             else
-                if(lookup::findDelimiter(_parts->fuction,(char*)sqlTokenMin) > NEGATIVE)
+                if(findKeyword(_parts->function,(char*)sqlTokenMin) != std::string::npos)
                     ag = t_function::MIN;
                 else
-                    if(lookup::findDelimiter(_parts->fuction,(char*)sqlTokenAvg) > NEGATIVE)
+                    if(findKeyword(_parts->function,(char*)sqlTokenAvg) != std::string::npos)
                         ag = t_function::AVG;
 
 
     if(ag == t_function::NONE)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"unable to identify function: ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_parts->fuction);
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,_parts->function);
         return ParseResult::FAILURE;
     }
 
     //  Create a new column
-    Column* col = new Column();
+    shared_ptr<Column> col = make_shared<Column>();
     if(ag == t_function::COUNT)
     {
-       if(lookup::findDelimiter(_parts->columnName,(char*)sqlTokenAsterisk) > NEGATIVE)
+       if(findKeyword(_parts->columnName,(char*)sqlTokenAsterisk) != std::string::npos)
        {
             col->functionType = t_function::COUNT;
             col->name = (char*)"COUNT";
             col->edit   = t_edit::t_int;
-            if(strlen(_parts->columnAlias) > 0)
+            if(!_parts->columnAlias.empty())
                 col->alias  = _parts->columnAlias;
             defaultTable->columns.push_front(col);
             return ParseResult::SUCCESS;
@@ -366,7 +382,7 @@ Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char*
     // Function pattern looks like this: FUNC(column table alias/column name) AS alias
     
     //Bind column to table
-    sTable* tbl = assignTable(_parts);
+    shared_ptr<sTable> tbl = assignTable(_parts);
     if(tbl == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot assign column table: ");
@@ -384,35 +400,51 @@ Column*  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,char*
     
     col->functionType = ag;
 
-    char* altAlias{};
+    string altAlias{};
     switch(ag)
     {
         case t_function::AVG:
-            altAlias = (char*)sqlTokenAvg;
+            altAlias = sqlTokenAvg;
             break;
         case t_function::COUNT:
-            altAlias = (char*)sqlTokenCount;
+            altAlias = sqlTokenCount;
             break;
         case t_function::MAX:
-            altAlias = (char*)sqlTokenMax;
+            altAlias = sqlTokenMax;
             break;
         case t_function::MIN:
-            altAlias = (char*)sqlTokenMin;
+            altAlias = sqlTokenMin;
             break;
         case t_function::SUM:
-            altAlias = (char*)sqlTokenSum;
+            altAlias = sqlTokenSum;
             break;
         case t_function::NONE:
-            printf("\nCounld not find function type");
+            fprintf(traceFile,"\nCounld not find function type");
             return ParseResult::FAILURE;
     }
-    if(strlen(_parts->columnAlias) > 0)
+    if(!_parts->columnAlias.empty())
         col->alias = _parts->columnAlias;
 
-    if(col->alias == nullptr)
+    if(col->alias.empty())
         col->alias = altAlias;
 
-    tbl = lookup::getTableByName(lstTables,col->tableName);
+    
+    tbl = getTableByName(lstTables,col->tableName);
+    if(tbl == nullptr)
+    {
+        //is this table in the default table
+        if(defaultSQLTable->isColumn(col->name))
+        {
+            defaultTable->columns.push_back(col);
+            return ParseResult::SUCCESS;
+        }
+        else
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column: ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_parts->fullName);
+            return ParseResult::FAILURE;
+        }
+    }
     
     tbl->columns.push_back(col);
 
@@ -428,7 +460,7 @@ ParseResult Binding::bindValueList()
         return ParseResult::SUCCESS;
 
     //TODO account for case: update customer c OR insert into customer c ....select..
-    sTable* table = lstTables.front();
+    shared_ptr<sTable> table = lstTables.front();
     if(table == nullptr)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind value list table null ");
@@ -444,7 +476,7 @@ ParseResult Binding::bindValueList()
         return ParseResult::FAILURE;
     }
 
-    for(Column* col : table->columns)
+    for(shared_ptr<Column> col : table->columns)
     {
         if(editColumn(col,ielements->lstValues.front()) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
@@ -455,11 +487,11 @@ ParseResult Binding::bindValueList()
 /******************************************************
  * Populate table
  ******************************************************/
-ParseResult Binding::populateTable(sTable* _table,sTable* _sqlTbl)
+ParseResult Binding::populateTable(shared_ptr<sTable> _table,shared_ptr<sTable> _sqlTbl)
 {
     if(debug)
-        printf("\n-------------------- Populate table  ----------------");
-    for (Column* col : _sqlTbl->columns) 
+        fprintf(traceFile,"\n-------------------- Populate table  ----------------");
+    for (shared_ptr<Column> col : _sqlTbl->columns) 
     {
         _table->columns.push_back(col);
     }
@@ -468,9 +500,9 @@ ParseResult Binding::populateTable(sTable* _table,sTable* _sqlTbl)
 /******************************************************
  * Value Size Out Of Bounds
  ******************************************************/
-bool Binding::valueSizeOutofBounds(char* value, Column* col)
+bool Binding::valueSizeOutofBounds(string value,shared_ptr<Column> col)
 {
-    if(value == nullptr)
+    if(value.empty())
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->name);
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," : value is null ");
@@ -485,12 +517,12 @@ bool Binding::valueSizeOutofBounds(char* value, Column* col)
         return true;
     }
 
-    if(strlen(value) > (size_t)col->length
+    if(value.length() > (size_t)col->length
     && col->edit == t_edit::t_char)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,col->name);
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," value length ");
-        sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(strlen(value)).c_str());
+        sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(value.length()).c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," > edit length ");
         sendMessage(MESSAGETYPE::ERROR,presentationType,false,(char*)std::to_string(col->length).c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
@@ -505,8 +537,8 @@ bool Binding::valueSizeOutofBounds(char* value, Column* col)
  ******************************************************/
 ParseResult Binding::bindConditions()
 {
-    sTable* tbl;
-    for(Condition* con : ielements->lstConditions)
+    shared_ptr<sTable> tbl;
+    for(shared_ptr<Condition> con : ielements->lstConditions)
     {
         //Normal binding
         if(bindCondition(con,false) == ParseResult::FAILURE)
@@ -514,11 +546,11 @@ ParseResult Binding::bindConditions()
         //Bind to compareToColumn
         if(bindCondition(con,true) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
-        tbl = lookup::getTableByName(lstTables,con->col->tableName);
+        tbl = getTableByName(lstTables,con->col->tableName);
         tbl->conditions.push_back(con);
     }
 
-    for(Condition* con : ielements->lstJoinConditions)
+    for(shared_ptr<Condition> con : ielements->lstJoinConditions)
     {
         //Normal binding
         if(bindCondition(con,false) == ParseResult::FAILURE)
@@ -535,11 +567,14 @@ ParseResult Binding::bindConditions()
 /******************************************************
  * Bind Condition
  ******************************************************/
-ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
+ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToColumn)
 {
-    sTable* tbl;
-    Column* col;
+    shared_ptr<sTable> tbl;
+    shared_ptr<Column> col;
     std::shared_ptr<columnParts> columnName;
+
+    if(_con == nullptr)
+        return ParseResult::SUCCESS;
 
     //What is being bound, a normal column or a compareToColumn?
     if(_compareToColumn)
@@ -549,13 +584,13 @@ ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
             return ParseResult::SUCCESS;
 
         if(debug)
-            printf("\nbinding condition compareToName %s %s",_con->compareToName->columnName, _con->compareToName->columnAlias);
+            fprintf(traceFile,"\nbinding condition compareToName %s %s",_con->compareToName->columnName.c_str(), _con->compareToName->columnAlias.c_str());
         columnName = _con->compareToName;
     }
     else
     {
         if(debug)
-            printf("\nbinding condition name %s %s",_con->name->columnName, _con->name->columnAlias);
+            fprintf(traceFile,"\nbinding condition name %s %s",_con->name->columnName.c_str(), _con->name->columnAlias.c_str());
         columnName = _con->name;
     }
         
@@ -604,9 +639,9 @@ ParseResult Binding::bindCondition(Condition* _con, bool _compareToColumn)
 ParseResult Binding::bindOrderBy()
 {
     if(debug)
-        printf("\n----------------------- bind order by -----------------------------------");
-    sTable* tbl;
-    Column* col;
+        fprintf(traceFile,"\n----------------------- bind order by -----------------------------------");
+    shared_ptr<sTable> tbl;
+    shared_ptr<Column> col;
 
     if (ielements->orderBy == nullptr)
         return ParseResult::SUCCESS;
@@ -634,9 +669,9 @@ ParseResult Binding::bindOrderBy()
         }
         int columnNbr   = NEGATIVE;
         int count       = 0;
-        for(Column* column : tbl->columns)
+        for(shared_ptr<Column> column : tbl->columns)
         {
-            if(strcasecmp(column->name, col->name) == 0)
+            if(strcasecmp(column->name.c_str(), col->name.c_str()) == 0)
             {
                 columnNbr = count;
                 break;
@@ -653,7 +688,7 @@ ParseResult Binding::bindOrderBy()
         orderBy->order.push_back(order);
         
         if(debug)
-            printf("\n bind order Column name:%s table: %s  sort# %d",col->name, col->tableName, order.columnNbr);
+            fprintf(traceFile,"\n bind order Column name:%s table: %s  sort# %d",col->name.c_str(), col->tableName.c_str(), order.columnNbr);
         
     }
     return ParseResult::SUCCESS;
@@ -664,16 +699,16 @@ ParseResult Binding::bindOrderBy()
 ParseResult Binding::bindGroupBy()
 {
     if(debug)
-        printf("\n----------------------- bind group by -----------------------------------");
+        fprintf(traceFile,"\n----------------------- bind group by -----------------------------------");
 
     if(ielements->groupBy == nullptr)
     {
-        printf("\nielemenst->groupBy = null");
+        fprintf(traceFile,"\nielemenst->groupBy = null");
         return ParseResult::SUCCESS;
     }
 
-    sTable* tbl;
-    Column* col;
+    shared_ptr<sTable> tbl;
+    shared_ptr<Column> col;
     for(OrderOrGroup group : ielements->groupBy->group)
     {
         //Bind column to table
@@ -694,9 +729,9 @@ ParseResult Binding::bindGroupBy()
         }
         int columnNbr   = NEGATIVE;
         int count       = 0;
-        for(Column* column : tbl->columns)
+        for(shared_ptr<Column> column : tbl->columns)
         {
-            if(strcasecmp(column->name, col->name) == 0)
+            if(strcasecmp(column->name.c_str(), col->name.c_str()) == 0)
             {
                 columnNbr = count;
                 break;
@@ -714,7 +749,7 @@ ParseResult Binding::bindGroupBy()
         
 
         if(debug)
-            printf("\n bind group Column name:%s table: %s  sort# %d",col->name, col->tableName, group.columnNbr);
+            fprintf(traceFile,"\n bind group Column name:%s table: %s  sort# %d",col->name.c_str(), col->tableName.c_str(), group.columnNbr);
         
         bindHaving();
     }
@@ -730,28 +765,30 @@ ParseResult Binding::bindHaving()
 
     //  Condition must apply to an item in the report line
 
-    Column* col;
+    shared_ptr<Column> col;
     
     // case 1: group by zipcode Having Count(*) > 10                    Count   = function
     // case 2: group by order Having Max(tax) < 100                     tax     = column name
     // case 3: Max(tax) as maxtax group by order Having maxtax > 50     maxtax  = column alias
     
-    for(Condition* con : ielements->lstHavingConditions)
+    for(shared_ptr<Condition> con : ielements->lstHavingConditions)
     {
-        col = lookup::getColumnByName(defaultTable->columns,con->name->columnName);
+        col = defaultTable->getColumn(con->name->columnName);
         
         // Notice what is going on here. Since a HAVING statement does not have an alias, we test the HAVING column name against the default column alias.
         if(col == nullptr)
-            col = lookup::getColumnByAlias(defaultTable->columns,con->name->columnName);
+            col = getColumnByAlias(defaultTable->columns,con->name->columnName);
         
         if(col == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find 'Having' column ");
             return ParseResult::FAILURE;
         }
+
         con->col = col;
         if( editCondition(con) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
+
         groupBy->having.push_back(con);
     }
     return ParseResult::SUCCESS;
@@ -760,7 +797,7 @@ ParseResult Binding::bindHaving()
 /******************************************************
  * edit column
  ******************************************************/
-ParseResult Binding::editColumn(Column* _col,char* _value)
+ParseResult Binding::editColumn(shared_ptr<Column> _col,string _value)
 {
     if(_col == nullptr)
     {
@@ -768,19 +805,19 @@ ParseResult Binding::editColumn(Column* _col,char* _value)
         return ParseResult::FAILURE;
     }
 
-    if(_value == nullptr)
+    if(_value.empty())
         return ParseResult::SUCCESS;
 
     switch(_col->edit)
     {
         case t_edit::t_bool: 
         {
-            if(strcasecmp(_value,"T") == 0
-            || strcasecmp(_value,"F") == 0)
+            if(strcasecmp(_value.c_str(),"T") == 0
+            || strcasecmp(_value.c_str(),"F") == 0)
                 _col->value = _value;
             else
             {
-                printf("\n bool value %s",_value);
+                fprintf(traceFile,"\n bool value %s",_value.c_str());
                 return ParseResult::FAILURE;
             }
             break; 
@@ -827,13 +864,15 @@ ParseResult Binding::editColumn(Column* _col,char* _value)
             _col->value = _value;
             break;
         }
+        default:
+            break;
     }
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Edit Condition Column
  ******************************************************/
-ParseResult Binding::editCondition(Condition* _con)
+ParseResult Binding::editCondition(shared_ptr<Condition> _con)
 {
     if(_con == nullptr)
     {
@@ -876,7 +915,7 @@ ParseResult Binding::editCondition(Condition* _con)
             if(!isDateValid(_con->value))
                 return ParseResult::FAILURE;
 
-            _con->dateValue = parseDate(_con->value);
+            _con->dateValue = parseDate((char*)_con->value.c_str());
             break; 
         } 
         case t_edit::t_double:
@@ -890,7 +929,7 @@ ParseResult Binding::editCondition(Condition* _con)
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false," ");
                 return ParseResult::FAILURE;
             }
-            _con->doubleValue = atof(_con->value);
+            _con->doubleValue = atof(_con->value.c_str());
             break;
         }
         case t_edit::t_int:
@@ -904,9 +943,11 @@ ParseResult Binding::editCondition(Condition* _con)
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,"| ");
                 return ParseResult::FAILURE;
             }
-            _con->intValue = atoi(_con->value);
+            _con->intValue = atoi(_con->value.c_str());
             break;
         }
+        default:
+            break;
     }
     return ParseResult::SUCCESS;
 }

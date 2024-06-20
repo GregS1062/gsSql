@@ -70,19 +70,19 @@ string parseDate(tm _date)
 	// Year is the years after 1900
 	char str[11] = "";
     char s[11];
-	sprintf(str,"%d", _date.tm_mon + 1);
+	sfprintf(traceFile,str,"%d", _date.tm_mon + 1);
 
 	strcpy(s, utilities::padLeft(str, 2));
 
 	strcat(s, "/");
 
-	sprintf(str,"%d", _date.tm_mday);
+	sfprintf(traceFile,str,"%d", _date.tm_mday);
 
 	strcat(s, utilities::padLeft(str, 2));
 
 	strcat(s, "/");
 
-	sprintf(str, "%d", _date.tm_year + 1900);
+	sfprintf(traceFile,str, "%d", _date.tm_year + 1900);
 
 	strcat(s, str);
 
@@ -308,7 +308,7 @@ int convert(LOADING _loading)
     fileStream->open(fileName, ios::in | ios::out | ios::binary);
 	if (!fileStream->is_open()) 
     {
-        printf("\n %s open failed",fileName);
+        fprintf(traceFile,"\n %s open failed",fileName);
         return 0;
     }
 
@@ -323,8 +323,8 @@ int convert(LOADING _loading)
 
     if(parser->parse() == ParseResult::FAILURE)
     {
-        printf("\n sql=%s",sql.c_str());
-        printf("\n %s",errText.c_str());
+        fprintf(traceFile,"\n sql=%s",sql.c_str());
+        fprintf(traceFile,"\n %s",errText.c_str());
         return 0;
     }
 
@@ -335,7 +335,7 @@ int convert(LOADING _loading)
     cTable* table = parser->getTableByName(tableName);
     if(table == nullptr)
     {
-        printf("\n table not found");
+        fprintf(traceFile,"\n table not found");
         return 0;
     }
     int count = 0;
@@ -375,17 +375,17 @@ int convert(LOADING _loading)
         if(queryStr.length() == 0)
             break;
 
-        printf("\n %s",queryStr.c_str());
+        fprintf(traceFile,"\n %s",queryStr.c_str());
 
         engine = new sqlEngine();
         query = new queryParser();
         if(query->parse((char*)queryStr.c_str(),parser) == ParseResult::FAILURE)
         {
-            printf("\n query parse failed");
-            printf("\n error %s",errText.c_str());
-            printf("\n\n");
-            printf("%s",queryStr.c_str());
-            printf("\n\n");
+            fprintf(traceFile,"\n query parse failed");
+            fprintf(traceFile,"\n error %s",errText.c_str());
+            fprintf(traceFile,"\n\n");
+            fprintf(traceFile,"%s",queryStr.c_str());
+            fprintf(traceFile,"\n\n");
             return 0;
         };
         
@@ -393,8 +393,8 @@ int convert(LOADING _loading)
         engine->prepare(query,table);
         if(engine->open() == ParseResult::FAILURE)
         {
-            printf("\n engine open failed");
-            printf("\n %s",errText.c_str());
+            fprintf(traceFile,"\n engine open failed");
+            fprintf(traceFile,"\n %s",errText.c_str());
             return 0;
         }
         engine->insert();
@@ -405,7 +405,7 @@ int convert(LOADING _loading)
     }
     
     fileStream->close();
-    printf("\n\n %s count=%d\n ",tableName,count);
+    fprintf(traceFile,"\n\n %s count=%d\n ",tableName,count);
     return 0;
 }
 

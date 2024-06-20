@@ -24,7 +24,7 @@ sTable* lookup::getTableByAlias(list<sTable*> _tables, char* _alias)
 {
     for(sTable* tbl : _tables)
     {
-       // printf("\n looking for %s found %s",_alias,tbl->alias);
+       // fprintf(traceFile,"\n looking for %s found %s",_alias,tbl->alias);
        if(tbl->alias == nullptr)
             continue;
         if(strcasecmp(tbl->alias, _alias) == 0)
@@ -42,26 +42,13 @@ sTable* lookup::getTableByName(list<sTable*> _tables, char* _tableName)
 
     for(sTable* tbl : _tables)
     {
-       // printf("\n looking for %s found %s",_tableName,tbl->name);
+       // fprintf(traceFile,"\n looking for %s found %s",_tableName,tbl->name);
         if(strcasecmp(tbl->name, _tableName) == 0)
             return tbl;
     }
     return nullptr;
 }
-/******************************************************
- * Get Column By Name
- ******************************************************/
-Column* lookup::getColumnByName(list<Column*> _columns, char* _name)
-{
-    if(_name == nullptr)
-        return nullptr;
-    for(Column* col : _columns)
-    {
-        if(strcasecmp(col->name,_name) == 0)
-            return col;
-    }
-    return nullptr;
-}
+
 /******************************************************
  * Get Column By Alias
  ******************************************************/
@@ -119,7 +106,7 @@ size_t lookup::findDelimiter(string _string, string _delimiter)
     }
     buff[strlen(str)] = '\0';
    // if(debug)
-   //    printf("\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
+   //    fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
 
     char *s;
     s = strstr(buff, _delimiter);      // search for string "hassasin" in buff

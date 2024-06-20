@@ -15,7 +15,7 @@ struct columnParts
         string tableAlias;
         string columnName;
         string columnAlias;
-        string fuction;
+        string function;
         string value;
 };
 
@@ -74,20 +74,20 @@ class TempColumn : public Column
 class Condition
 {
     public:
-        shared_ptr<columnParts>    name            = nullptr;
-        shared_ptr<columnParts>   compareToName   = nullptr;
-        string           op             {};  // operator is a reserved word
-        string           prefix         {};  // (
-        string           condition      {};	// and/or
-        string           suffix         {};  // )
-        string           value          {};
-        int             intValue        = 0;
-        double          doubleValue     = 0;
-        bool            boolValue       = false;
-        t_tm            dateValue       {};
-        Column*         col             {};
-        Column*         compareToColumn {};
-        list<string>     valueList       {};
+        shared_ptr<columnParts>     name            = nullptr;
+        shared_ptr<columnParts>     compareToName   = nullptr;
+        string                      op             {};  // operator is a reserved word
+        string                      prefix         {};  // (
+        string                      condition      {};	// and/or
+        string                      suffix         {};  // )
+        string                      value          {};
+        int                         intValue        = 0;
+        double                      doubleValue     = 0;
+        bool                        boolValue       = false;
+        t_tm                        dateValue       {};
+        shared_ptr<Column>          col             {};
+        shared_ptr<Column>          compareToColumn {};
+        list<string>                valueList       {};
 };
 /******************************************************
  * Base Order/Group
@@ -95,7 +95,7 @@ class Condition
 class OrderOrGroup
 {
     public:
-        Column*                     col         {};
+        shared_ptr<Column>          col         {};
         shared_ptr<columnParts>     name        = nullptr;
         int                         columnNbr   = 0;        //Tells the sort routing which column to sort on
 };
@@ -114,8 +114,8 @@ class OrderBy
 class GroupBy
 {
     public:
-        list<OrderOrGroup>      group{}; 
-        list<Condition*>        having{};
+        list<OrderOrGroup>          group{}; 
+        list<shared_ptr<Condition>> having{};
 };
 
 
@@ -132,6 +132,7 @@ class BaseData
         fstream*                    open();
         void                        close();
         shared_ptr<Column>          getColumn(string);
+        bool                        isColumn(string);
 };
 /******************************************************
  * Base Open
@@ -176,6 +177,18 @@ shared_ptr<Column> BaseData::getColumn(string _name)
             return col;
     }
     return nullptr;
+};
+/******************************************************
+ * Base Is Column In Table
+ ******************************************************/
+bool BaseData::isColumn(string _name)
+{
+
+    for (shared_ptr<Column> col : columns) {
+        if(strcasecmp(col->name.c_str(),_name.c_str()) == 0)
+            return true;
+    }
+    return false;
 };
 
 

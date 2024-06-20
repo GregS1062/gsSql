@@ -32,8 +32,8 @@ ParseResult runQuery(string _htmlRequest)
 
     if(sql->parse() == ParseResult::FAILURE)
     {
-        printf("\n sql=%s",sqlFile.c_str());
-        printf("\n %s",errText.c_str());
+        fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
+        fprintf(traceFile,"\n %s",errText.c_str());
         return ParseResult::FAILURE;
     }
 

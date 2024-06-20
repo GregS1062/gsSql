@@ -7,10 +7,9 @@
 #include "prepareQuery.cpp"
 #include "parseQuery.cpp"
 #include "binding.cpp"
-#include "sqlSelectEngine.cpp"
-#include "sqlJoinEngine.cpp"
-#include "sqlModifyEngine.cpp"
-#include "printDiagnostics.cpp"
+//#include "sqlSelectEngine.cpp"
+//#include "sqlJoinEngine.cpp"
+//#include "sqlModifyEngine.cpp"
 #include "functions.cpp"
 
 /******************************************************
@@ -46,37 +45,37 @@ class Plan
     // This will be a merged list of tables in the query including selects and joins
     //      It is required by bind because column names in the select may belong to one of the join
     //      tables
-    list<char*>         lstDeclaredTables;
-    list<Statement>     lstStatements;
-    list<char*>         queries;
-    list<iElements*>    lstElements;
-    list<Column>        reportColumns;
-    iSQLTables*         isqlTables;
-    shared_ptr<OrderBy> orderBy;
-    shared_ptr<GroupBy> groupBy; 
-    ParseResult         printFunctions(resultList* _results);
+    list<string>                lstDeclaredTables;
+    list<string>                queries;
+    list<shared_ptr<iElements>> lstElements;
+    list<Column>                reportColumns;
+    shared_ptr<iSQLTables>      isqlTables;
+    shared_ptr<OrderBy>         orderBy;
+    shared_ptr<GroupBy>         groupBy; 
+  //  ParseResult                 printFunctions(resultList* _results);
     
     public:
-        Plan(iSQLTables*);
-        ParseResult     split(shared_ptr<char[]>);
-        ParseResult     prepare(char*);
-        ParseResult     execute();
-        ParseResult     determineExecutionOrder();
+        Plan(shared_ptr<iSQLTables>);
+        ParseResult             split(string);
+        ParseResult             prepare(string);
+        ParseResult             execute();
+        ParseResult             determineExecutionOrder();
+        list<shared_ptr<Statement>>        lstStatements; //public for diagnostic purposes
 };
-Plan::Plan(iSQLTables* _isqlTables)
+Plan::Plan(shared_ptr<iSQLTables> _isqlTables)
 {
     isqlTables = _isqlTables;
 }
 /******************************************************
  * Prepare
  ******************************************************/
-ParseResult Plan::prepare(char* _queryString)
+ParseResult Plan::prepare(string _queryString)
 {
     ParseQuery parseQuery;
 
     // 1)
-    shared_ptr<char[]> querystr = normalizeQuery(_queryString,MAXSQLSTRINGSIZE);
-    if( querystr == nullptr)
+    string querystr = normalizeQuery(_queryString,MAXSQLSTRINGSIZE);
+    if( querystr.empty())
         return ParseResult::FAILURE;
 
     // 2)
@@ -84,40 +83,40 @@ ParseResult Plan::prepare(char* _queryString)
         return ParseResult::FAILURE;
 
     // 3 And 4)
-    for(char* query : queries)
+    for(string query : queries)
     {
         if(debug)
-            printf("\nQuery statements to be parse %s",_queryString);
+            fprintf(traceFile,"\nQuery statements to be parsed %s",_queryString.c_str());
         if(parseQuery.parse(query) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
 
-        if(parseQuery.iElement->tableName != nullptr)
-            lstDeclaredTables.push_back(parseQuery.iElement->tableName);
+        if(!parseQuery.ielements->tableName.empty())
+            lstDeclaredTables.push_back(parseQuery.ielements->tableName);
         
-        if(parseQuery.iElement->lstColumns.size() == 0
-        && parseQuery.iElement->lstValues.size() == 0
-        && parseQuery.iElement->sqlAction == SQLACTION::SELECT)
+        if(parseQuery.ielements->lstColumns.size() == 0
+        && parseQuery.ielements->lstValues.size() == 0
+        && parseQuery.ielements->sqlAction == SQLACTION::SELECT)
         {
-            printf("\n nothing in column list ");
+            fprintf(traceFile,"\n nothing in column list ");
             break;
         }
         
-        lstElements.push_back(parseQuery.iElement);
+        lstElements.push_back(parseQuery.ielements);
     }
             
     // 5)
-    Binding* binding            = new Binding(isqlTables);
-    binding->bindTableList(lstDeclaredTables);
-    for(iElements* ielement : lstElements)
+    Binding binding            = Binding(isqlTables);
+    binding.bindTableList(lstDeclaredTables);
+    for(shared_ptr<iElements> ielement : lstElements)
     {
         if(debug)
-            printf("\n iElement tablename %s",ielement->tableName);
+            fprintf(traceFile,"\n iElement tablename %s",ielement->tableName.c_str());
         // 6)
-        lstStatements.push_back(*binding->bind(ielement));
-        if(binding->orderBy != nullptr )
-            orderBy                 = binding->orderBy;
-        if(binding->groupBy != nullptr)
-            groupBy                 = binding->groupBy;
+        lstStatements.push_back(binding.bind(ielement));
+        if(binding.orderBy != nullptr )
+            orderBy                 = binding.orderBy;
+        if(binding.groupBy != nullptr)
+            groupBy                 = binding.groupBy;
 
     } 
         
@@ -135,14 +134,14 @@ ParseResult Plan::execute()
         return ParseResult::FAILURE;
     }
 
-    resultList*		results;
+ /*    resultList*		results;
 
-    for(Statement statement : lstStatements)
+    for(shared_ptr<Statement> statement : lstStatements)
     {
         if(debug)
         {
-            if(statement.table != nullptr)
-                printTable(statement.table);
+            if(statement->table != nullptr)
+                printTable(statement->table);
             if(orderBy != nullptr)
                 printOrderBy(orderBy);
             if(groupBy != nullptr)
@@ -151,7 +150,7 @@ ParseResult Plan::execute()
 
         //Were any functions asked for?
         bool functions = false;
-        for(Column* col : statement.table->columns)
+        for(shared_ptr<Column> col : statement->table->columns)
         {
             if(col->functionType != t_function::NONE)
             {
@@ -160,7 +159,7 @@ ParseResult Plan::execute()
             }   
         } 
 
-        switch(statement.action)
+        switch(statement->action)
         {
             case SQLACTION::CREATE:
             {
@@ -205,9 +204,9 @@ ParseResult Plan::execute()
             }
             case SQLACTION::DELETE:
             {
-                /*
-                    NOTE: Update and Delete use the same logic
-                */
+
+                //    NOTE: Update and Delete use the same logic
+
                 sqlModifyEngine sqlModify;
                 if(sqlModify.update(statement) == ParseResult::FAILURE)
                 {
@@ -285,7 +284,7 @@ ParseResult Plan::execute()
         && functions)
         {
             if(debug)
-                printf("\n------------- print functions ----------------");
+                fprintf(traceFile,"\n------------- print functions ----------------");
             printFunctions(results);
             return ParseResult::SUCCESS;
         }
@@ -298,14 +297,15 @@ ParseResult Plan::execute()
 
     }
     results->print();
+    */
     return ParseResult::SUCCESS;
 }
 /******************************************************
  * Print Functions
  ******************************************************/
-ParseResult Plan::printFunctions(resultList* _results)
+/*ParseResult Plan::printFunctions(resultList* _results)
 {
-    /*
+    
         Logic:
             1) Capture and save an image of the results
                 Which will be used for printing, since
@@ -319,7 +319,7 @@ ParseResult Plan::printFunctions(resultList* _results)
 
             5) Execute the required function
     */
-	if(_results->rows.size() == 0)
+/* 	if(_results->rows.size() == 0)
 		return ParseResult::FAILURE;
 
     // 1)
@@ -352,53 +352,51 @@ ParseResult Plan::printFunctions(resultList* _results)
         }
     }
     functionResults->addRow(reportRow);
-    functionResults->print();
+    functionResults->print(); 
     return ParseResult::SUCCESS;
-}
+}*/
 
 /******************************************************
  * Process Split
  ******************************************************/
-ParseResult Plan::split(shared_ptr<char[]> _queryString)
+ParseResult Plan::split(string _queryString)
 {
     if(debug)
-        printf("\n------------- split ----------------");
-    int offset = 6;
-    list<char*>lstDelimiters;
-    char* queryString = _queryString.get();
-    char* query;
-    lstDelimiters.push_back((char*)sqlTokenInsert);
-    lstDelimiters.push_back((char*)sqlTokenDelete);
-    lstDelimiters.push_back((char*)sqlTokenUpdate);
-    lstDelimiters.push_back((char*)sqlTokenSelect);
-    lstDelimiters.push_back((char*)sqlTokenInnerJoin);
-    lstDelimiters.push_back((char*)sqlTokenOuterJoin);
-    lstDelimiters.push_back((char*)sqlTokenLeftJoin);
-    lstDelimiters.push_back((char*)sqlTokenRightJoin);
-    lstDelimiters.push_back((char*)sqlTokenJoin);
-    signed int found = lookup::findDelimiterFromList(queryString+offset,lstDelimiters);
-    if(found == NEGATIVE)
+        fprintf(traceFile,"\n------------- split ----------------");
+    list<string>lstDelimiters;
+    string queryString = _queryString;
+    string query;
+    lstDelimiters.push_back(sqlTokenInsert);
+    lstDelimiters.push_back(sqlTokenDelete);
+    lstDelimiters.push_back(sqlTokenUpdate);
+    lstDelimiters.push_back(sqlTokenSelect);
+    lstDelimiters.push_back(sqlTokenInnerJoin);
+    lstDelimiters.push_back(sqlTokenOuterJoin);
+    lstDelimiters.push_back(sqlTokenLeftJoin);
+    lstDelimiters.push_back(sqlTokenRightJoin);
+    lstDelimiters.push_back(sqlTokenJoin);
+    size_t found = findKeywordFromList(queryString,lstDelimiters);
+    if(found == std::string::npos)
     {
         if(debug)
-            printf("\nNo delimiters found %s",queryString);
+            fprintf(traceFile,"\nNo delimiters found %s",queryString.c_str());
         queries.push_back(queryString);
         return ParseResult::SUCCESS;
     }
-    while(found > 0)
+    while(found != std::string::npos)
     {
         //select * from orders Join Author 
-        query = dupString(queryString);
-        query[found+offset] = '\0';
+        query = snipString(queryString,found);
         if(debug)
-            printf("\n%s",query);
+            fprintf(traceFile,"\n%s",query.c_str());
         queries.push_back(query);
-        queryString = dupString(queryString+found+offset);
-        found = lookup::findDelimiterFromList(queryString+offset,lstDelimiters);
+        queryString = clipString(queryString,found);
+        found = findKeywordFromList(queryString,lstDelimiters);
     }
-    if(strlen(queryString) > 0)
+    if(!queryString.empty())
     {
         if(debug)
-            printf("\ndrop though %s",queryString);
+            fprintf(traceFile,"\ndrop though %s",queryString.c_str());
         queries.push_back(queryString);
     }
     return ParseResult::SUCCESS;

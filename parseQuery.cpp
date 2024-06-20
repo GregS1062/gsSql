@@ -19,7 +19,7 @@ SQLACTION determineAction(string _token)
     try{
 
         if(debug)
-            printf("\ndetermine action %s",_token.c_str());
+            fprintf(traceFile,"\ndetermine action %s",_token.c_str());
 
         if(strcasecmp(_token.c_str(),sqlTokenSelect) == 0)
         {
@@ -155,16 +155,15 @@ ParseResult ParseQuery::parse(string _queryString)
     {
         if(debug)
         {
-            printf("\n\n***************************************************************");
-            printf("\n                 BEGIN QUERY PARSE");
-            printf("\n\n***************************************************************");
+            fprintf(traceFile,"\n\n***************************************************************");
+            fprintf(traceFile,"\n                 BEGIN QUERY PARSE");
+            fprintf(traceFile,"\n\n***************************************************************");
         }
     
-        shared_ptr<char[]> queryStr = normalizeQuery((char*)_queryString.c_str(),MAXSQLSTRINGSIZE);
-        queryString = queryStr.get();
+        queryString = normalizeQuery(_queryString,MAXSQLSTRINGSIZE);
         
         if(debug)
-            printf("\n query=%s",queryString.c_str());;
+            fprintf(traceFile,"\n query=%s",queryString.c_str());;
         
         queryString.erase(0, queryString.find_first_not_of(SPACE));
         queryStringLength = queryString.length();
@@ -249,8 +248,8 @@ ParseResult ParseQuery::parseSelect()
     {
         if(debug)
         {
-            printf("\n\n-------------------------BEGIN PROCESS SELECT-------------------------------------------");
-            printf("\nQuery String = %s",queryString.c_str());
+            fprintf(traceFile,"\n\n-------------------------BEGIN PROCESS SELECT-------------------------------------------");
+            fprintf(traceFile,"\nQuery String = %s",queryString.c_str());
         }
 
         unique_ptr<ParseClause> parseClause = make_unique<ParseClause>();
@@ -332,13 +331,6 @@ ParseResult ParseQuery::parseInsert()
         else
             endTable = posValues;
         
-        if(debug)
-        {
-            printf("\n posOpenParen %li",posOpenParen);
-            printf("\n posValues %li",posValues);
-            printf("\n endTable %li",endTable);
-        }
-        
         //Terminate table list
         string strTableList = clipString(queryString,endTable-1);
 
@@ -408,7 +400,7 @@ ParseResult ParseQuery::parseUpdate()
         //---------------------------------------------------------
         // Create table list
         //---------------------------------------------------------
-        string strTableList = snipString(queryString,sqlTokenUpdate,1);
+        string strTableList = snipString(queryString,sqlTokenUpdate,0);
     
         size_t posSet = findKeyword(strTableList, sqlTokenSet);
         
@@ -467,8 +459,8 @@ ParseResult ParseQuery::parseColumnNameValueList(string _workingString)
     try{
         if(debug)
         {
-            printf("\n\n-----------Column Value List----------------");
-            printf("\ntableString:%s",_workingString.c_str());
+            fprintf(traceFile,"\n\n-----------Column Value List----------------");
+            fprintf(traceFile,"\ntableString:%s",_workingString.c_str());
         }
 
         if(_workingString.empty())
@@ -518,7 +510,7 @@ ParseResult ParseQuery::parseDelete()
     try{
 
         if(debug)
-            printf("\nQuery string %s",queryString.c_str());
+            fprintf(traceFile,"\nQuery string %s",queryString.c_str());
         //----------------------------------------------------------
         // Parse Delete
         //----------------------------------------------------------
@@ -586,7 +578,7 @@ ParseResult ParseQuery::addCondition(string _token, CONDITIONTYPE _conditionType
    {
 
         if(debug)
-            printf("\ntoken=%s",_token.c_str());
+            fprintf(traceFile,"\ntoken=%s",_token.c_str());
         
         if(_token.empty())
             return ParseResult::SUCCESS;
@@ -673,46 +665,45 @@ ParseResult ParseQuery::addCondition(string _token, CONDITIONTYPE _conditionType
         if(condition->value.empty())
         {
             //case 1
-            if(findKeyword(_token,sqlTokenQuote) != std::string::npos)
+            size_t posQuote = _token.find(QUOTE);
+            if(posQuote != std::string::npos)
             {
                 _token.erase(0,_token.find_first_not_of(QUOTE));
                 _token.erase(_token.find_last_not_of(QUOTE)+1);
-            }
-            
-            //may be replaced downstream
-            condition->value = _token;
-
-            //case 2
-            if(isNumeric(_token))
-            {
+                //may be replaced downstream
                 condition->value = _token;
             }
             else
-            //case 3
-            if(findKeyword(_token,sqlTokenOpenParen) != std::string::npos)
-            {
-                //TODO processList();
-            }
-            else
-                condition->compareToName = parseColumnName(_token);
-
-            switch(_conditionType)
-            {
-                case CONDITIONTYPE::SELECT:
-                    ielements->lstConditions.push_back(condition);
-                    break;
-                case CONDITIONTYPE::JOIN:
-                    ielements->lstJoinConditions.push_back(condition);
-                    break;
-                case CONDITIONTYPE::HAVING:
-                    ielements->lstHavingConditions.push_back(condition);
-                    break;
-            }
-
-            condition = make_shared<Condition>();
-            return ParseResult::SUCCESS;
+                //case 2
+                if(isNumeric(_token))
+                {
+                    condition->value = _token;
+                }
+                else
+                    if(findKeyword(_token,sqlTokenOpenParen) != std::string::npos)
+                    {
+                        //case 3
+                        //TODO processList();
+                    }
+                    else
+                        condition->compareToName = parseColumnName(_token);  
         }
-        return ParseResult::FAILURE;
+
+        switch(_conditionType)
+        {
+            case CONDITIONTYPE::SELECT:
+                ielements->lstConditions.push_back(condition);
+                break;
+            case CONDITIONTYPE::JOIN:
+                ielements->lstJoinConditions.push_back(condition);
+                break;
+            case CONDITIONTYPE::HAVING:
+                ielements->lstHavingConditions.push_back(condition);
+                break;
+        }
+
+        condition = make_shared<Condition>();
+        return ParseResult::SUCCESS;
    }
    catch_and_trace
    return ParseResult::FAILURE;
@@ -727,8 +718,8 @@ ParseResult ParseQuery::parseOrderByList(string _workingString)
 
         if(debug)
         {
-            printf("\n\n-----------Parse Order by----------------");
-            printf("\nOrderBy string:%s",_workingString.c_str());
+            fprintf(traceFile,"\n\n-----------Parse Order by----------------");
+            fprintf(traceFile,"\nOrderBy string:%s",_workingString.c_str());
         }
 
         if(_workingString.empty())
@@ -745,7 +736,7 @@ ParseResult ParseQuery::parseOrderByList(string _workingString)
             if(token.empty())
             {
                 if(debug)
-                    printf("\n order by tokens %s", token.c_str());
+                    fprintf(traceFile,"\n order by tokens %s", token.c_str());
                     
                 if(strcasecmp(token.c_str(),sqlTokenOrderAcending) != 0
                 && strcasecmp(token.c_str(),sqlTokenOrderDescending) != 0)
@@ -782,8 +773,8 @@ ParseResult ParseQuery::parseGroupByList(string _workingString)
 
         if(debug)
         {
-            printf("\n\n-----------Parse Group by----------------");
-            printf("\nGroup By string:%s",_workingString.c_str());
+            fprintf(traceFile,"\n\n-----------Parse Group by----------------");
+            fprintf(traceFile,"\nGroup By string:%s",_workingString.c_str());
         }
 
         if(_workingString.empty())
@@ -800,7 +791,7 @@ ParseResult ParseQuery::parseGroupByList(string _workingString)
             if(token.empty())
             {
                 if(debug)
-                    printf("\n group by tokens %s", token.c_str());
+                    fprintf(traceFile,"\n group by tokens %s", token.c_str());
                     
                 OrderOrGroup    group;
                 group.name      = parseColumnName(token);
@@ -829,14 +820,14 @@ ParseResult ParseQuery::parseConditionList(string _workingString,CONDITIONTYPE _
  
         if(debug)
         {
-            printf("\n\n-----------Parse Conditions----------------");
+            fprintf(traceFile,"\n\n-----------Parse Conditions----------------");
             if(_conditionType == CONDITIONTYPE::JOIN)
-                printf("\nJoin Condition:%s",_workingString.c_str());
+                fprintf(traceFile,"\nJoin Condition:%s",_workingString.c_str());
             else
             if(_conditionType == CONDITIONTYPE::HAVING)
-                printf("\nHaving Condition:%s",_workingString.c_str());
+                fprintf(traceFile,"\nHaving Condition:%s",_workingString.c_str());
             else
-            printf("\nCondition:%s",_workingString.c_str());
+            fprintf(traceFile,"\nCondition:%s",_workingString.c_str());
         }
     
         if(_workingString.empty())
@@ -847,7 +838,7 @@ ParseResult ParseQuery::parseConditionList(string _workingString,CONDITIONTYPE _
 
         string token;
         unique_ptr<tokenParser> tok = make_unique<tokenParser>();
-        tok->parse(_workingString,false);
+        tok->parse(_workingString,true);
         
         while(!tok->eof)
         {
@@ -870,8 +861,8 @@ ParseResult ParseQuery::parseColumnList(string _workingString)
     {
         if(debug)
         {
-            printf("\n\n-----------Parse Column List----------------");
-            printf("\nColumn string:%s",_workingString.c_str());
+            fprintf(traceFile,"\n\n-----------Parse Column List----------------");
+            fprintf(traceFile,"\nColumn string:%s",_workingString.c_str());
         }
 
         if(_workingString.empty())
@@ -888,7 +879,7 @@ ParseResult ParseQuery::parseColumnList(string _workingString)
                 sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failed to parse column name  ",strToken);
                 return ParseResult::FAILURE;
             }
-            ielements->lstColumns.push_back(parseColumnName(strToken));
+            ielements->lstColumns.push_back(parts);
             token = strtok (NULL, ",");
         }
 
@@ -913,51 +904,52 @@ shared_ptr<columnParts> ParseQuery::parseColumnName(string _str)
     */
    try{
 
-        shared_ptr<columnParts> parts = make_unique<columnParts>(); 
+         _str = trim(_str);
+        shared_ptr<columnParts> parts = make_shared<columnParts>(); 
         parts->fullName =_str;
 
         size_t columnAliasPosition = findKeyword(_str,sqlTokenAs);
 
         //case 1) column alias        - surname AS last
         string columnName  = _str;
-        if(columnAliasPosition > std::string::npos)
+        if(columnAliasPosition != std::string::npos)
         {
             parts->columnAlias = snipString(_str,columnAliasPosition+3);
+            _str = _str.substr(0,columnAliasPosition);
         }
 
         // case 2) functions          - COUNT(), SUM(), AVG(), MAX(), MIN()
-        size_t posParen = findKeyword(_str,sqlTokenOpenParen);
+        size_t posParen = _str.find(sqlTokenOpenParen);
         if(posParen != std::string::npos)
         {
-            parts->fuction = clipString(_str,posParen-1);
+            parts->function = trim(clipString(_str,posParen));
             columnName = snipString(_str,posParen+1); 
             columnName.erase(columnName.find_last_of(CLOSEPAREN));
+            columnName = trim(columnName);
         }
+        else
+            columnName = trim(_str);
 
-        unique_ptr<TokenPair> tp = tokenSplit(columnName,(char*)sqlTokenPeriod);
-        if(tp == nullptr)
+        if(columnName.empty())
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Failure to resolve column name: ");
-            sendMessage(MESSAGETYPE::ERROR,presentationType,false,columnName);
-            return nullptr; 
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name is empty");
+            return nullptr;
         }
-
-        // case 3) simple name         - surname
-        if(tp->two.empty())
+        size_t posPeriod = columnName.find(sqlTokenPeriod);
+        if(posPeriod == std::string::npos)
         {
-            parts->columnName = tp->one;
+             // case 3) simple name         - surname
+            parts->columnName = columnName;
         }
         else
         {
-        // case 4/5)
-            parts->tableAlias = tp->one;
-            parts->columnName = tp->two;
+            // case 4/5)
+            parts->tableAlias = columnName.substr(0,posPeriod);
+            parts->columnName = snipString(columnName,posPeriod+1);
         }
 
-        if(debug)
-        {
-            printf("\n Column parts: function:%s name:%s alias:%s table Alias %s",parts->fuction.c_str(), parts->columnName.c_str(), parts->columnAlias.c_str(), parts->tableAlias.c_str());
-        }
+        if(debug)    
+            fprintf(traceFile,"\nColumn parts: function:%s name:%s alias:%s table Alias %s",parts->function.c_str(), parts->columnName.c_str(), parts->columnAlias.c_str(), parts->tableAlias.c_str());
 
         return parts;
    }
@@ -974,8 +966,8 @@ ParseResult ParseQuery::parseValueList(string _workingString)
     
         if(debug)
         {
-            printf("\n\n-----------Parse Value List----------------");
-            printf("\ntableString:%s",_workingString.c_str());
+            fprintf(traceFile,"\n\n-----------Parse Value List----------------");
+            fprintf(traceFile,"\ntableString:%s",_workingString.c_str());
         }
         
         _workingString.erase(0,_workingString.find_first_not_of(SPACE));
@@ -1008,8 +1000,8 @@ ParseResult ParseQuery::parseTableList(string _workingString)
     
         if(debug)
         {
-            printf("\n\n-----------Parse Table List----------------");
-            printf("\ntableString:%s",_workingString.c_str());
+            fprintf(traceFile,"\n\n-----------Parse Table List----------------");
+            fprintf(traceFile,"\ntableString:%s",_workingString.c_str());
         }
 
         if(_workingString.empty())
@@ -1021,13 +1013,13 @@ ParseResult ParseQuery::parseTableList(string _workingString)
         while(token != NULL)
         {
             if(debug)
-                printf("\ntoken %s",token);
+                fprintf(traceFile,"\ntoken %s",token);
             if(!ielements->tableName.empty())
             {
                 sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Expecting only one table");
                 return ParseResult::FAILURE;
             }
-            ielements->tableName.append(token);
+            ielements->tableName = trim(token);
             token = strtok (NULL, ",");
         }
 

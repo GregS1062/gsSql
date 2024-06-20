@@ -26,7 +26,7 @@ ParseResult sqlSelectEngine::execute(Statement _statement)
 {
 
 	if(debug)
-        printf("\n\n-------------------------BEGIN SELECT ENGINE-------------------------------------------");
+        fprintf(traceFile,"\n\n-------------------------BEGIN SELECT ENGINE-------------------------------------------");
 
 	statement = &_statement;
 	

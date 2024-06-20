@@ -1,0 +1,33 @@
+
+ query=select top 50 * from orders where orderid = "SO43697"
+ 
+
+ielemenst->groupBy = null
+row count = 50
+*******************************************
+ Statement Table
+*******************************************
+ table name orders alias 
+	 column name deleted alias  value  function 0
+	 column name status alias  value  function 0
+	 column name orderid alias  value  function 0 PRIMARY
+	 column name custid alias  value  function 0
+	 column name orderdate alias  value  function 0
+	 column name duedate alias  value  function 0
+	 column name shipdate alias  value  function 0
+	 column name tax alias  value  function 0
+	 column name freight alias  value  function 0
+	 column name totaldue alias  value  function 0
+
+ Conditions
+	 name: orderid alias:  tableName:  function: 
+	 condition condition 
+	 condition op        =
+	 condition value     SO43697
+
+ Indexes 
+	 index name orderid  file name "/home/greg/projects/test/testIndex/orderid.idx"
+		 index column name orderid
+	 index name orderid  file name "/home/greg/projects/test/testIndex/itemOrder.idx"
+		 index column name orderid
+

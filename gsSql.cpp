@@ -4,6 +4,8 @@
 #include <string.h>
 #include "parseSQL.cpp"
 #include "parseQuery.cpp"
+#include "binding.cpp"
+#include "plan.cpp"
 #include "printDiagnostics.cpp"
 
 using namespace std;
@@ -58,7 +60,7 @@ int main(int argc, char* argv[])
                     script = "t90-select-columns-with-alias";   //conditions failed
                     break;
             case 13:
-                    script = "t100-select-columns-and tables-with-alias"; //To be completed
+                    script = "t100-functions-table-column-alias";
                     break;
                 case 14:
                     script = "t99-select-orderdate-in-orders";
@@ -98,7 +100,7 @@ int main(int argc, char* argv[])
                     break;
 
             default:
-                    printf("\n No case for this script number\n\n");
+                    fprintf(traceFile,"\n No case for this script number\n\n");
                     return 0;
             }
         }
@@ -120,7 +122,7 @@ int main(int argc, char* argv[])
                         (std::istreambuf_iterator<char>()    ) );
 
         
-        printf("\n query=%s \n",queryStr.c_str());
+        fprintf(traceFile,"\n query=%s \n",queryStr.c_str());
 
         presentationType = PRESENTATION::TEXT;
         
@@ -128,28 +130,33 @@ int main(int argc, char* argv[])
 
         if(sql->parse() == ParseResult::FAILURE)
         {
-            printf("\n******************SQL Parser FAILED*****************");
-            printf("\n %s",errText.c_str());
+            fprintf(traceFile,"\n******************SQL Parser FAILED*****************");
+            fprintf(traceFile,"\n %s",errText.c_str());
             return 0;
         }
 
+        debug = false;
+
+        Plan plan(sql->isqlTables);
+        
+        plan.prepare(queryStr);
+       
         debug = true;
 
+        for(shared_ptr<Statement> statement : plan.lstStatements)
+            printStatement(statement);
 
-        unique_ptr<ParseQuery> queryParser = make_unique<ParseQuery>();
-        queryParser->parse(queryStr);
-        printQuery(queryParser->ielements);
-        printf("\n\n");
+        fprintf(traceFile,"\n\n");
         fclose(traceFile);
 
         if(!errText.empty())
-            printf("\nERROR %s",errText.c_str());
+            fprintf(traceFile,"\nERROR %s",errText.c_str());
         
         return 0; 
         }
     catch(const std::exception& e)
     {
-        printf("\n\nEXCEPTION %s",e.what());
+        fprintf(traceFile,"\n\nEXCEPTION %s",e.what());
 
     }
 }

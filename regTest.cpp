@@ -50,8 +50,8 @@ int main()
 
     if(sql->parse() == ParseResult::FAILURE)
     {
-        printf("\n sql=%s",sqlFile.c_str());
-        printf("\n %s",errText.c_str());
+        fprintf(traceFile,"\n sql=%s",sqlFile.c_str());
+        fprintf(traceFile,"\n %s",errText.c_str());
         return 0;
     }
 
@@ -85,7 +85,7 @@ int main()
         inStream.close();
 
         if(result.compare(proof) != 0)
-            printf("\n %s failed test", name.c_str());
+            fprintf(traceFile,"\n %s failed test", name.c_str());
     }
 
 }

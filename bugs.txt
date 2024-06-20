@@ -3,7 +3,7 @@ X parser is confused when a reserved word ("where") is contained in data
 X date should be stored as a single int 20240317 so it can be compared and indexed on,
     however, what to do about a query that asks for all product sold in march, perhaps add
     another int as wholeyear
-- store insert
+X store insert
     - missing storename
     - failing to return on custid
 X conversion failing

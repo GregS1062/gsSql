@@ -1,69 +1,99 @@
 #pragma once
+#include <list>
 #include "sqlCommon.h"
 /*
     functions to simplify string handling and reduce clutter in code
 */
 /******************************************************
+ * Trim (spaces)
+ ******************************************************/
+string trim(string _token)
+{
+    _token.erase(0, _token.find_first_not_of(SPACE));
+    _token.erase(_token.find_last_not_of(SPACE)+1);
+    return _token;
+}
+/*******************************************************
+   Get Table By Name
+*******************************************************/
+shared_ptr<sTable> getTableByName(list<shared_ptr<sTable>> tables,string _name)
+{
+    try
+    {
+        for(shared_ptr<sTable> tbl : tables)
+        {
+            if(strcasecmp(tbl->name.c_str(),_name.c_str()) == 0)
+                return tbl;
+        }
+        return nullptr;
+    }
+    catch_and_trace
+}
+/******************************************************
  * Find Delimiter char*
  ******************************************************/
 size_t findKeyword(string _str, string _delimiter)
 {
-    if(_str.empty())
-        return std::string::npos;
-
-    char buff[MAXSQLSTRINGSIZE];
-    bool betweenQuotes = false;
-
-    //if the delimeter is enclosed in quotes, ignore it.
-    // To do so, blank out everything between quotes in the search buffer
-    for(size_t i = 0;i<_str.length();i++)
+    try
     {
-        if(_str[i] == QUOTE)
+ 
+        if(_str.empty())
+            return std::string::npos;
+
+        char buff[MAXSQLSTRINGSIZE];
+        bool betweenQuotes = false;
+
+        //if the delimeter is enclosed in quotes, ignore it.
+        // To do so, blank out everything between quotes in the search buffer
+        for(size_t i = 0;i<_str.length();i++)
         {
-            if(betweenQuotes)
-                betweenQuotes = false; 
-            else
-                betweenQuotes = true; 
-        }
-        
-        if(betweenQuotes)
-            buff[i] = ' ';
-        else
-            if((int)_str[i] > 96
-            && (int)_str[i] < 123)
+            if(_str[i] == QUOTE)
             {
-                buff[i] = (char)toupper(_str[i]);
-            }
-            else{
-                buff[i] = _str[i];
+                if(betweenQuotes)
+                    betweenQuotes = false; 
+                else
+                    betweenQuotes = true; 
             }
             
-    }
-    buff[_str.length()] = '\0';
-   // if(debug)
-   //    printf("\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
-
-    char *s;
-    s = strstr(buff, _delimiter.c_str());      // search for string "hassasin" in buff
-
-    if (s != NULL)                     // if successful then s now points at "hassasin"
-    {
-        size_t result = s - buff;
-
-        //Need to make sure this is an actual delimiter rather than a keyword embedded in another word.  example "DELETE" found in DELETED
-        // in short, a space must follow a keyword
-
-        size_t expectingSpace = _delimiter.length() + result;
-        if(expectingSpace < _str.length())
-        {
-            if(_str[expectingSpace] != SPACE)
-                return NEGATIVE;
+            if(betweenQuotes)
+                buff[i] = ' ';
+            else
+                if((int)_str[i] > 96
+                && (int)_str[i] < 123)
+                {
+                    buff[i] = (char)toupper(_str[i]);
+                }
+                else{
+                    buff[i] = _str[i];
+                }
+                
         }
+        buff[_str.length()] = '\0';
+    // if(debug)
+    //    fprintf(traceFile,"\nFind delimiter buffer:%s delimiter=%s",buff,_delimiter);
 
-        return result;
+        char *s;
+        s = strstr(buff, _delimiter.c_str());      // search for string "hassasin" in buff
+
+        if (s != NULL)                     // if successful then s now points at "hassasin"
+        {
+            size_t result = s - buff;
+
+            //Need to make sure this is an actual delimiter rather than a keyword embedded in another word.  example "DELETE" found in DELETED
+            // in short, a space must follow a keyword
+
+            size_t expectingSpace = _delimiter.length() + result;
+            if(expectingSpace < _str.length())
+            {
+                if(_str[expectingSpace] != SPACE)
+                    return NEGATIVE;
+            }
+
+            return result;
+        }
+        return std::string::npos;
     }                                  
-
-    return std::string::npos;
+    catch_and_trace
 }
 
 size_t findKeywordX(string _string, string _target)
@@ -154,7 +184,7 @@ ParseResult isQueryWellFormed(char* _queryString)
 /*******************************************************
    Ensure well formed query
 *******************************************************/
-shared_ptr<char[]> normalizeQuery(char _target[], size_t _maxSize)
+string normalizeQuery(string _target, size_t _maxSize)
 {
     /*
         1) Remove white noise: tabs, newline, carriage returns and formfeed
@@ -170,7 +200,7 @@ shared_ptr<char[]> normalizeQuery(char _target[], size_t _maxSize)
     int openParen   = 0;
     int closeParen  = 0;
     bool betweenQuotes = false;
-	size_t len = strlen(_target);
+	size_t len = _target.length();
     size_t eos = len -1;                    //hard end of string
     if(len > _maxSize)
     {
@@ -178,7 +208,7 @@ shared_ptr<char[]> normalizeQuery(char _target[], size_t _maxSize)
         return nullptr;
     }
 
-    std::shared_ptr<char[]> str(new char[_maxSize]);
+    char str[_maxSize];
 	size_t itr = 0;
 	for(size_t i = 0;i<len;i++)
 	{		
@@ -187,8 +217,6 @@ shared_ptr<char[]> normalizeQuery(char _target[], size_t _maxSize)
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Well formed query size exceeds max query size of",to_string(_maxSize));
             return nullptr;
         }
-        if( itr > len)
-            break;
 
         prior = c;
 		c = _target[i];
@@ -203,7 +231,7 @@ shared_ptr<char[]> normalizeQuery(char _target[], size_t _maxSize)
                 betweenQuotes = true;
         }
 
-        //keep white space
+        //keep white space between quotes
         if(betweenQuotes)
         {
             str[itr] = c;
@@ -318,15 +346,16 @@ shared_ptr<char[]> normalizeQuery(char _target[], size_t _maxSize)
 
     if(openParen == 0
     && closeParen == 0)
-        return str;
+        return string(str);
+
 
     if(openParen != closeParen)
     {
         sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch between ( and ).");
-        return nullptr;
+        return string();
     }
  
-    return str;
+    return string(str);
 }
 /*******************************************************
    Prepare String Template
@@ -364,17 +393,22 @@ string prepareStringTemplate(string _string)
    }
    return _string;
 }
-/*******************************************************
-   Get Table By Name
-*******************************************************/
-shared_ptr<sTable> getTableByName(list<shared_ptr<sTable>> tables,string _name)
+
+/******************************************************
+ * Get Table By Alias (Name)
+ ******************************************************/
+shared_ptr<sTable> getTableByAlias(list<shared_ptr<sTable>> tables,string _alias)
 {
-    for(shared_ptr<sTable> tbl : tables)
+    try
     {
-        if(strcasecmp(tbl->name.c_str(),_name.c_str()) == 0)
-            return tbl;
+        for(shared_ptr<sTable> tbl : tables)
+        {
+            if(strcasecmp(tbl->alias.c_str(),_alias.c_str()) == 0)
+                return tbl;
+        }
+        return nullptr;
     }
-    return nullptr;
+    catch_and_trace
 }
 /******************************************************
  * Token Split
@@ -404,4 +438,44 @@ unique_ptr<TokenPair> tokenSplit(string _token, char* delimiter)
     tp->two = snipString(_token,position+1);
 
     return tp;
+}
+/******************************************************
+ * Get Column By Name
+ ******************************************************/
+shared_ptr<Column> getColumnByName(list<shared_ptr<Column>> _columns, string _name)
+{
+    try
+    {
+        if(_name.empty())
+            return nullptr;
+
+        for(shared_ptr<Column> col : _columns)
+        {
+            if(strcasecmp(col->name.c_str(),_name.c_str()) == 0)
+                return col;
+        }
+        
+        return nullptr;
+    }
+    catch_and_trace
+}
+/******************************************************
+ * Get Column By Name
+ ******************************************************/
+shared_ptr<Column> getColumnByAlias(list<shared_ptr<Column>> _columns, string _alias)
+{
+    try
+    {
+        if(_alias.empty())
+            return nullptr;
+
+        for(shared_ptr<Column> col : _columns)
+        {
+            if(strcasecmp(col->alias.c_str(),_alias.c_str()) == 0)
+                return col;
+        }
+        
+        return nullptr;
+    }
+    catch_and_trace
 }

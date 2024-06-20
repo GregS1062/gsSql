@@ -42,7 +42,6 @@ void messageTEXT(MESSAGETYPE _type, bool _newLine, const char* _msg)
 	else
 		msgText.append(msg);
 
-	//printf("\n%s %s",errText.c_str(),msgText.c_str());
 }
 /*******************************************************
    Message HTML
@@ -152,18 +151,12 @@ void formatDate(char s[], t_tm _date)
 
 	char str[11] = "";
 
-	sprintf(str,"%d", _date.month);
-
 	strncpy(s, padLeft(str, 2),2);
 	strncat(s, "/",2);
-
-	sprintf(str,"%d", _date.day);
 
 	strncat(s, padLeft(str, 2),2);
 
 	strncat(s, "/",2);
-
-	sprintf(str, "%d", _date.year);
 
 	strncat(s, str,11);
 }
@@ -318,22 +311,15 @@ string findAndReplace(string s,string _target, string _text)
 /*******************************************************
    Is Date Valid
 *******************************************************/
-bool isDateValid(char* _cdate)
+bool isDateValid(string _date)
 {
 	//Blank date is valid
-	if(_cdate == nullptr)
+	if(_date.empty())
 		return true;
-		
-	if(strlen(_cdate) == 0)
-		return true;
-
-	string _date;
-	_date.append(_cdate);
-	//if blank, return without error
 
 	if (_date.length() != 10)
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_date.c_str());
 		sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
@@ -351,7 +337,7 @@ bool isDateValid(char* _cdate)
 
 	if (strlen(digits) != 8)
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_date.c_str());
 		sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY");
 		return false;
 	}
@@ -363,19 +349,19 @@ bool isDateValid(char* _cdate)
     const int lookup_table[12] = {31,29,31,30,31,30,31,31,30,31,30,31};
     if ((month < 1 || month > 12))
     {
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_date.c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Month is invalid ");
         return false;
     }
     if (!(day >= 1 && day <= lookup_table[month-1]))
     {
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_date.c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Day is invalid ");
         return false;
     }
     if (year < 1900 || year > 2033)
     {
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_cdate);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_date.c_str());
         sendMessage(MESSAGETYPE::ERROR,presentationType,false," Invalid date, format must be MM/DD/YYYY: Year is invalid ");
         return false;
     }

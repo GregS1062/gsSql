@@ -71,23 +71,23 @@ ParseResult parseSql::parse()
             }
         }
 
-        std::shared_ptr<char[]> normalized;
+        string normalized;
         // normalizeQuery remove white noise and sets rules on use of spaces
         for(string str : tableStrings)
         {
-            normalized = normalizeQuery((char*)str.c_str(),MAXINPUTSIZE);
-            if(normalized == nullptr)
+            normalized = normalizeQuery(str,MAXINPUTSIZE);
+            if(normalized.empty())
                 return ParseResult::FAILURE;
-            if(parseTable((char*)normalized.get()) == ParseResult::FAILURE)
+            if(parseTable(normalized) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
         }
         
         for(string str : indexStrings)
         {
-            normalized = normalizeQuery((char*)str.c_str(),MAXINPUTSIZE);
-            if(normalized == nullptr)
+            normalized = normalizeQuery(str,MAXINPUTSIZE);
+            if(normalized.empty())
                 return ParseResult::FAILURE;
-            if(parseIndex((char*)normalized.get()) == ParseResult::FAILURE)
+            if(parseIndex(normalized) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
         }
 
