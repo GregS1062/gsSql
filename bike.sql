@@ -93,7 +93,7 @@ CREATE TABLE items AS "/home/greg/projects/test/testData/Items.dat"
 )
 
 CREATE INDEX orderid AS "/home/greg/projects/test/testIndex/itemOrder.idx"
-ON orders (orderid)
+ON items (orderid)
 
 CREATE TABLE functionTable AS "systable"
 (

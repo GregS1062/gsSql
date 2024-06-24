@@ -155,9 +155,9 @@ ParseResult ParseQuery::parse(string _queryString)
     {
         if(debug)
         {
-            fprintf(traceFile,"\n\n***************************************************************");
+            fprintf(traceFile,"\n***************************************************************");
             fprintf(traceFile,"\n                 BEGIN QUERY PARSE");
-            fprintf(traceFile,"\n\n***************************************************************");
+            fprintf(traceFile,"\n***************************************************************");
         }
     
         queryString = normalizeQuery(_queryString,MAXSQLSTRINGSIZE);
@@ -716,14 +716,14 @@ ParseResult ParseQuery::parseOrderByList(string _workingString)
     try
     {
 
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+        
         if(debug)
         {
             fprintf(traceFile,"\n\n-----------Parse Order by----------------");
             fprintf(traceFile,"\nOrderBy string:%s",_workingString.c_str());
         }
-
-        if(_workingString.empty())
-            return ParseResult::SUCCESS;
 
         string token;
         unique_ptr<tokenParser>    tok = make_unique<tokenParser>();
@@ -770,15 +770,14 @@ ParseResult ParseQuery::parseGroupByList(string _workingString)
 {
     try
     {
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
 
         if(debug)
         {
             fprintf(traceFile,"\n\n-----------Parse Group by----------------");
             fprintf(traceFile,"\nGroup By string:%s",_workingString.c_str());
         }
-
-        if(_workingString.empty())
-            return ParseResult::SUCCESS;
         
         string token;
         unique_ptr<tokenParser> tok = make_unique<tokenParser>();
@@ -817,7 +816,10 @@ ParseResult ParseQuery::parseConditionList(string _workingString,CONDITIONTYPE _
 {
     try
     {
- 
+        _workingString = trim(_workingString);
+        if(_workingString.empty())
+            return ParseResult::SUCCESS;
+        
         if(debug)
         {
             fprintf(traceFile,"\n\n-----------Parse Conditions----------------");
@@ -829,9 +831,6 @@ ParseResult ParseQuery::parseConditionList(string _workingString,CONDITIONTYPE _
             else
             fprintf(traceFile,"\nCondition:%s",_workingString.c_str());
         }
-    
-        if(_workingString.empty())
-            return ParseResult::SUCCESS;
         
         _workingString.erase(0,_workingString.find_first_not_of(SPACE));
         _workingString.erase(_workingString.find_last_not_of(SPACE)+1);

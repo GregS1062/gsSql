@@ -2,6 +2,7 @@
 #include <vector>
 #include <list>
 #include "sqlCommon.h"
+#include "utilities.cpp"
 
 /******************************************************
  * Evaluate Comparisons
@@ -218,6 +219,70 @@ ParseResult compareStringToConditionValue(shared_ptr<Condition> _condition, char
 
 	return evaluateComparisons(_condition->op, compareDateToDate(_condition->dateValue, recordDate));
 }
+/******************************************************
+ * Get String
+ ******************************************************/
+string getString(shared_ptr<Column> _col, char* _line)
+{
+	char buffRecord[60];
+	
+	strncpy(buffRecord, _line+_col->position, _col->length);
+	buffRecord[_col->length] = '\0';
+	return string(buffRecord);
+} 
+/******************************************************
+ * Compare Columns
+ ******************************************************/
+ParseResult compareColumns(shared_ptr<Condition> _con,char* _line)
+{
+
+	switch(_con->col->edit)
+	{
+		case t_edit::t_char:
+		{
+			string str1 = getString(_con->col,_line);
+			string str2 = getString(_con->compareToColumn,_line);
+			return compareStringToString(_con->op, str1,str2);
+			break;
+		}
+		case t_edit::t_int:
+		{
+			int i1 = 0;
+			int i2 = 0;
+			memcpy(&i1, _line+_con->col->position, _con->col->length);
+			memcpy(&i2, _line+_con->compareToColumn->position, _con->compareToColumn->length);
+			return compareIntegerToInteger(_con->op,i1,i2);
+			break;
+		}
+		case t_edit::t_double:
+		{
+			double d1 = 0;
+			double d2 = 0;
+			memcpy(&d1, _line+_con->col->position, _con->col->length);
+			memcpy(&d2, _line+_con->compareToColumn->position, _con->compareToColumn->length);
+			return compareDoubleToDouble(_con->op,d1,d2);
+			break;
+		}
+		case t_edit::t_date:
+		{
+			t_tm d1;
+			t_tm d2;
+			memcpy(&d1, _line+_con->col->position, _con->col->length);
+			memcpy(&d2, _line+_con->compareToColumn->position, _con->compareToColumn->length);
+			return evaluateComparisons(_con->op,compareDateToDate(d1,d2));
+			break;
+		}
+		case t_edit::t_bool:
+			sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Boolean comparison not implemented.");
+            return ParseResult::FAILURE;
+			break;
+		default:
+			sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Comparison column edit unknown.");
+            return ParseResult::FAILURE;
+			break;
+	}
+	return ParseResult::FAILURE;
+}
 
 /******************************************************
  * Query Conditions Met
@@ -233,34 +298,40 @@ ParseResult queryContitionsMet(list<shared_ptr<Condition>> _conditions,char* _li
 
 	for(shared_ptr<Condition> condition : _conditions)
 	{	
-
-		switch(condition->col->edit)
+		if(condition->compareToColumn != nullptr )
 		{
-			case t_edit::t_char:
+			queryResult = compareColumns(condition,_line);
+		}
+		else
+		{
+			switch(condition->col->edit)
 			{
-				queryResult = compareStringToConditionValue(condition,_line);
-				break;
+				case t_edit::t_char:
+				{
+					queryResult = compareStringToConditionValue(condition,_line);
+					break;
+				}
+				case t_edit::t_int:
+				{
+					queryResult = compareIntegerToConditionValue(condition,_line);
+					break;
+				}
+				case t_edit::t_double:
+				{
+					queryResult = compareDoubleToConditionValue(condition,_line);
+					break;
+				}
+				case t_edit::t_date:
+				{	
+					queryResult = compareDateToConditionValue(condition,_line);
+					break;
+				}
+					
+				case t_edit::t_bool:
+					break;
+				default:
+					break;
 			}
-			case t_edit::t_int:
-			{
-				queryResult = compareIntegerToConditionValue(condition,_line);
-				break;
-			}
-			case t_edit::t_double:
-			{
-				queryResult = compareDoubleToConditionValue(condition,_line);
-				break;
-			}
-			case t_edit::t_date:
-			{	
-				queryResult = compareDateToConditionValue(condition,_line);
-				break;
-			}
-				
-			case t_edit::t_bool:
-				break;
-			default:
-				break;
 		}
 
 		
@@ -296,6 +367,7 @@ ParseResult queryContitionsMet(list<shared_ptr<Condition>> _conditions,char* _li
 
 	return ParseResult::FAILURE;
 }
+
 /******************************************************
  * Compare Temp Column
  ******************************************************/

@@ -69,6 +69,8 @@ void printTable(shared_ptr<sTable> tbl)
 }
 void printOrderBy(shared_ptr<OrderBy> _orderBy)
 {
+    if(_orderBy->order.size() == 0)
+        return;
     fprintf(traceFile,"\n*******************************************");
     fprintf(traceFile,"\n Order By");
     fprintf(traceFile,"\n*******************************************");
@@ -83,6 +85,8 @@ void printOrderBy(shared_ptr<OrderBy> _orderBy)
 }
 void printGroupBy(shared_ptr<GroupBy> _groupBy)
 {
+    if(_groupBy->group.size() == 0)
+        return;
     fprintf(traceFile,"\n*******************************************");
     fprintf(traceFile,"\n Group By");
     fprintf(traceFile,"\n*******************************************");

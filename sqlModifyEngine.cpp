@@ -17,10 +17,10 @@ class sqlModifyEngine : public sqlEngine
 		ParseResult tableScan(SQLACTION);
         ParseResult formatInput(char*, shared_ptr<Column>);
         ParseResult updateIndexes(long, SQLACTION);
-		ParseResult useIndex(searchIndexes*, SQLACTION);
+		ParseResult useIndex(shared_ptr<searchIndexes>, SQLACTION);
 		ParseResult checkPrimaryKey(shared_ptr<Column>);
-		ParseResult searchForward(Search*, char*, size_t, SEARCH,SQLACTION);
-		ParseResult searchBack(Search*, char*, size_t, SQLACTION);
+		ParseResult searchForward(Search*, string, size_t, SEARCH,SQLACTION);
+		ParseResult searchBack(Search*, string, size_t, SQLACTION);
 		long 		appendRecord(void*, fstream*, int);
 		bool 		writeRecord(void*, long, fstream*, int);
 };
@@ -29,12 +29,12 @@ class sqlModifyEngine : public sqlEngine
  ******************************************************/
 ParseResult sqlModifyEngine::insert(shared_ptr<Statement> _Statement)
 {
-	shared_ptr<Statement> statement = _Statement;
+	statement = _Statement;
 
 	open();
 
 	size_t count = 0;
-	ParseResult returnValue = ParseResult::FAILURE;
+	ParseResult returnValue = ParseResult::SUCCESS;
 	char* buff = (char*)malloc(statement->table->recordLength);
 	shared_ptr<Column> primaryKey;
 	for(shared_ptr<Column> col : statement->table->columns)
@@ -78,6 +78,11 @@ ParseResult sqlModifyEngine::insert(shared_ptr<Statement> _Statement)
  ******************************************************/
 ParseResult sqlModifyEngine::checkPrimaryKey(shared_ptr<Column> _primaryKey)
 {
+	if(statement->table->indexes.size() == 0)
+	{
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Primary key declared but no index found ",_primaryKey->value);
+		return ParseResult::FAILURE;
+	}
 	for(shared_ptr<sIndex> idx : statement->table->indexes)
 	{
 		for(shared_ptr<Column> col : idx->columns)
@@ -107,7 +112,7 @@ ParseResult sqlModifyEngine::update(shared_ptr<Statement> _statement)
 	/*
 		NOTE: Update and Delete use the same logic
 	*/
-	shared_ptr<Statement> statement = _statement;
+	statement = _statement;
 
 	ParseResult returnValue = ParseResult::FAILURE;;
 
@@ -130,7 +135,7 @@ ParseResult sqlModifyEngine::update(shared_ptr<Statement> _statement)
 /******************************************************
  * Use Index
  ******************************************************/
-ParseResult sqlModifyEngine::useIndex(searchIndexes* _searchOn, SQLACTION _action)
+ParseResult sqlModifyEngine::useIndex(shared_ptr<searchIndexes> _searchOn, SQLACTION _action)
 {
 	SEARCH searchPath = indexRead(_searchOn);
 	if(searchPath == SEARCH::FAILED)
@@ -222,11 +227,11 @@ ParseResult sqlModifyEngine::tableScan(SQLACTION _action)
 /******************************************************
  * Search Forward
  ******************************************************/
-ParseResult sqlModifyEngine::searchForward(Search* _search, char* _value, size_t _rowsToReturn, SEARCH _op,SQLACTION _action)
+ParseResult sqlModifyEngine::searchForward(Search* _search, string _value, size_t _rowsToReturn, SEARCH _op,SQLACTION _action)
 {
 	int rowCount = 0;
-
-	QuerytempFiles* searchResults = _search->findRange(_value, (int)_rowsToReturn, _op);
+	char* key = (char*)_value.c_str();
+	QueryResultList* searchResults = _search->findRange(key, (int)_rowsToReturn, _op);
 	
 	while(searchResults != nullptr)
 	{
@@ -283,14 +288,14 @@ ParseResult sqlModifyEngine::searchForward(Search* _search, char* _value, size_t
 /******************************************************
  * Search Back
  ******************************************************/
-ParseResult sqlModifyEngine::searchBack(Search* _search, char* _value, size_t _rowsToReturn, SQLACTION _action)
+ParseResult sqlModifyEngine::searchBack(Search* _search, string _value, size_t _rowsToReturn, SQLACTION _action)
 {
+	char* key = (char*)_value.c_str();
 	int rowCount = 0;
 	long location		= 0;
-	char* key;
-	Node* _leaf = _search->findLeafBase(_value);
-	ScrollNode* scrollNode = _search->scrollIndexBackward(_leaf,_value);
-	key = _value;
+	Node* _leaf = _search->findLeafBase(key);
+	ScrollNode* scrollNode = _search->scrollIndexBackward(_leaf,key);
+
 
 	while(true)
 	{
@@ -357,15 +362,15 @@ ParseResult sqlModifyEngine::searchBack(Search* _search, char* _value, size_t _r
  ******************************************************/
 ParseResult sqlModifyEngine::formatInput(char* _buff, shared_ptr<Column> _col)
 {
-	if(_col->value == nullptr)
+	if(_col->value.empty())
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,_col->name);
 		sendMessage(MESSAGETYPE::ERROR,presentationType,false," is null");
 		return ParseResult::FAILURE;
 	}
-	if(((size_t)_col->position + strlen(_col->value)) > (size_t)statement->table->recordLength)
+	if(((size_t)_col->position + _col->value.length()) > (size_t)statement->table->recordLength)
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,"buffer overflow on ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"buffer overflow on ");
 		sendMessage(MESSAGETYPE::ERROR,presentationType,false,_col->name);
 		return ParseResult::FAILURE;
 	}
@@ -373,33 +378,35 @@ ParseResult sqlModifyEngine::formatInput(char* _buff, shared_ptr<Column> _col)
 	{
 		case t_edit::t_bool:
 		{
-			memmove(&_buff[_col->position], _col->value, _col->length);
+			memmove(&_buff[_col->position], _col->value.c_str(), _col->length);
 			break;
 		}
 		case t_edit::t_char:
 		{
-			//fprintf(traceFile,"\n %d %s %d",_col->position, _col->value, _col->length);
-			memmove(&_buff[_col->position], _col->value, _col->length);
+			//fprintf(traceFile,"\n %d %s %d",_col->position, _col->value.c_str(), _col->length);
+			memmove(&_buff[_col->position], _col->value.c_str(), _col->length);
 			break;
 		}
 		case t_edit::t_int:
 		{
-			int _i = atoi(_col->value);
+			int _i = atoi(_col->value.c_str());
 			memmove(&_buff[_col->position], &_i, _col->length);
 			break;
 		}
 		case t_edit::t_double:
 		{
-			double _d = atof(_col->value);
+			double _d = atof(_col->value.c_str());
 			memmove(&_buff[_col->position], &_d, _col->length);
 			break;
 		}
 		case t_edit::t_date:
 		{
-			t_tm _d = parseDate(_col->value);
+			t_tm _d = parseDate((char*)_col->value.c_str());
 			memmove(&_buff[_col->position], &_d, _col->length);
 			break;
 		}
+		default:
+			break;
 	}
 	return ParseResult::SUCCESS;
 }
@@ -417,7 +424,7 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 			return ParseResult::SUCCESS;
 
 		if(debug)
-			fprintf(traceFile,"\n index %s",idx->name);
+			fprintf(traceFile,"\n index %s",idx->name.c_str());
 
 		if(idx->columns.size() == 0)
 		{
@@ -438,10 +445,10 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 
 			if(_action == SQLACTION::INSERT)
 			{
-				if(!idx->index->insertIndex->insert(qColumn->value,_location))
+				if(!idx->index->insertIndex->insert((char*)qColumn->value.c_str(),_location))
 				{
 					sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
-					sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);
+					sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name.c_str());
 					sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
 					return ParseResult::FAILURE;
 				};
@@ -452,16 +459,16 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 				if(!iColumn->primary)
 				{
 					if(debug)
-						fprintf(traceFile,"\ncolumn name %s position %d length %d",qColumn->name,qColumn->position,qColumn->length);
+						fprintf(traceFile,"\ncolumn name %s position %d length %li",qColumn->name.c_str(),qColumn->position,qColumn->length);
 					
 					char buffBeforValue[60];
 					memcpy(&buffBeforValue,line+qColumn->position, qColumn->length);
 					buffBeforValue[qColumn->length] = '\0';
 					
 					if(debug)
-						fprintf(traceFile,"\nUpdate before value %s \nchanged value %s",buffBeforValue,qColumn->value);
+						fprintf(traceFile,"\nUpdate before value %s \nchanged value %s",buffBeforValue,qColumn->value.c_str());
 					
-					if(strcasecmp(buffBeforValue,qColumn->value) != 0)
+					if(strcasecmp(buffBeforValue,qColumn->value.c_str()) != 0)
 					{
 						if(!idx->index->deleteIndex->deleteEntry(buffBeforValue,_location))
 						{
@@ -470,7 +477,7 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 							sendMessage(MESSAGETYPE::ERROR,presentationType,false," failed ");
 							return ParseResult::FAILURE;
 						};
-						if(!idx->index->insertIndex->insert(qColumn->value,_location))
+						if(!idx->index->insertIndex->insert((char*)qColumn->value.c_str(),_location))
 						{
 							sendMessage(MESSAGETYPE::ERROR,presentationType,true,"insert on ");
 							sendMessage(MESSAGETYPE::ERROR,presentationType,false,iColumn->name);

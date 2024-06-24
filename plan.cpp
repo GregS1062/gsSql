@@ -8,8 +8,8 @@
 #include "parseQuery.cpp"
 #include "binding.cpp"
 #include "sqlSelectEngine.cpp"
-//#include "sqlJoinEngine.cpp"
-//#include "sqlModifyEngine.cpp"
+#include "sqlJoinEngine.cpp"
+#include "sqlModifyEngine.cpp"
 #include "functions.cpp"
 #include "printDiagnostics.cpp"
 
@@ -53,6 +53,8 @@ class Plan
     shared_ptr<iSQLTables>      isqlTables;
 
     ParseResult                 printFunctions(shared_ptr<tempFiles> _results);
+    ParseResult                 getElements(string);
+    ParseResult                 bindElements();
     
     public:
         Plan(shared_ptr<iSQLTables>);
@@ -60,11 +62,13 @@ class Plan
         ParseResult             prepare(string);
         ParseResult             execute();
         ParseResult             determineExecutionOrder();
+        ParseResult             buildTableList(string);
 
         //public for diagnostic purposes
-        list<shared_ptr<Statement>>        lstStatements; 
-        shared_ptr<OrderBy>         orderBy;
-        shared_ptr<GroupBy>         groupBy; 
+        list<shared_ptr<sTable>>            lstTables;
+        list<shared_ptr<Statement>>         lstStatements; 
+        shared_ptr<OrderBy>                 orderBy;
+        shared_ptr<GroupBy>                 groupBy; 
 };
 Plan::Plan(shared_ptr<iSQLTables> _isqlTables)
 {
@@ -75,9 +79,47 @@ Plan::Plan(shared_ptr<iSQLTables> _isqlTables)
  ******************************************************/
 ParseResult Plan::prepare(string _queryString)
 {
-    ParseQuery parseQuery;
+    if(getElements(_queryString) == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
 
-    // 1)
+    if(bindElements() == ParseResult::FAILURE)
+        return ParseResult::FAILURE;
+
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Bind Elements
+ ******************************************************/
+ParseResult Plan::bindElements()
+{          
+    // 5)
+    for(shared_ptr<iElements> ielement : lstElements)
+    {
+        Binding binding             = Binding(isqlTables);
+        binding.lstTables           = lstTables;
+       // if(binding.bindTableList(lstDeclaredTables) == ParseResult::FAILURE)
+       //     return ParseResult::FAILURE;
+        
+        if(debug)
+            fprintf(traceFile,"\n iElement tablename %s",ielement->tableName.c_str());
+        // 6)
+
+        lstStatements.push_back(binding.bind(ielement));
+        if(binding.orderBy != nullptr )
+            orderBy                 = binding.orderBy;
+        if(binding.groupBy != nullptr)
+            groupBy                 = binding.groupBy;
+
+    } 
+        
+    return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Get Elements
+ ******************************************************/
+ParseResult Plan::getElements(string _queryString)
+{
+       // 1)
     string querystr = normalizeQuery(_queryString,MAXSQLSTRINGSIZE);
     if( querystr.empty())
         return ParseResult::FAILURE;
@@ -94,11 +136,12 @@ ParseResult Plan::prepare(string _queryString)
             fprintf(traceFile,"\nSplit %s",query.c_str());
             fprintf(traceFile,"\n-----------------------------------------------------");
         }
+        ParseQuery parseQuery;
         if(parseQuery.parse(query) == ParseResult::FAILURE)
             return ParseResult::FAILURE;
 
         if(!parseQuery.ielements->tableName.empty())
-            lstDeclaredTables.push_back(parseQuery.ielements->tableName);
+            buildTableList(parseQuery.ielements->tableName);
         
        /*  if(parseQuery.ielements->lstColumns.size() == 0
         && parseQuery.ielements->lstValues.size() == 0
@@ -107,26 +150,8 @@ ParseResult Plan::prepare(string _queryString)
             fprintf(traceFile,"\n nothing in column list ");
             break;
         } */
-        
         lstElements.push_back(parseQuery.ielements);
     }
-            
-    // 5)
-    Binding binding            = Binding(isqlTables);
-    binding.bindTableList(lstDeclaredTables);
-    for(shared_ptr<iElements> ielement : lstElements)
-    {
-        if(debug)
-            fprintf(traceFile,"\n iElement tablename %s",ielement->tableName.c_str());
-        // 6)
-        lstStatements.push_back(binding.bind(ielement));
-        if(binding.orderBy != nullptr )
-            orderBy                 = binding.orderBy;
-        if(binding.groupBy != nullptr)
-            groupBy                 = binding.groupBy;
-
-    } 
-        
     return ParseResult::SUCCESS;
 }
 /******************************************************
@@ -145,6 +170,9 @@ ParseResult Plan::execute()
 
     for(shared_ptr<Statement> statement : lstStatements)
     {
+        if(statement == nullptr)
+            return ParseResult::FAILURE;
+            
         if(debug)
         {
             if(statement->table != nullptr)
@@ -192,21 +220,19 @@ ParseResult Plan::execute()
                 break;
             }
             case SQLACTION::INSERT:
-            {
-/*                 sqlModifyEngine sqlModify;
+            {                 
+                sqlModifyEngine sqlModify;
                 if(sqlModify.insert(statement) == ParseResult::FAILURE)
-                {
                     return ParseResult::FAILURE;
-                }; */
+                return ParseResult::SUCCESS;
                 break;
             }
             case SQLACTION::UPDATE:
             {
-/*                 sqlModifyEngine sqlModify;
+                sqlModifyEngine sqlModify;
                 if(sqlModify.update(statement) == ParseResult::FAILURE)
-                {
                     return ParseResult::FAILURE;
-                }; */
+                return ParseResult::SUCCESS;
                 break;
             }
             case SQLACTION::DELETE:
@@ -214,11 +240,10 @@ ParseResult Plan::execute()
 
                 //    NOTE: Update and Delete use the same logic
 
-/*                 sqlModifyEngine sqlModify;
+                sqlModifyEngine sqlModify;
                 if(sqlModify.update(statement) == ParseResult::FAILURE)
-                {
                     return ParseResult::FAILURE;
-                }; */
+                return ParseResult::SUCCESS;
                 break;
             }
             case SQLACTION::INVALID:
@@ -229,12 +254,12 @@ ParseResult Plan::execute()
             }
             case SQLACTION::JOIN:
             {
-/*                 sqlJoinEngine sqlJoin;;
+                sqlJoinEngine sqlJoin;;
                 if(sqlJoin.join(statement, results) == ParseResult::FAILURE)
                 {
                     return ParseResult::FAILURE;
                 };
-                results = sqlJoin.results; */
+                results = sqlJoin.results;
                 break;
             }
             case SQLACTION::LEFT:
@@ -287,8 +312,9 @@ ParseResult Plan::execute()
             return ParseResult::FAILURE;
         }
 
-        if(groupBy == nullptr
+      if(groupBy->group.size() == 0
         && functions)
+      if(functions)
         {
             if(debug)
                 fprintf(traceFile,"\n------------- print functions ----------------");
@@ -439,4 +465,68 @@ ParseResult Plan::determineExecutionOrder()
 
     return ParseResult::SUCCESS;
 }
+/******************************************************
+ * Bind Table List
+ ******************************************************/
+ParseResult Plan::buildTableList(string _tableName)
+{
+    try
+    {
+        shared_ptr<sTable> table;
+        if(_tableName.empty())
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Table name is null");
+            return ParseResult::FAILURE;
+        }
+        if(debug)
+            fprintf(traceFile,"\n table name %s|| \n",_tableName.c_str());
+
+        table = make_shared<sTable>();
+
+        _tableName = trim(_tableName);
+        string tableName{};
+        string aliasTableName{};
+
+        //Note: table name pattern  NANE ALIAS (customers c)
+        size_t posSpace = _tableName.find(SPACE);
+        if(posSpace == std::string::npos)
+        {
+            // case 3) simple name         - surname
+            tableName = _tableName;
+        }
+        else
+        {
+            tableName = clipString(_tableName,posSpace);
+            aliasTableName = snipString(_tableName,posSpace+1);
+        }
+
+
+        shared_ptr<sTable> temp =  make_shared<sTable>();
+        temp = getTableByName(isqlTables->tables,tableName);
+        if(temp != nullptr)
+        {
+            table->name         = tableName;
+            table->fileName     = temp->fileName;
+            table->alias        = aliasTableName;
+            table->recordLength = temp->recordLength;
+            for(shared_ptr<sIndex> idx : temp->indexes)
+            {
+                table->indexes.push_back(idx);
+            }
+            lstTables.push_back(table);
+        }
+
+
+        if(lstTables.size() == 0)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true," Binding expecting at least one table");
+            return ParseResult::FAILURE;
+        }
+
+        return ParseResult::SUCCESS;
+    }
+    catch_and_trace
+    return ParseResult::FAILURE;
+}
+
 

@@ -130,71 +130,6 @@ shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
     return nullptr;
 }
 /******************************************************
- * Bind Table List
- ******************************************************/
-ParseResult Binding::bindTableList(list<string> _lstDeclaredTables)
-{
-    try
-    {
-        shared_ptr<sTable> table;
-        for(string token : _lstDeclaredTables)
-        {
-            if(token.empty())
-            {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Table name is null");
-                return ParseResult::FAILURE;
-            }
-            if(debug)
-                fprintf(traceFile,"\n table name %s|| \n",token.c_str());
-
-            table = make_shared<sTable>();
-
-            token = trim(token);
-            string tableName{};
-            string aliasTableName{};
-
-            //Note: table name pattern  NANE ALIAS (customers c)
-            size_t posSpace = token.find(SPACE);
-            if(posSpace == std::string::npos)
-            {
-                // case 3) simple name         - surname
-                tableName = token;
-            }
-            else
-            {
-                tableName = clipString(token,posSpace);
-                aliasTableName = snipString(token,posSpace+1);
-            }
-
-
-            shared_ptr<sTable> temp =  make_shared<sTable>();
-            temp = getTableByName(isqlTables->tables,tableName);
-            if(temp != nullptr)
-            {
-                table->name         = tableName;
-                table->fileName     = temp->fileName;
-                table->alias        = aliasTableName;
-                table->recordLength = temp->recordLength;
-                for(shared_ptr<sIndex> idx : temp->indexes)
-                {
-                    table->indexes.push_back(idx);
-                }
-                lstTables.push_back(table);
-            }
-        }
-
-        if(lstTables.size() == 0)
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true," Binding expecting at least one table");
-            return ParseResult::FAILURE;
-        }
-
-        return ParseResult::SUCCESS;
-    }
-    catch_and_trace
-    return ParseResult::FAILURE;
-}
-/******************************************************
  * Bind Column List
  ******************************************************/
 ParseResult Binding::bindColumnList()
@@ -221,7 +156,7 @@ ParseResult Binding::bindColumnList()
             //Case 1: function
             if(!parts->function.empty())
             {
-            if(bindFunctionColumn(parts) == ParseResult::FAILURE)
+                if(bindFunctionColumn(parts) == ParseResult::FAILURE)
                     return ParseResult::FAILURE;
                 continue;
             }
@@ -261,6 +196,7 @@ ParseResult Binding::bindColumnList()
                 col->value = parts->value;
             }
             tbl->columns.push_back(col);  
+            fprintf(traceFile,"\n col %s added to table %s",col->name.c_str(), tbl->name.c_str());
         }
         return ParseResult::SUCCESS;
     }
@@ -391,16 +327,16 @@ shared_ptr<Column>  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _
         shared_ptr<Column> col = make_shared<Column>();
         if(ag == t_function::COUNT)
         {
-        if(findKeyword(_parts->columnName,(char*)sqlTokenAsterisk) != std::string::npos)
-        {
-                col->functionType = t_function::COUNT;
-                col->name = (char*)"COUNT";
-                col->edit   = t_edit::t_int;
-                if(!_parts->columnAlias.empty())
-                    col->alias  = _parts->columnAlias;
-                defaultTable->columns.push_front(col);
-                return ParseResult::SUCCESS;
-        }
+            if(findKeyword(_parts->columnName,(char*)sqlTokenAsterisk) != std::string::npos)
+            {
+                    col->functionType = t_function::COUNT;
+                    col->name = (char*)"COUNT";
+                    col->edit   = t_edit::t_int;
+                    if(!_parts->columnAlias.empty())
+                        col->alias  = _parts->columnAlias;
+                    defaultTable->columns.push_front(col);
+                    return ParseResult::SUCCESS;
+            }
         }
 
         // all other function function must reference a column
@@ -420,6 +356,18 @@ shared_ptr<Column>  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find template column: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,_parts->fullName);
+            return ParseResult::FAILURE;
+        }
+        
+        if( (ag == t_function::SUM
+          || ag == t_function::AVG)
+        &&
+        (   col->edit == t_edit::t_char
+         || col->edit == t_edit::t_bool
+         || col->edit == t_edit::t_date))
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot do mathematical functions on this type: ");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,false,_parts->function);
             return ParseResult::FAILURE;
         }
         
@@ -658,7 +606,7 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
         tbl = assignTable(columnName);
         if(tbl == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find table");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find table: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name->fullName);
             return ParseResult::FAILURE;
         }
@@ -666,7 +614,7 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
         col = assignTemplateColumn(columnName,tbl->name);
         if(col == nullptr)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column name");
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column name: ");
             sendMessage(MESSAGETYPE::ERROR,presentationType,false,_con->name->fullName);
             return ParseResult::FAILURE;
         }
@@ -681,8 +629,19 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
             _con->col = col;
             _con->col->tableName = tbl->name;
         }
+        if(_con->col != nullptr
+        && _con->compareToColumn != nullptr)
+        {
+            if(_con->col->edit != _con->compareToColumn->edit)
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column ",_con->col->name.c_str());
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false," and ",_con->compareToColumn->name.c_str());
+                sendMessage(MESSAGETYPE::ERROR,presentationType,false," not the same type. Cannot compare ");
+                return ParseResult::FAILURE; 
+            }
+        }
         if(editCondition(_con) == ParseResult::FAILURE)
-        return ParseResult::FAILURE;
+            return ParseResult::FAILURE;
 
         return ParseResult::SUCCESS;
     }

@@ -7,29 +7,54 @@
  ******************************************************/
 shared_ptr<TempColumn> Sum(shared_ptr<TempColumn> _reportCol, shared_ptr<TempColumn> _readCol)
 {
-    if(_readCol->edit == t_edit::t_double)
-        _reportCol->doubleValue = _reportCol->doubleValue + _readCol->doubleValue;
-
-    if(_readCol->edit == t_edit::t_int)
-        _reportCol->intValue = _reportCol->intValue + _readCol->intValue;
-
-    return _reportCol;
+    try
+    {
+        switch(_readCol->edit)
+        {
+            case t_edit::t_double:
+                _reportCol->doubleValue = _reportCol->doubleValue + _readCol->doubleValue;
+                break;
+            case t_edit::t_int:
+                _reportCol->intValue = _reportCol->intValue + _readCol->intValue;
+                break;
+            default:
+                break;
+        }
+        return _reportCol;
+    }
+    catch_and_trace
 }
 /******************************************************
  * MAX
  ******************************************************/
 shared_ptr<TempColumn> Max(shared_ptr<TempColumn> _reportCol, shared_ptr<TempColumn> _readCol)
 {
-    if(_readCol->edit == t_edit::t_double)
+    try
     {
-        if(_readCol->doubleValue > _reportCol->doubleValue)
-            _reportCol->doubleValue = _readCol->doubleValue;
+        switch(_readCol->edit)
+        {
+            case t_edit::t_double:
+                if(_readCol->doubleValue > _reportCol->doubleValue)
+                    _reportCol->doubleValue = _readCol->doubleValue;
+                break;
+            case t_edit::t_int:
+                if (_readCol->intValue > _reportCol->intValue)
+                    _reportCol->intValue = _readCol->intValue;
+                break;
+            case t_edit::t_char:
+                if(_readCol->charValue.compare( _reportCol->charValue) > 0)
+                    _reportCol->charValue = _readCol->charValue;
+                break;
+            case t_edit::t_date:
+                if(_readCol->dateValue.yearMonthDay > _reportCol->dateValue.yearMonthDay)
+                    _reportCol->dateValue = _readCol->dateValue;
+                break;
+            default:
+                break;
+        }
+        return _reportCol;
     }
-    if(_readCol->edit == t_edit::t_int)
-    {
-        if (_readCol->intValue > _reportCol->intValue)
-             _reportCol->intValue = _readCol->intValue;
-    }
+    catch_and_trace
     return _reportCol;
 }
 /******************************************************
@@ -37,17 +62,32 @@ shared_ptr<TempColumn> Max(shared_ptr<TempColumn> _reportCol, shared_ptr<TempCol
  ******************************************************/
 shared_ptr<TempColumn> Min(shared_ptr<TempColumn> _reportCol, shared_ptr<TempColumn> _readCol)
 {
-    if(_readCol->edit == t_edit::t_double)
+    try
     {
-        if(_readCol->doubleValue < _reportCol->doubleValue)
-            _reportCol->doubleValue = _readCol->doubleValue;
+        switch(_readCol->edit)
+        {
+            case t_edit::t_double:
+                if(_readCol->doubleValue < _reportCol->doubleValue)
+                    _reportCol->doubleValue = _readCol->doubleValue;
+                break;
+            case t_edit::t_int:
+                if (_readCol->intValue < _reportCol->intValue)
+                    _reportCol->intValue = _readCol->intValue;
+                break;
+            case t_edit::t_char:
+                if(_readCol->charValue.compare( _reportCol->charValue) < 0)
+                    _reportCol->charValue = _readCol->charValue;
+                break;
+            case t_edit::t_date:
+                if(_readCol->dateValue.yearMonthDay < _reportCol->dateValue.yearMonthDay)
+                    _reportCol->dateValue = _readCol->dateValue;
+                break;
+            default:
+                break;
+        }
+        return _reportCol;
     }
-
-    if(_readCol->edit == t_edit::t_int)
-    {
-        if (_readCol->intValue < _reportCol->intValue)
-             _reportCol->intValue = _readCol->intValue;
-    }
+    catch_and_trace
     return _reportCol;
 }
 /******************************************************
@@ -55,27 +95,33 @@ shared_ptr<TempColumn> Min(shared_ptr<TempColumn> _reportCol, shared_ptr<TempCol
  ******************************************************/
 void callFunctions(vector<shared_ptr<TempColumn>> _reportRow, vector<shared_ptr<TempColumn>> _row)
 {
-    for (size_t nbr = 0;nbr < _row.size();nbr++) 
+    try
     {
-        switch(_row.at(nbr)->functionType)
+        for (size_t nbr = 0;nbr < _row.size();nbr++) 
         {
-            case t_function::NONE:
-                break;
-            case t_function::COUNT:
-                _reportRow.at(nbr)->intValue++;
-                break;
-            case t_function::SUM:
-                _reportRow.at(nbr) = Sum(_reportRow.at(nbr),_row.at(nbr));
-                break;
-            case t_function::MAX:
-                _reportRow.at(nbr) = Max(_reportRow.at(nbr),_row.at(nbr));
-                break;
-            case t_function::MIN:
-                _reportRow.at(nbr) = Min(_reportRow.at(nbr),_row.at(nbr));
-                break;  
-            case t_function::AVG:
-                _reportRow.at(nbr) = Sum(_reportRow.at(nbr),_row.at(nbr));
-                break;  
+            switch(_row.at(nbr)->functionType)
+            {
+                case t_function::NONE:
+                    break;
+                case t_function::COUNT:
+                    _reportRow.at(nbr)->intValue++;
+                    break;
+                case t_function::SUM:
+                    _reportRow.at(nbr) = Sum(_reportRow.at(nbr),_row.at(nbr));
+                    break;
+                case t_function::MAX:
+                    _reportRow.at(nbr) = Max(_reportRow.at(nbr),_row.at(nbr));
+                    break;
+                case t_function::MIN:
+                    _reportRow.at(nbr) = Min(_reportRow.at(nbr),_row.at(nbr));
+                    break;  
+                case t_function::AVG:
+                    _reportRow.at(nbr) = Sum(_reportRow.at(nbr),_row.at(nbr));
+                    break;  
+                default:
+                    break;
+            }
         }
     }
+    catch_and_trace
 }

@@ -13,14 +13,14 @@ class sqlJoinEngine : public sqlEngine
 
    public:
 
-   ParseResult	join(Statement,tempFiles*);
+   ParseResult	join(shared_ptr<Statement>,shared_ptr<tempFiles>);
    ParseResult  joinOnKey(Search*,vector<shared_ptr<TempColumn>>,size_t);
 
 };
 /******************************************************
  * Join
  ******************************************************/
-ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
+ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tempFiles> _results)
 {
 	/*
 		1) Get condition
@@ -31,11 +31,17 @@ ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 		6) add table columns to row
 	*/
 
+	if(_results == nullptr)
+	{
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Join results are null ");
+		return ParseResult::FAILURE;
+	}
+
 	// Nothing to join with
 	if(_results->rows.size() == 0)
 		return ParseResult::SUCCESS;
 
-	statement = &_statement;
+	statement = _statement;
 
 	open();
 
@@ -44,7 +50,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 	shared_ptr<Column> key{};
 
 	// 1)
-	for(Condition* condition : statement->table->conditions)
+	for(shared_ptr<Condition> condition : statement->table->conditions)
 	{
 		key = condition->col;
 		break;
@@ -64,13 +70,13 @@ ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 	for(size_t i = 0;i < row.size();i++)
 	{
 
-		if(row.at(i)->alias != nullptr)
-			name = row.at(i)->alias;
+		if(!row.at(i)->alias.empty())
+			name = (char*)row.at(i)->alias.c_str();
 		else
-			name = row.at(i)->name;
+			name = (char*)row.at(i)->name.c_str();
 		if(debug)
-			fprintf(traceFile,"\nmatching %s to column %s",key->name,name);
-		if(strcasecmp(key->name,name) == 0 )
+			fprintf(traceFile,"\nmatching %s to column %s",key->name.c_str(),name);
+		if(strcasecmp(key->name.c_str(),name) == 0 )
 		{
 			keyColumnNbr = (int)i;
 			break;
@@ -80,17 +86,17 @@ ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 	if(keyColumnNbr == NEGATIVE)
 	{
 		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not match join key column name:");
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,key->name);
+		sendMessage(MESSAGETYPE::ERROR,presentationType,false,key->name.c_str());
 		return ParseResult::FAILURE;
 	}
 
 	// 3)	//Again, assuming one column on primary index
-	sIndex* index{};
-	for(sIndex* idx : statement->table->indexes)
+	shared_ptr<sIndex> index{};
+	for(shared_ptr<sIndex> idx : statement->table->indexes)
 	{
 		for(shared_ptr<Column> col : idx->columns)
 		{
-			if(strcasecmp(col->name,key->name) == 0 )
+			if(strcasecmp(col->name.c_str(),key->name.c_str()) == 0 )
 			{
 				index = idx;
 				break;
@@ -105,7 +111,7 @@ ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 		return ParseResult::FAILURE;
 	}
 	if(debug)
-		fprintf(traceFile,"\njoin on index %s",index->name);
+		fprintf(traceFile,"\njoin on index %s",index->name.c_str());
 
 	search = new Search(index->fileStream);
 	
@@ -127,10 +133,10 @@ ParseResult sqlJoinEngine::join(Statement _statement, tempFiles* _results)
 ParseResult sqlJoinEngine::joinOnKey(Search* _search,vector<shared_ptr<TempColumn>> _row, size_t _keyColumnNbr)
 {
 	vector<shared_ptr<TempColumn>>	newRow;
-	long location = _search->find(_row.at(_keyColumnNbr)->charValue);
+	long location = _search->find((char*)_row.at(_keyColumnNbr)->charValue.c_str());
 
 	if(debug)
-		fprintf(traceFile,"\n join key %s location %ld",_row.at(_keyColumnNbr)->charValue,location);
+		fprintf(traceFile,"\n join key %s location %ld",_row.at(_keyColumnNbr)->charValue.c_str(),location);
 
 	// A no-hit is legit
 	if( location == NEGATIVE)

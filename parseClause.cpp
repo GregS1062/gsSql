@@ -184,7 +184,7 @@ ParseResult ParseClause::parseJoin(string _queryString)
         {
             iClause.strJoinConditions = snipString(_queryString,sqlTokenOn,positionOfOn);
             // erase the condition clause
-            _queryString = clipString(_queryString,positionOfOn);
+            _queryString = clipString(_queryString,positionOfOn-1);
         }
 
 

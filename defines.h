@@ -27,6 +27,7 @@ using namespace std;
 #define MAXSQLSTRINGSIZE	1000
 #define MAXOBJECTNAMESIZE   128
 #define MAXINPUTSIZE        4000
+#define MAXROWSRETURNED     100     //default max rows retured on find range queries where rowsReturned = 0
 
 #define cellBegin   "<td>"
 #define cellEnd     "</td>"

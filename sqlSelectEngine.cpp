@@ -125,6 +125,12 @@ ParseResult sqlSelectEngine::tableScan(list<shared_ptr<Column>> _columns)
 ParseResult sqlSelectEngine::searchForward(Search* _search, string _valueStr, size_t _rowsToReturn, SEARCH _op)
 {
 
+	if(_rowsToReturn == 0)
+	{
+		sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"TOP N rows not defined. Default to ",std::to_string(MAXROWSRETURNED));
+		_rowsToReturn = MAXROWSRETURNED;
+	}
+
 	char* _value = (char*)_valueStr.c_str();
 	QueryResultList* searchResults = _search->findRange(_value, (int)_rowsToReturn, _op);
 	

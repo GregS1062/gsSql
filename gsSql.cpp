@@ -121,13 +121,13 @@ int main(int argc, char* argv[])
         std::string queryStr ( (std::istreambuf_iterator<char>(ifq) ),
                         (std::istreambuf_iterator<char>()    ) );
 
-        
-        fprintf(traceFile,"\n query=%s \n",queryStr.c_str());
+        fprintf(traceFile,"\n******************  BEGIN   *****************");
+        fprintf(traceFile,"\n query=%s",queryStr.c_str());
 
         presentationType = PRESENTATION::TEXT;
         
         auto sql = make_unique<parseSql>(sqlFile);
-        debug = true;
+        debug = false;
         if(sql->parse() == ParseResult::FAILURE)
         {
             fprintf(traceFile,"\n******************SQL Parser FAILED*****************");
@@ -139,20 +139,11 @@ int main(int argc, char* argv[])
 
         Plan plan(sql->isqlTables);
         
-        plan.prepare(queryStr);
+        if(plan.prepare(queryStr) == ParseResult::SUCCESS)
+        {
+            plan.execute();
+        }
        
-        debug = true;
-
-        for(shared_ptr<Statement> statement : plan.lstStatements)
-            printStatement(statement);
-        if(plan.orderBy != nullptr)
-            printOrderBy(plan.orderBy);
-        if(plan.groupBy != nullptr)
-            printGroupBy(plan.groupBy);
-
-        plan.execute();
-
-
 
         fprintf(traceFile,"\n\n");
         fclose(traceFile);
@@ -160,6 +151,8 @@ int main(int argc, char* argv[])
             printf("\n%s",returnResult.resultTable.c_str());
         if(!errText.empty())
             printf("\nERROR %s",errText.c_str());
+        if(!msgText.empty())
+            printf("\nMESSAGE %s",msgText.c_str());
         
         return 0; 
         }

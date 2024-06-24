@@ -1,121 +1,113 @@
 
- query=Select top 5 * from stores where name = "Yet another store"
- 
-
+******************  BEGIN   *****************
+ query=select top 5 o.orderid, i.orderid, i.productid from orders o join items i on o.orderid = i.orderid
 ------------- split ----------------
-Split Select top 5 * from stores where name = "Yet another store" 
+Split select top 5 o.orderid, i.orderid, i.productid from orders o 
 -----------------------------------------------------
-
 ***************************************************************
                  BEGIN QUERY PARSE
-
 ***************************************************************
- query=Select top 5 * from stores where name = "Yet another store" 
-determine action Select
+ query=select top 5 o.orderid, i.orderid, i.productid from orders o 
+determine action select
 
 -------------------------BEGIN PROCESS SELECT-------------------------------------------
-Query String = Select top 5 * from stores where name = "Yet another store" 
+Query String = select top 5 o.orderid, i.orderid, i.productid from orders o 
 
 -------------------------PARSE CLAUSES - SELECT -------------------------------------------
-Query String = Select top 5 * from stores where name = "Yet another store" 
+Query String = select top 5 o.orderid, i.orderid, i.productid from orders o 
 
 -----------Parse Table List----------------
-tableString:stores 
-token stores 
+tableString:orders o 
+token orders o 
 
 -----------Parse Column List----------------
-Column string: * 
-Column parts: function: name:* alias: table Alias 
+Column string: o.orderid, i.orderid, i.productid 
+Column parts: function: name:orderid alias: table Alias o
+Column parts: function: name:orderid alias: table Alias i
+Column parts: function: name:productid alias: table Alias i
+ table name orders o|| 
+
+Split join items i on o.orderid = i.orderid
+-----------------------------------------------------
+***************************************************************
+                 BEGIN QUERY PARSE
+***************************************************************
+ query=join items i on o.orderid = i.orderid
+determine action join
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = join items i on o.orderid = i.orderid
+********************* parseJoin *******************
+
+-----------Parse Table List----------------
+tableString:items i
+token items i
+
+-----------Parse Column List----------------
+Column string:
 
 -----------Parse Conditions----------------
-Condition:name = "Yet another store" 
-token=name
-Column parts: function: name:name alias: table Alias 
+Join Condition:o.orderid = i.orderid
+token=o.orderid
+Column parts: function: name:orderid alias: table Alias o
 token==
-token="Yet another store"
+token=i.orderid
+Column parts: function: name:orderid alias: table Alias i
+ table name items i|| 
 
------------Parse Conditions----------------
-Join Condition:
-
------------Parse Order by----------------
-OrderBy string:
-
------------Parse Group by----------------
-Group By string:
-
------------Parse Conditions----------------
-Having Condition:
- table name stores|| 
-
- iElement tablename stores
+ iElement tablename orders o
 
 -------------------------BEGIN BIND-------------------------------------------
-statement table name stores
+statement table name orders o
 -------------------- bind column list ----------------
--------------------- Populate table  ----------------
-binding condition name name 
-row count = 5
+ col orderid added to table orders
+ col orderid added to table items
+ col productid added to table items
+ iElement tablename items i
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name items i
+-------------------- bind column list ----------------
+binding condition name orderid 
+binding condition compareToName orderid 
 *******************************************
  Statement Table
 *******************************************
- table name stores alias  record length 207
-	 column name deleted alias  value  function 0
-	 column name custid alias  value  function 0 PRIMARY
-	 column name name alias  value  function 0
-	 column name phone alias  value  function 0
-	 column name email alias  value  function 0
-	 column name street1 alias  value  function 0
-	 column name street2 alias  value  function 0
-	 column name city alias  value  function 0
-	 column name state alias  value  function 0
-	 column name country alias  value  function 0
-	 column name zipcode alias  value  function 0
+ table name orders alias o record length 99
+	 column name orderid alias  value  function 0 PRIMARY
 
  Conditions
-	 name: name alias:  tableName:  function: 
-	 condition condition 
-	 condition op        =
-	 condition value     Yet another store
 
  Indexes 
-	 index name storeid  file name /home/greg/projects/test/testIndex/storeid.idx
-		 index column name custid
-	 index name storename  file name /home/greg/projects/test/testIndex/storename.idx
-		 index column name name
-*******************************************
- Order By
-*******************************************
-	ascending
-*******************************************
- Group By
-*******************************************
-*******************************************
- Having
-*******************************************
+	 index name orderid  file name /home/greg/projects/test/testIndex/orderid.idx
+		 index column name orderid
+
+-------------------------BEGIN SELECT ENGINE-------------------------------------------
 *******************************************
  Statement Table
 *******************************************
- table name stores alias  record length 207
-	 column name deleted alias  value  function 0
-	 column name custid alias  value  function 0 PRIMARY
-	 column name name alias  value  function 0
-	 column name phone alias  value  function 0
-	 column name email alias  value  function 0
-	 column name street1 alias  value  function 0
-	 column name street2 alias  value  function 0
-	 column name city alias  value  function 0
-	 column name state alias  value  function 0
-	 column name country alias  value  function 0
-	 column name zipcode alias  value  function 0
+ table name items alias i record length 51
+	 column name orderid alias  value  function 0 PRIMARY
+	 column name productid alias  value  function 0
 
  Conditions
-	 name: name alias:  tableName:  function: 
+	 name: orderid alias:  tableName: o function: 
+	 name: orderid alias:  tableName: i function: 
 	 condition condition 
 	 condition op        =
-	 condition value     Yet another store
+	 condition value     
 
  Indexes 
-	 index name storeid  file name /home/greg/projects/test/testIndex/storeid.idx
-		 index column name custid
-	 index name storename  file name /home/greg/projects/test/testIndex/storename.idx
-		 in
+	 index name orderid  file name /home/greg/projects/test/testIndex/itemOrder.idx
+		 index column name orderid
+matching orderid to column orderid
+join on index orderid
+ join key SO43659 location 0
+ join key SO43660 location 612
+ join key SO43661 location 1173
+ join key SO43662 location 2346
+ join key SO43663 location 2601
+
+printing
+
+

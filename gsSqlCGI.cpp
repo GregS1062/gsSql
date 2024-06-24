@@ -43,9 +43,10 @@ ParseResult runQuery(string _htmlRequest)
 
         Plan plan(sql->isqlTables);
         
-        plan.prepare(_htmlRequest);
-
-		plan.execute();
+        if(plan.prepare(_htmlRequest) == ParseResult::SUCCESS)
+		{
+			plan.execute();
+		};
 
 	return ParseResult::SUCCESS;
 }
