@@ -40,21 +40,23 @@ class sqlEngine
 	 * Common engine to access a single table 
 	*******************************************/
 	protected:
-		fstream* 		tableStream;
-		fstream* 		indexStream;
-		char* 			line;
-		shared_ptr<Statement>	statement;
-		Search*			search;
+		fstream* 					tableStream;
+		fstream* 					indexStream;
+		char* 						line;
+		shared_ptr<Statement>		statement;
+		Search*						search;
 
-		ParseResult 	open			();
-		ParseResult 	close			();
-		SEARCH 			indexRead		(shared_ptr<searchIndexes>);
-		char* 			getRecord		(long, fstream*, int);
+		ParseResult 				open			();
+		ParseResult 				close			();
+		SEARCH 						indexRead		(shared_ptr<searchIndexes>);
+		SEARCH 						getSearchType	(string);
+		char* 						getRecord		(long, fstream*, int);
 		shared_ptr<searchIndexes> 	determineIndex	();
-		bool			isRecordDeleted (bool);
+		bool						isRecordDeleted (bool);
 		vector<shared_ptr<TempColumn>>	outputLine	(list<shared_ptr<Column>>);
-		void			rowsUpdatedMsg 	(int);
-		void 			rowsReturnedMsg ();
+		void						rowsUpdatedMsg 	(int);
+		void 						rowsReturnedMsg ();
+		ParseResult					tableScan		(list<shared_ptr<Column>>, shared_ptr<tempFiles>);
 
 	public:
 		shared_ptr<tempFiles>		results			= make_shared<tempFiles>();
@@ -243,22 +245,82 @@ SEARCH sqlEngine::indexRead(shared_ptr<searchIndexes> _searchOn)
 
 	transform(col->value.begin(), col->value.end(), col->value.begin(), ::toupper);
 
-	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenEqual) == 0)
+	return getSearchType(_searchOn->op.c_str());
+}
+/******************************************************
+ * Get Search Type
+ ******************************************************/
+SEARCH sqlEngine::getSearchType(string _op)
+{
+	if(strcasecmp(_op.c_str(),(char*)sqlTokenEqual) == 0)
 		return SEARCH::EXACT;
 
-	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenGreater) == 0
-	|| strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenGreaterOrEqual) == 0)
+	if(strcasecmp(_op.c_str(),(char*)sqlTokenGreater) == 0
+	|| strcasecmp(_op.c_str(),(char*)sqlTokenGreaterOrEqual) == 0)
 		return SEARCH::FORWARD;
 
-	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenLessThan) == 0
-	|| strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenLessOrEqual) == 0)
+	if(strcasecmp(_op.c_str(),(char*)sqlTokenLessThan) == 0
+	|| strcasecmp(_op.c_str(),(char*)sqlTokenLessOrEqual) == 0)
 		return SEARCH::BACK;
 
-	if(strcasecmp(_searchOn->op.c_str(),(char*)sqlTokenLike) == 0)
+	if(strcasecmp(_op.c_str(),(char*)sqlTokenLike) == 0)
 		return SEARCH::LIKE;
 	
 	//should not get here
 	return SEARCH::FAILED;
+}
+
+/******************************************************
+ * Table Scan
+ ******************************************************/
+ParseResult sqlEngine::tableScan(list<shared_ptr<Column>> _columns,shared_ptr<tempFiles> _results)
+{
+/*
+	Input: list of columns to be read
+	Ouput: Columns of data added to rows list
+*/
+
+	int rowCount = 0;
+	int recordPosition 	= 0;
+
+	while(true)
+	{
+		
+		line = getRecord(recordPosition,tableStream, statement->table->recordLength);
+
+		//End of File
+		if(line == nullptr)
+			break;
+
+		if(isRecordDeleted(false))
+		{
+			recordPosition = recordPosition + statement->table->recordLength;
+			continue;
+		}
+
+		//select top n
+		if(statement->rowsToReturn > 0
+		&& rowCount >= statement->rowsToReturn)
+			break;
+
+		if(queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
+		{
+
+			_results->addRow(outputLine(_columns));
+			rowCount++;
+
+		}
+
+		recordPosition = recordPosition + statement->table->recordLength;
+	}
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Table scan: rows scanned ");
+	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
+	rowsReturnedMsg();
+
+	//Close File
+	close();
+
+	return ParseResult::SUCCESS;
 }
 
 /******************************************************

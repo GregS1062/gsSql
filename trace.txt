@@ -1,113 +1,130 @@
 
 ******************  BEGIN   *****************
- query=select top 5 o.orderid, i.orderid, i.productid from orders o join items i on o.orderid = i.orderid
+ query=select top 5000 s.name, s.custid, o.* from stores s join orders o on o.custid = s.custid where o.custid = "000029493" 
 ------------- split ----------------
-Split select top 5 o.orderid, i.orderid, i.productid from orders o 
+Split select top 5000 s.name, s.custid, o.* from stores s 
 -----------------------------------------------------
 ***************************************************************
                  BEGIN QUERY PARSE
 ***************************************************************
- query=select top 5 o.orderid, i.orderid, i.productid from orders o 
+ query=select top 5000 s.name, s.custid, o.* from stores s 
 determine action select
 
 -------------------------BEGIN PROCESS SELECT-------------------------------------------
-Query String = select top 5 o.orderid, i.orderid, i.productid from orders o 
+Query String = select top 5000 s.name, s.custid, o.* from stores s 
 
 -------------------------PARSE CLAUSES - SELECT -------------------------------------------
-Query String = select top 5 o.orderid, i.orderid, i.productid from orders o 
+Query String = select top 5000 s.name, s.custid, o.* from stores s 
 
 -----------Parse Table List----------------
-tableString:orders o 
-token orders o 
+tableString:stores s 
+token stores s 
 
 -----------Parse Column List----------------
-Column string: o.orderid, i.orderid, i.productid 
-Column parts: function: name:orderid alias: table Alias o
-Column parts: function: name:orderid alias: table Alias i
-Column parts: function: name:productid alias: table Alias i
- table name orders o|| 
+Column string: s.name, s.custid, o.* 
+Column parts: function: name:name alias: table Alias s
+Column parts: function: name:custid alias: table Alias s
+Column parts: function: name:* alias: table Alias o
+ table name stores s|| 
 
-Split join items i on o.orderid = i.orderid
+Split join orders o on o.custid = s.custid where o.custid = "000029493" 
 -----------------------------------------------------
 ***************************************************************
                  BEGIN QUERY PARSE
 ***************************************************************
- query=join items i on o.orderid = i.orderid
+ query=join orders o on o.custid = s.custid where o.custid = "000029493" 
 determine action join
 
 -------------------------BEGIN PROCESS SELECT-------------------------------------------
-Query String = join items i on o.orderid = i.orderid
+Query String = join orders o on o.custid = s.custid where o.custid = "000029493" 
 ********************* parseJoin *******************
 
 -----------Parse Table List----------------
-tableString:items i
-token items i
+tableString:orders o
+token orders o
 
 -----------Parse Column List----------------
 Column string:
 
 -----------Parse Conditions----------------
-Join Condition:o.orderid = i.orderid
-token=o.orderid
-Column parts: function: name:orderid alias: table Alias o
+Condition:o.custid = "000029493"
+token=o.custid
+Column parts: function: name:custid alias: table Alias o
 token==
-token=i.orderid
-Column parts: function: name:orderid alias: table Alias i
- table name items i|| 
+token="000029493"
 
+-----------Parse Conditions----------------
+Join Condition:o.custid = s.custid
+token=o.custid
+Column parts: function: name:custid alias: table Alias o
+token==
+token=s.custid
+Column parts: function: name:custid alias: table Alias s
+ table name orders o|| 
+
+ iElement tablename stores s
+
+-------------------------BEGIN BIND-------------------------------------------
+statement table name stores s
+-------------------- bind column list ----------------
+ col name added to table stores
+ col custid added to table stores
+-------------------- Populate table  ----------------
  iElement tablename orders o
 
 -------------------------BEGIN BIND-------------------------------------------
 statement table name orders o
 -------------------- bind column list ----------------
- col orderid added to table orders
- col orderid added to table items
- col productid added to table items
- iElement tablename items i
-
--------------------------BEGIN BIND-------------------------------------------
-statement table name items i
--------------------- bind column list ----------------
-binding condition name orderid 
-binding condition compareToName orderid 
+binding condition name custid 
+binding condition name custid 
+binding condition compareToName custid 
 *******************************************
  Statement Table
 *******************************************
- table name orders alias o record length 99
-	 column name orderid alias  value  function 0 PRIMARY
+ table name stores alias s record length 207
+	 column name name alias  value  function 0
+	 column name custid alias  value  function 0 PRIMARY
 
  Conditions
 
  Indexes 
-	 index name orderid  file name /home/greg/projects/test/testIndex/orderid.idx
-		 index column name orderid
+	 index name storeid  file name /home/greg/projects/test/testIndex/storeid.idx
+		 index column name custid
+	 index name storename  file name /home/greg/projects/test/testIndex/storename.idx
+		 index column name name
 
 -------------------------BEGIN SELECT ENGINE-------------------------------------------
 *******************************************
  Statement Table
 *******************************************
- table name items alias i record length 51
+ table name orders alias o record length 99
+	 column name deleted alias  value  function 0
+	 column name status alias  value  function 0
 	 column name orderid alias  value  function 0 PRIMARY
-	 column name productid alias  value  function 0
+	 column name custid alias  value  function 0
+	 column name orderdate alias  value  function 0
+	 column name duedate alias  value  function 0
+	 column name shipdate alias  value  function 0
+	 column name tax alias  value  function 0
+	 column name freight alias  value  function 0
+	 column name totaldue alias  value  function 0
 
  Conditions
-	 name: orderid alias:  tableName: o function: 
-	 name: orderid alias:  tableName: i function: 
+-----------------------------------
+	 name: custid alias:  tableName: o function: 
+	 condition condition 
+	 condition op        =
+	 condition value     000029493
+-----------------------------------
+	 name: custid alias:  tableName: o function: 
+	 name: custid alias:  tableName: s function: 
 	 condition condition 
 	 condition op        =
 	 condition value     
 
  Indexes 
-	 index name orderid  file name /home/greg/projects/test/testIndex/itemOrder.idx
+	 index name orderid  file name /home/greg/projects/test/testIndex/orderid.idx
 		 index column name orderid
-matching orderid to column orderid
-join on index orderid
- join key SO43659 location 0
- join key SO43660 location 612
- join key SO43661 location 1173
- join key SO43662 location 2346
- join key SO43663 location 2601
 
-printing
-
+-------------------------BEGIN JOIN ENGINE-------------------------------------------
 

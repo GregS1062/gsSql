@@ -13,22 +13,7 @@ string trim(string _token)
     _token.erase(_token.find_last_not_of(SPACE)+1);
     return _token;
 }
-/*******************************************************
-   Get Table By Name
-*******************************************************/
-shared_ptr<sTable> getTableByName(list<shared_ptr<sTable>> tables,string _name)
-{
-    try
-    {
-        for(shared_ptr<sTable> tbl : tables)
-        {
-            if(strcasecmp(tbl->name.c_str(),_name.c_str()) == 0)
-                return tbl;
-        }
-        return nullptr;
-    }
-    catch_and_trace
-}
+
 /******************************************************
  * Find Delimiter char*
  ******************************************************/
@@ -94,6 +79,7 @@ size_t findKeyword(string _str, string _delimiter)
         return std::string::npos;
     }                                  
     catch_and_trace
+    return std::string::npos;
 }
 
 size_t findKeywordX(string _string, string _target)
@@ -394,6 +380,23 @@ string prepareStringTemplate(string _string)
    return _string;
 }
 
+/*******************************************************
+   Get Table By Name
+*******************************************************/
+shared_ptr<sTable> getTableByName(list<shared_ptr<sTable>> tables,string _name)
+{
+    try
+    {
+        for(shared_ptr<sTable> tbl : tables)
+        {
+            if(strcasecmp(tbl->name.c_str(),_name.c_str()) == 0)
+                return tbl;
+        }
+        return nullptr;
+    }
+    catch_and_trace
+}
+
 /******************************************************
  * Get Table By Alias (Name)
  ******************************************************/
@@ -410,35 +413,7 @@ shared_ptr<sTable> getTableByAlias(list<shared_ptr<sTable>> tables,string _alias
     }
     catch_and_trace
 }
-/******************************************************
- * Token Split
- ******************************************************/
-unique_ptr<TokenPair> tokenSplit(string _token, char* delimiter)
-{
-    if(_token.empty())
-    {
-        return nullptr;
-    }
-    unique_ptr<TokenPair> tp = make_unique<TokenPair>();
-    
-    _token.erase(0, _token.find_first_not_of(SPACE));
-    _token.erase(_token.find_last_not_of(SPACE)+1);
-    
-    
-    char *s;
-    s = strstr((char*)_token.c_str(), delimiter);      // search for string "hassasin" in buff
-    if (s == NULL)                     // if successful then s now points at "hassasin"
-    {
-        tp->one = _token;
-        tp->two.clear();
-        return tp;
-    } 
-    size_t position = s - _token.c_str();
-    tp->one = _token.substr(0,position-1);
-    tp->two = snipString(_token,position+1);
 
-    return tp;
-}
 /******************************************************
  * Get Column By Name
  ******************************************************/

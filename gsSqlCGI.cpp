@@ -21,32 +21,32 @@ using namespace cgicc;
 ParseResult runQuery(string _htmlRequest)
 {
 
-        std::string sqlFileName = "bike.sql";
-        std::ifstream ifs(sqlFileName);
-        std::string sqlFile ( (std::istreambuf_iterator<char>(ifs) ),
-                        (std::istreambuf_iterator<char>()    ) );
+	std::string sqlFileName = "bike.sql";
+	std::ifstream ifs(sqlFileName);
+	std::string sqlFile ( (std::istreambuf_iterator<char>(ifs) ),
+					(std::istreambuf_iterator<char>()    ) );
 
-	debug = true;
+	debug = false;
 
 	presentationType = PRESENTATION::HTML;
         
-        auto sql = make_unique<parseSql>(sqlFile);
-        debug = true;
-        if(sql->parse() == ParseResult::FAILURE)
-        {
-            fprintf(traceFile,"\n******************SQL Parser FAILED*****************");
-            fprintf(traceFile,"\n %s",errText.c_str());
-            return ParseResult::FAILURE;
-        }
+	auto sql = make_unique<parseSql>(sqlFile);
+	debug = true;
+	if(sql->parse() == ParseResult::FAILURE)
+	{
+		fprintf(traceFile,"\n******************SQL Parser FAILED*****************");
+		fprintf(traceFile,"\n %s",errText.c_str());
+		return ParseResult::FAILURE;
+	}
 
-        debug = true;
+	debug = true;
 
-        Plan plan(sql->isqlTables);
-        
-        if(plan.prepare(_htmlRequest) == ParseResult::SUCCESS)
-		{
-			plan.execute();
-		};
+	Plan plan(sql->isqlTables);
+	
+	if(plan.prepare(_htmlRequest) == ParseResult::SUCCESS)
+	{
+		plan.execute();
+	};
 
 	return ParseResult::SUCCESS;
 }

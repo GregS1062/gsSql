@@ -15,7 +15,6 @@ class sqlSelectEngine : public sqlEngine
    public:
 
    ParseResult		execute			(shared_ptr<Statement>);
-   ParseResult		tableScan		(list<shared_ptr<Column>>);
    ParseResult		searchForward	(Search*, string, size_t , SEARCH);
    ParseResult 		searchBack		(Search*, string, size_t);
 };
@@ -47,7 +46,7 @@ ParseResult sqlSelectEngine::execute(shared_ptr<Statement> _statement)
 	//query condition but not on an indexed column
 	if(searchOn == nullptr)
 	{
-		if(tableScan(statement->table->columns) == ParseResult::FAILURE)
+		if(tableScan(statement->table->columns, results) == ParseResult::FAILURE)
 			return ParseResult::FAILURE;
 
 		return ParseResult::SUCCESS;
@@ -65,58 +64,6 @@ ParseResult sqlSelectEngine::execute(shared_ptr<Statement> _statement)
 	
 	return searchForward(search,col->value, statement->rowsToReturn,searchPath);
 
-}
-/******************************************************
- * Table Scan
- ******************************************************/
-ParseResult sqlSelectEngine::tableScan(list<shared_ptr<Column>> _columns)
-{
-/*
-	Input: list of columns to be read
-	Ouput: Columns of data added to rows list
-*/
-
-	int rowCount = 0;
-	int recordPosition 	= 0;
-
-	while(true)
-	{
-		
-		line = getRecord(recordPosition,tableStream, statement->table->recordLength);
-
-		//End of File
-		if(line == nullptr)
-			break;
-
-		if(isRecordDeleted(false))
-		{
-			recordPosition = recordPosition + statement->table->recordLength;
-			continue;
-		}
-
-		//select top n
-		if(statement->rowsToReturn > 0
-		&& rowCount >= statement->rowsToReturn)
-			break;
-
-		if(queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
-		{
-
-			results->addRow(outputLine(_columns));
-			rowCount++;
-
-		}
-
-		recordPosition = recordPosition + statement->table->recordLength;
-	}
-	sendMessage(MESSAGETYPE::INFORMATION,presentationType,true,"Table scan: rows scanned ");
-	sendMessage(MESSAGETYPE::INFORMATION,presentationType,false,std::to_string(rowCount).c_str());
-	rowsReturnedMsg();
-
-	//Close File
-	close();
-
-	return ParseResult::SUCCESS;
 }
 
 /******************************************************
@@ -136,6 +83,7 @@ ParseResult sqlSelectEngine::searchForward(Search* _search, string _valueStr, si
 	
 	while(searchResults != nullptr)
 	{
+
 		line = getRecord(searchResults->location,tableStream, statement->table->recordLength);
 		
 		//End of File

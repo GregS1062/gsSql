@@ -49,6 +49,9 @@ void printTable(shared_ptr<sTable> tbl)
     fprintf(traceFile,"\n\n Conditions");
     for(shared_ptr<Condition> con : tbl->conditions)
     {
+        fprintf(traceFile,"\n-----------------------------------");
+        if(con->isJoin)
+            fprintf(traceFile,"\nJoin condition");
         printParts(con->name);
         if(con->compareToName != nullptr)
             printParts(con->compareToName);

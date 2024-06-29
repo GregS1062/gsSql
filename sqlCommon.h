@@ -32,15 +32,6 @@ class ReturnResult{
 ReturnResult returnResult;
 
 /******************************************************
- * Token Pair
- ******************************************************/
-struct TokenPair
-{
-    string one;
-    string two;
-};
-
-/******************************************************
  * Column
  ******************************************************/
 class Column
@@ -74,12 +65,11 @@ class TempColumn : public Column
 class Condition
 {
     public:
+        bool                        isJoin          = false;
         shared_ptr<columnParts>     name            = nullptr;
         shared_ptr<columnParts>     compareToName   = nullptr;
         string                      op             {};  // operator is a reserved word
-        string                      prefix         {};  // (
         string                      condition      {};	// and/or
-        string                      suffix         {};  // )
         string                      value          {};
         int                         intValue        = 0;
         double                      doubleValue     = 0;

@@ -97,8 +97,6 @@ ParseResult Plan::bindElements()
     {
         Binding binding             = Binding(isqlTables);
         binding.lstTables           = lstTables;
-       // if(binding.bindTableList(lstDeclaredTables) == ParseResult::FAILURE)
-       //     return ParseResult::FAILURE;
         
         if(debug)
             fprintf(traceFile,"\n iElement tablename %s",ielement->tableName.c_str());

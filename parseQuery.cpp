@@ -592,20 +592,18 @@ ParseResult ParseQuery::addCondition(string _token, CONDITIONTYPE _conditionType
         if(condition == nullptr)
         {
             condition = make_shared<Condition>();
-            condition->prefix       = " ";
-            condition->suffix       = " ";
             condition->condition    = " ";
+            if(_conditionType == CONDITIONTYPE::JOIN)
+                condition->isJoin   = true;
         }
         
         if(strcasecmp(_token.c_str(),sqlTokenOpenParen) == 0)
         {
-            condition->prefix = _token;
             return ParseResult::SUCCESS;
         }
 
         if(strcasecmp(_token.c_str(),sqlTokenCloseParen) == 0)
         {
-            condition->suffix = _token;
             return ParseResult::SUCCESS;
         }
 
@@ -637,6 +635,7 @@ ParseResult ParseQuery::addCondition(string _token, CONDITIONTYPE _conditionType
         //-------------------------------------------------------
         if(condition->op.empty())
         {
+            _token = trim(_token);
             if(strcasecmp(_token.c_str(),sqlTokenLike) != 0
             && strcasecmp(_token.c_str(),sqlTokenGreater) != 0
             && strcasecmp(_token.c_str(),sqlTokenLessThan) != 0

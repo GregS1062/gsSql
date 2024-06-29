@@ -14,7 +14,10 @@ class sqlJoinEngine : public sqlEngine
    public:
 
    ParseResult	join(shared_ptr<Statement>,shared_ptr<tempFiles>);
-   ParseResult  joinOnKey(Search*,vector<shared_ptr<TempColumn>>,size_t);
+   ParseResult 	merge(size_t, shared_ptr<tempFiles>);
+   ParseResult 	searchOnKey(shared_ptr<sIndex>, size_t,shared_ptr<tempFiles>,SEARCH);
+   ParseResult  joinOnKey(Search*,vector<shared_ptr<TempColumn>>,size_t,SEARCH);
+
 
 };
 /******************************************************
@@ -30,6 +33,9 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 		5) retrieve line
 		6) add table columns to row
 	*/
+
+	if(debug)
+        fprintf(traceFile,"\n\n-------------------------BEGIN JOIN ENGINE-------------------------------------------");
 
 	if(_results == nullptr)
 	{
@@ -48,13 +54,27 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 	//Assuming indexed read on one key column
 
 	shared_ptr<Column> key{};
+	string op;
 
 	// 1)
 	for(shared_ptr<Condition> condition : statement->table->conditions)
 	{
+		/*	Differentiate between 'join' and 'where' conditions
+			1) Where condition will have a null compareToColumn
+			2) where condition will have a compareToColumn with a table name same as the column table name
+		*/
+		if(condition->compareToColumn == nullptr)
+			continue;
+		if(condition->compareToColumn->tableName.compare(condition->col->tableName) == 0)
+			continue;
+		//set up the keys
 		key = condition->col;
+		op = condition->op;
+		//Once the key saved, the condition will be satisfied in the subsequent logic, so remove the condition since it is redundant
+		statement->table->conditions.remove(condition);
 		break;
 	}
+
 	if(key == nullptr)
 	{
 		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"No condition found for this join ");
@@ -64,8 +84,8 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 	vector<vector<shared_ptr<TempColumn>>> rows = _results->rows;
 	vector<shared_ptr<TempColumn>>row = rows.at(0);
 
-	// 2)
-	int keyColumnNbr = NEGATIVE;
+	// 2) Get the key's position in the row.
+	size_t keyColumnNbr = std::string::npos;
 	char* name;
 	for(size_t i = 0;i < row.size();i++)
 	{
@@ -74,8 +94,6 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 			name = (char*)row.at(i)->alias.c_str();
 		else
 			name = (char*)row.at(i)->name.c_str();
-		if(debug)
-			fprintf(traceFile,"\nmatching %s to column %s",key->name.c_str(),name);
 		if(strcasecmp(key->name.c_str(),name) == 0 )
 		{
 			keyColumnNbr = (int)i;
@@ -83,14 +101,15 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 		}
 	}
 
-	if(keyColumnNbr == NEGATIVE)
+	if(keyColumnNbr == std::string::npos)
 	{
 		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not match join key column name:");
 		sendMessage(MESSAGETYPE::ERROR,presentationType,false,key->name.c_str());
 		return ParseResult::FAILURE;
 	}
 
-	// 3)	//Again, assuming one column on primary index
+	// 3)	Find the index
+	//Again, assuming one column on primary index
 	shared_ptr<sIndex> index{};
 	for(shared_ptr<sIndex> idx : statement->table->indexes)
 	{
@@ -104,60 +123,100 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 		}
 	}
 
+	//Condition search type transformed into an enum that btree can understand
+	SEARCH searchType = getSearchType(op);
 	if(index == nullptr)
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find join index on ");
-		sendMessage(MESSAGETYPE::ERROR,presentationType,false,key->name);
-		return ParseResult::FAILURE;
+			//table scan
+		close();
+		return ParseResult::SUCCESS;
 	}
-	if(debug)
-		fprintf(traceFile,"\njoin on index %s",index->name.c_str());
 
-	search = new Search(index->fileStream);
+	ParseResult retResult;
+	if(searchOnKey(index,keyColumnNbr,_results, searchType) == ParseResult::SUCCESS)
+		retResult = ParseResult::SUCCESS;
+	else
+	    retResult = ParseResult::FAILURE;
+
+	close();
+	return retResult;
+}
+/******************************************************
+ * Table Scan
+ ******************************************************/
+ParseResult sqlJoinEngine::merge(size_t _keyColumnNbr,shared_ptr<tempFiles> _results)
+{
+	list<int> sortList;
+	sortList.push_back((int)_keyColumnNbr);
+	_results->Sort(sortList,true);
+	return ParseResult::SUCCESS;
+}
+/******************************************************
+ * Search On Key
+ ******************************************************/
+ParseResult sqlJoinEngine::searchOnKey(shared_ptr<sIndex> _index, size_t _keyColumnNbr,shared_ptr<tempFiles> _results, SEARCH _searchType)
+{
+	if(debug)
+		fprintf(traceFile,"\njoin on index %s",_index->name.c_str());
+
+	vector<shared_ptr<TempColumn>>row;
+	search = new Search(_index->fileStream);
 	
 	// 4)
 	for (size_t i = 0; i < _results->rows.size(); i++) 
 	{ 
 		row = (vector<shared_ptr<TempColumn>>)_results->rows[i];
-		if(joinOnKey(search,row,(size_t)keyColumnNbr) == ParseResult::FAILURE)
+		if(joinOnKey(search,row,_keyColumnNbr,_searchType) == ParseResult::FAILURE)
 			break;
 	}
 
 	delete search;
-	close();
 	return ParseResult::SUCCESS;
 }
 /******************************************************
  * Join On Key
  ******************************************************/
-ParseResult sqlJoinEngine::joinOnKey(Search* _search,vector<shared_ptr<TempColumn>> _row, size_t _keyColumnNbr)
+ParseResult sqlJoinEngine::joinOnKey(Search* _search,vector<shared_ptr<TempColumn>> _row, size_t _keyColumnNbr,SEARCH _searchType)
 {
+	/*  1) _row = the single row of product from the previous selects and joins
+		2) searchResults will be the rows produced by the join statement  (for instance row might be an order and searchResults may be the line items)
+		3) merge these products
+	*/
+	char* key = (char*)_row.at(_keyColumnNbr)->charValue.c_str();
 	vector<shared_ptr<TempColumn>>	newRow;
-	long location = _search->find((char*)_row.at(_keyColumnNbr)->charValue.c_str());
 
-	if(debug)
-		fprintf(traceFile,"\n join key %s location %ld",_row.at(_keyColumnNbr)->charValue.c_str(),location);
+	QueryResultList* searchResults = _search->findRange(key, 0, _searchType);
 
-	// A no-hit is legit
-	if( location == NEGATIVE)
-	 	return ParseResult::SUCCESS;
-
-	line = getRecord(location,tableStream, statement->table->recordLength);
-
-	//End of File
-	if(line == nullptr)
+	while(searchResults != nullptr)
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Invalid location at index key ");
-		return ParseResult::FAILURE;
-	}
+		// A no-hit is legit
+		if( searchResults->location == NEGATIVE)
+			return ParseResult::SUCCESS;
 
+		line = getRecord(searchResults->location,tableStream, statement->table->recordLength);
 
-	newRow = outputLine	(statement->table->columns);
-	for(size_t i=0;i<_row.size();i++)
-	{
-		newRow.push_back(_row.at(i));
+		//End of File
+		if(line == nullptr)
+		{
+			sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Invalid location at index key ");
+			return ParseResult::FAILURE;
+		}
+
+		if(queryContitionsMet(statement->table->conditions, line) == ParseResult::SUCCESS)
+		{
+			//product of join statement
+			newRow = outputLine	(statement->table->columns);
+			//previous product
+			for(size_t i=0;i<_row.size();i++)
+			{	
+				//merge
+				newRow.push_back(_row.at(i));
+			}
+			results->addRow(newRow);
+
+		}
+		searchResults = searchResults->next;
 	}
-	results->addRow(newRow);
 
 	return ParseResult::SUCCESS;
 }

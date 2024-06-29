@@ -161,14 +161,6 @@ ParseResult Binding::bindColumnList()
                 continue;
             }
 
-            //Case 2: Name = *
-            if(parts->columnName.compare(sqlTokenAsterisk) == 0)
-            {
-                if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
-                    return ParseResult::FAILURE;
-            continue;
-            }
-
             //Bind column to table
             tbl = assignTable(parts);
             if(tbl == nullptr)
@@ -176,6 +168,15 @@ ParseResult Binding::bindColumnList()
                 sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot assign column to table: ");
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,parts->fullName);
                 return ParseResult::FAILURE;
+            }
+
+            //Case 2: Name = *
+            if(parts->columnName.compare(sqlTokenAsterisk) == 0)
+            {
+                shared_ptr<sTable> sqlTable = getTableByName(isqlTables->tables,tbl->name );
+                if(populateTable(tbl,sqlTable) == ParseResult::FAILURE)
+                    return ParseResult::FAILURE;
+            continue;
             }
 
             col = assignTemplateColumn(parts,tbl->name);
@@ -554,7 +555,7 @@ ParseResult Binding::bindConditions()
             //Bind to compareToColumn
             if(bindCondition(con,true) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
-        //TODO tbl = lookup::getTableByName(lstTables,con->col->tableName);
+
             defaultTable->conditions.push_back(con);
         }
         
