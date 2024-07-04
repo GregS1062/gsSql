@@ -18,6 +18,8 @@ X order by desc not working.
   Not parseing multiple joins correctly
   Need template columns
   where condition not added to correct join table
+  insert (probably) not trimming correctly  like "schiller" works but = "schiller" does not, yet = "jackson" does
+  Cannot set field to empty
 X  max and min functions broke
    join columns not added to report list
     See select top 50 o.orderid, i.orderid, i.productid from items i join orders o on o.orderid = i.orderid

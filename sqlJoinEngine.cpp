@@ -13,9 +13,9 @@ class sqlJoinEngine : public sqlEngine
 
    public:
 
-   ParseResult	join(shared_ptr<Statement>,shared_ptr<tempFiles>);
-   ParseResult 	merge(size_t, shared_ptr<tempFiles>);
-   ParseResult 	searchOnKey(shared_ptr<sIndex>, size_t,shared_ptr<tempFiles>,SEARCH);
+   ParseResult	join(shared_ptr<Statement>,shared_ptr<response>);
+   ParseResult 	merge(size_t, shared_ptr<response>);
+   ParseResult 	searchOnKey(shared_ptr<sIndex>, size_t,shared_ptr<response>,SEARCH);
    ParseResult  joinOnKey(Search*,vector<shared_ptr<TempColumn>>,size_t,SEARCH);
 
 
@@ -23,7 +23,7 @@ class sqlJoinEngine : public sqlEngine
 /******************************************************
  * Join
  ******************************************************/
-ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tempFiles> _results)
+ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<response> _results)
 {
 	/*
 		1) Get condition
@@ -144,7 +144,7 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<tem
 /******************************************************
  * Table Scan
  ******************************************************/
-ParseResult sqlJoinEngine::merge(size_t _keyColumnNbr,shared_ptr<tempFiles> _results)
+ParseResult sqlJoinEngine::merge(size_t _keyColumnNbr,shared_ptr<response> _results)
 {
 	list<int> sortList;
 	sortList.push_back((int)_keyColumnNbr);
@@ -154,7 +154,7 @@ ParseResult sqlJoinEngine::merge(size_t _keyColumnNbr,shared_ptr<tempFiles> _res
 /******************************************************
  * Search On Key
  ******************************************************/
-ParseResult sqlJoinEngine::searchOnKey(shared_ptr<sIndex> _index, size_t _keyColumnNbr,shared_ptr<tempFiles> _results, SEARCH _searchType)
+ParseResult sqlJoinEngine::searchOnKey(shared_ptr<sIndex> _index, size_t _keyColumnNbr,shared_ptr<response> _results, SEARCH _searchType)
 {
 	if(debug)
 		fprintf(traceFile,"\njoin on index %s",_index->name.c_str());

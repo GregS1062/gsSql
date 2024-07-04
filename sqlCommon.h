@@ -13,6 +13,7 @@ struct columnParts
     public:
         string fullName;
         string tableAlias;
+        string tableName;
         string columnName;
         string columnAlias;
         string function;
@@ -41,6 +42,7 @@ class Column
     string          name{};
     string          alias{};
     bool            primary         = false;
+    bool            display         = true;
     t_function      functionType    = t_function::NONE;
     t_edit          edit            = t_edit::t_undefined;
     size_t          length          = 0;

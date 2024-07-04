@@ -443,6 +443,8 @@ ParseResult sqlModifyEngine::updateIndexes(long _location, SQLACTION _action)
 				continue;
 			}
 
+			transform(qColumn->value.begin(), qColumn->value.end(), qColumn->value.begin(), ::toupper);
+
 			if(_action == SQLACTION::INSERT)
 			{
 				if(!idx->index->insertIndex->insert((char*)qColumn->value.c_str(),_location))

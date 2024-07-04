@@ -78,38 +78,33 @@ size_t findKeyword(string _str, string _delimiter)
         }
         return std::string::npos;
     }                                  
-    catch_and_trace
+    catch_and_throw_to_caller
     return std::string::npos;
 }
-
-size_t findKeywordX(string _string, string _target)
-{
-    //NOTE: a normalized string will always contain keywords bracketed by spaces
-    string str{};
-    if(_string[0] == SPACE)
-        str.append(" ");
-        
-    str.append(_target).append(" ");
-    size_t ret = _string.find(str);
-    return ret;
-}
+/******************************************************
+ * Find keyword from list
+ ******************************************************/
 //Returns the first delimiter to appear in the string
 size_t findKeywordFromList(string _string, list<string> _list)
 {
-    size_t len = _string.length();
-    size_t found = len;
-    size_t result;
-    for(string delimiter : _list)
-    {
-        result = findKeyword(_string,delimiter);
+    try
+    {  
+        size_t len = _string.length();
+        size_t found = len;
+        size_t result;
+        for(string delimiter : _list)
+        {
+            result = findKeyword(_string,delimiter);
 
-        if(result != std::string::npos
-        && result < found)
-            found = result;
+            if(result != std::string::npos
+            && result < found)
+                found = result;
+        }
+        if(found < len)
+            return found;
+        return std::string::npos;
     }
-    if(found < len)
-        return found;
-    return std::string::npos;
+    catch_and_throw_to_caller
 }
 /******************************************************
  * Snip String (string.substr wrapper)
@@ -145,30 +140,34 @@ ParseResult isQueryWellFormed(char* _queryString)
 
       ensures that parthesis and quotes are balanced
     */
+   try
+   {
+   
+        string sql;
+        sql.append(_queryString);
 
-    string sql;
-    sql.append(_queryString);
+        // Do open and close parenthesis match?
+        if(std::count(sql.begin(), sql.end(), '(')
+        != std::count(sql.begin(), sql.end(), ')'))
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch of parenthesis");
+            return ParseResult::FAILURE;
+        }
 
-    // Do open and close parenthesis match?
-    if(std::count(sql.begin(), sql.end(), '(')
-    != std::count(sql.begin(), sql.end(), ')'))
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch of parenthesis");
-        return ParseResult::FAILURE;
-    }
+        //Do quotes match?
+        bool even = std::count(sql.begin(), sql.end(), '"') % 2 == 0;
+        if(!even)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing quotes.");
+            return ParseResult::FAILURE;
+        }
 
-    //Do quotes match?
-    bool even = std::count(sql.begin(), sql.end(), '"') % 2 == 0;
-    if(!even)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing quotes.");
-        return ParseResult::FAILURE;
-    }
-
-    return ParseResult::SUCCESS;
+        return ParseResult::SUCCESS;
+   }
+   catch_and_throw_to_caller
 }
 /*******************************************************
-   Ensure well formed query
+   Normalize Query
 *******************************************************/
 string normalizeQuery(string _target, size_t _maxSize)
 {
@@ -179,169 +178,174 @@ string normalizeQuery(string _target, size_t _maxSize)
         4) Control spaces around and near equal sign.  somedata=somedata becomes somedata = somedata, same with somedata =< somedata
         5) Do not normalize text between quotes
     */
-	char c      = SPACE;
-    char next   = SPACE;
-    char prior  = SPACE;
-    int quotes      = 0;
-    int openParen   = 0;
-    int closeParen  = 0;
-    bool betweenQuotes = false;
-	size_t len = _target.length();
-    size_t eos = len -1;                    //hard end of string
-    if(len > _maxSize)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Query exceeds max query size of ",to_string(_maxSize));
-        return nullptr;
-    }
+   try
+   {
 
-    char str[_maxSize];
-	size_t itr = 0;
-	for(size_t i = 0;i<len;i++)
-	{		
-        if(itr > _maxSize)
+        char c      = SPACE;
+        char next   = SPACE;
+        char prior  = SPACE;
+        int quotes      = 0;
+        int openParen   = 0;
+        int closeParen  = 0;
+        bool betweenQuotes = false;
+        size_t len = _target.length();
+        size_t eos = len -1;                    //hard end of string
+        if(len > _maxSize)
         {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Well formed query size exceeds max query size of",to_string(_maxSize));
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Query exceeds max query size of ",to_string(_maxSize));
             return nullptr;
         }
 
-        prior = c;
-		c = _target[i];
+        char str[_maxSize];
+        size_t itr = 0;
+        for(size_t i = 0;i<len;i++)
+        {		
+            if(itr > _maxSize)
+            {
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Well formed query size exceeds max query size of",to_string(_maxSize));
+                return nullptr;
+            }
 
-        // 5)
-        if(c == QUOTE)
-        {
-            quotes++;
+            prior = c;
+            c = _target[i];
+
+            // 5)
+            if(c == QUOTE)
+            {
+                quotes++;
+                if(betweenQuotes)
+                    betweenQuotes = false;
+                else
+                    betweenQuotes = true;
+            }
+
+            //keep white space between quotes
             if(betweenQuotes)
-                betweenQuotes = false;
-            else
-                betweenQuotes = true;
-        }
+            {
+                str[itr] = c;
+                itr++;
+                continue;
+            }
 
-        //keep white space between quotes
-        if(betweenQuotes)
-        {
+            // 1) eliminate white noise
+            //      by converting to spaces
+            //      multiple spaces will be dealt with downstream
+            if((int)c == 0	//null
+            || c == TAB
+            || c == NEWLINE
+            || c == RETURN
+            || c == FORMFEED
+            || c == VTAB)
+            {
+                c = SPACE;
+            }  
+
+            //prepare inquiry into normalization 
+            if( itr<len
+            ||  i < eos)        
+                next = _target[i+1];
+            
+            if(c == OPENPAREN)
+                openParen++;
+
+            if(c == CLOSEPAREN)
+                closeParen++;
+
+            // 2) eliminate multiple spaces
+            if(c == SPACE
+            && prior == SPACE)
+                continue;
+
+            if(c == OPENPAREN
+            || c == CLOSEPAREN)
+            {
+                if(prior != SPACE)
+                {
+                    str[itr] = SPACE;
+                    itr++;
+                }
+                str[itr] = c;
+                itr++;
+                if(next != SPACE)
+                {
+                    str[itr] = SPACE;
+                    itr++;
+                }
+                continue;
+            }
+
+            // 3)
+            if(c == GTR
+            || c == LST)
+            {
+                if(prior != SPACE
+                && prior != LST)
+                {
+                    str[itr] = SPACE;
+                    itr++;
+                }
+                str[itr] = c;
+                itr++;
+                if(next != SPACE
+                && next != EQUAL
+                && next != GTR)
+                {
+                    str[itr] = SPACE;
+                    itr++;
+                }
+                continue;
+            }
+
+            //x=x
+            if(c == EQUAL)
+            {
+                if(prior != SPACE
+                && prior != GTR
+                && prior != LST)
+                {
+                    str[itr] = SPACE;
+                    itr++;
+                }
+                str[itr] = c;
+                itr++;
+                if(next != SPACE)
+                {          
+                    str[itr] = SPACE;
+                    itr++;
+                }
+                continue;
+            }
+
             str[itr] = c;
             itr++;
-            continue;
         }
 
-        // 1) eliminate white noise
-        //      by converting to spaces
-        //      multiple spaces will be dealt with downstream
-		if((int)c == 0	//null
-        || c == TAB
-		|| c == NEWLINE
-        || c == RETURN
-        || c == FORMFEED
-        || c == VTAB)
+        //Terminat string
+        str[itr] = '\0';
+
+        if( quotes > 0)
         {
-            c = SPACE;
-        }  
-
-        //prepare inquiry into normalization 
-        if( itr<len
-        ||  i < eos)        
-            next = _target[i+1];
-        
-        if(c == OPENPAREN)
-            openParen++;
-
-        if(c == CLOSEPAREN)
-            closeParen++;
-
-        // 2) eliminate multiple spaces
-        if(c == SPACE
-        && prior == SPACE)
-            continue;
-
-        if(c == OPENPAREN
-        || c == CLOSEPAREN)
-        {
-            if(prior != SPACE)
+        if(!(quotes   % 2 == 0))
             {
-                str[itr] = SPACE;
-		        itr++;
-            }
-            str[itr] = c;
-		    itr++;
-            if(next != SPACE)
-            {
-                str[itr] = SPACE;
-		        itr++;
-            }
-            continue;
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing quotes.");
+                return nullptr;
+            } 
         }
 
-        // 3)
-        if(c == GTR
-        || c == LST)
+        if(openParen == 0
+        && closeParen == 0)
+            return string(str);
+
+
+        if(openParen != closeParen)
         {
-            if(prior != SPACE
-            && prior != LST)
-            {
-                str[itr] = SPACE;
-		        itr++;
-            }
-            str[itr] = c;
-		    itr++;
-            if(next != SPACE
-            && next != EQUAL
-            && next != GTR)
-            {
-                str[itr] = SPACE;
-		        itr++;
-            }
-            continue;
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch between ( and ).");
+            return string();
         }
-
-        //x=x
-        if(c == EQUAL)
-        {
-            if(prior != SPACE
-            && prior != GTR
-            && prior != LST)
-            {
-                str[itr] = SPACE;
-		        itr++;
-            }
-            str[itr] = c;
-		    itr++;
-            if(next != SPACE)
-            {          
-                str[itr] = SPACE;
-		        itr++;
-            }
-            continue;
-        }
-
-		str[itr] = c;
-		itr++;
-	}
-
-    //Terminat string
-	str[itr] = '\0';
-
-    if( quotes > 0)
-    {
-       if(!(quotes   % 2 == 0))
-        {
-            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: too many or missing quotes.");
-            return nullptr;
-        } 
-    }
-
-    if(openParen == 0
-    && closeParen == 0)
+    
         return string(str);
-
-
-    if(openParen != closeParen)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Syntax error: mismatch between ( and ).");
-        return string();
     }
- 
-    return string(str);
+    catch_and_throw_to_caller
 }
 /*******************************************************
    Prepare String Template
@@ -358,26 +362,30 @@ string prepareStringTemplate(string _string)
     */
 
    // 1)
-   transform(_string.begin(), _string.end(), _string.begin(), ::toupper);
-
-    bool betweenQuotes = false;
-   // 2)
-   for(size_t i = 0;i<_string.length(); i++)
+   try
    {
-        if(_string[i] == QUOTE)
-        {
-            if(betweenQuotes)
-                betweenQuotes = false;
-            else
-                betweenQuotes = true;
-            
-            continue;
-        }
+    transform(_string.begin(), _string.end(), _string.begin(), ::toupper);
 
-        if(betweenQuotes)
-            _string[i] = SPACE;
+        bool betweenQuotes = false;
+    // 2)
+    for(size_t i = 0;i<_string.length(); i++)
+    {
+            if(_string[i] == QUOTE)
+            {
+                if(betweenQuotes)
+                    betweenQuotes = false;
+                else
+                    betweenQuotes = true;
+                
+                continue;
+            }
+
+            if(betweenQuotes)
+                _string[i] = SPACE;
+    }
+    return _string;
    }
-   return _string;
+   catch_and_throw_to_caller
 }
 
 /*******************************************************
@@ -394,7 +402,7 @@ shared_ptr<sTable> getTableByName(list<shared_ptr<sTable>> tables,string _name)
         }
         return nullptr;
     }
-    catch_and_trace
+    catch_and_throw_to_caller
 }
 
 /******************************************************
@@ -411,7 +419,7 @@ shared_ptr<sTable> getTableByAlias(list<shared_ptr<sTable>> tables,string _alias
         }
         return nullptr;
     }
-    catch_and_trace
+    catch_and_throw_to_caller
 }
 
 /******************************************************
@@ -432,7 +440,7 @@ shared_ptr<Column> getColumnByName(list<shared_ptr<Column>> _columns, string _na
         
         return nullptr;
     }
-    catch_and_trace
+    catch_and_throw_to_caller
 }
 /******************************************************
  * Get Column By Name
@@ -452,7 +460,7 @@ shared_ptr<Column> getColumnByAlias(list<shared_ptr<Column>> _columns, string _a
         
         return nullptr;
     }
-    catch_and_trace
+    catch_and_throw_to_caller
 }
 /******************************************************
  * Is Join
@@ -469,6 +477,88 @@ size_t isJoin(string _string)
         lstJoin.push_back(sqlTokenRightJoin);
         return findKeywordFromList(_string,lstJoin);
     }
-    catch_and_trace
+   catch_and_throw_to_caller
     return std::string::npos;
 }
+/******************************************************
+ * Process Split
+ ******************************************************/
+list<string> split(string _queryString)
+{
+    list<string> queries;
+    try
+    {
+        if(debug)
+            fprintf(traceFile,"\n------------- split ----------------");
+        
+        string queryString = _queryString;
+
+        size_t joinFound = isJoin(queryString);
+
+        if(joinFound == std::string::npos)
+        {
+            queries.push_back(queryString);
+            return queries;
+        }
+        else
+        {
+            queries.push_back(queryString.substr(0,joinFound));
+            //return portion of string AFTER join
+            queryString = snipString(queryString,joinFound);
+        }
+        while(true)
+        {
+            /*
+                The pupose of this routine is to walk backward through the string, clipping off each join
+            */
+
+            //A join statement will the first keyword in the string - offset that by 10 (well clear of a join keyword) and test
+            string testStr = queryString.substr(10,queryString.length() -1);
+
+            joinFound = isJoin(testStr);
+            //if no join found at this point then this is the last segment
+            if(joinFound == std::string::npos)
+            {
+                queries.push_back(queryString);
+                break;
+            }
+                
+
+            size_t posJoin = findKeyword(testStr,sqlTokenJoin);
+            size_t posInnerJoin = findKeyword(testStr,sqlTokenInnerJoin);
+            size_t posOuterJoin = findKeyword(testStr,sqlTokenOuterJoin);
+            size_t posLeftJoin = findKeyword(testStr,sqlTokenLeftJoin);
+            size_t posRightJoin = findKeyword(testStr,sqlTokenRightJoin);
+
+            list<size_t> stack;
+            if(posJoin != std::string::npos)
+                stack.push_back(posJoin+10);
+            if(posInnerJoin != std::string::npos)
+                stack.push_back(posInnerJoin+10);
+            if(posOuterJoin != std::string::npos)
+                stack.push_back(posOuterJoin+10);
+            if(posLeftJoin != std::string::npos)
+                stack.push_back(posLeftJoin+10);
+            if(posRightJoin != std::string::npos)
+                stack.push_back(posRightJoin+10);
+
+            stack.sort();
+            stack.reverse();
+
+            for(size_t join : stack)
+            {
+                //return portion of string AFTER join
+                string query = snipString(queryString,join);
+                queries.push_back(query);
+                //erase portion of string AFTER join
+                queryString = trim(clipString(queryString,join));
+            }
+        }
+
+        return queries;
+    }
+    catch_and_throw_to_caller
+    return queries;
+}
+
+

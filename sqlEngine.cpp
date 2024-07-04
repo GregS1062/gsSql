@@ -18,7 +18,7 @@
 #include "defines.h"
 #include "sqlCommon.h"
 #include "compare.cpp"
-#include "tempFiles.cpp"
+#include "response.cpp"
 
 
 using namespace std;
@@ -56,10 +56,10 @@ class sqlEngine
 		vector<shared_ptr<TempColumn>>	outputLine	(list<shared_ptr<Column>>);
 		void						rowsUpdatedMsg 	(int);
 		void 						rowsReturnedMsg ();
-		ParseResult					tableScan		(list<shared_ptr<Column>>, shared_ptr<tempFiles>);
+		ParseResult					tableScan		(list<shared_ptr<Column>>, shared_ptr<response>);
 
 	public:
-		shared_ptr<tempFiles>		results			= make_shared<tempFiles>();
+		shared_ptr<response>		results			= make_shared<response>();
 
 };
 
@@ -143,6 +143,7 @@ vector<shared_ptr<TempColumn>>	sqlEngine::outputLine(list<shared_ptr<Column>> _c
 		temp->length	= col->length;
 		temp->edit		= col->edit;
 		temp->alias		= col->alias;
+		temp->display	= col->display;
 		temp->functionType		= col->functionType;
 		if(col->functionType == t_function::COUNT
 		&& strcasecmp(col->name.c_str(),sqlTokenCount) == 0)
@@ -273,7 +274,7 @@ SEARCH sqlEngine::getSearchType(string _op)
 /******************************************************
  * Table Scan
  ******************************************************/
-ParseResult sqlEngine::tableScan(list<shared_ptr<Column>> _columns,shared_ptr<tempFiles> _results)
+ParseResult sqlEngine::tableScan(list<shared_ptr<Column>> _columns,shared_ptr<response> _results)
 {
 /*
 	Input: list of columns to be read

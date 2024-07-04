@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <syslog.h>
 #include "parseSQL.cpp"
-#include "plan.cpp"
+#include "controller.cpp"
 
 #include <cgicc/CgiDefs.h> 
 #include <cgicc/Cgicc.h> 
@@ -31,7 +31,7 @@ ParseResult runQuery(string _htmlRequest)
 	presentationType = PRESENTATION::HTML;
         
 	auto sql = make_unique<parseSql>(sqlFile);
-	debug = true;
+	debug = false;
 	if(sql->parse() == ParseResult::FAILURE)
 	{
 		fprintf(traceFile,"\n******************SQL Parser FAILED*****************");
@@ -41,12 +41,8 @@ ParseResult runQuery(string _htmlRequest)
 
 	debug = true;
 
-	Plan plan(sql->isqlTables);
-	
-	if(plan.prepare(_htmlRequest) == ParseResult::SUCCESS)
-	{
-		plan.execute();
-	};
+	controller controller(sql->isqlTables);
+	controller.runQuery(_htmlRequest);
 
 	return ParseResult::SUCCESS;
 }

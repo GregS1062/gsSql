@@ -5,7 +5,7 @@
 #include "parseSQL.cpp"
 #include "parseQuery.cpp"
 #include "binding.cpp"
-#include "plan.cpp"
+#include "controller.cpp"
 #include "printDiagnostics.cpp"
 
 using namespace std;
@@ -137,12 +137,8 @@ int main(int argc, char* argv[])
 
         debug = true;
 
-        Plan plan(sql->isqlTables);
-        
-        if(plan.prepare(queryStr) == ParseResult::SUCCESS)
-        {
-            plan.execute();
-        }
+        controller controller(sql->isqlTables);
+        controller.runQuery(queryStr);
        
 
         fprintf(traceFile,"\n\n");

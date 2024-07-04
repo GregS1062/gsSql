@@ -10,33 +10,33 @@ class Binding
 {
     private:
 
-    shared_ptr<sTable>          defaultTable;    
-    shared_ptr<sTable>          defaultSQLTable;
-    shared_ptr<iSQLTables>      isqlTables;
+    shared_ptr<sTable>              defaultTable;    
+    shared_ptr<sTable>              defaultSQLTable;
+    shared_ptr<iSQLTables>          isqlTables;
     
-    ParseResult                 bindColumnList();
-    ParseResult                 bindFunctionColumn(std::shared_ptr<columnParts>);
-    shared_ptr<sTable>          assignTable(std::shared_ptr<columnParts>);
-    shared_ptr<Column>          assignTemplateColumn(std::shared_ptr<columnParts>,string);
-    ParseResult                 bindValueList();
-    ParseResult                 bindConditions();
-    ParseResult                 bindCondition(shared_ptr<Condition>,bool);
-    ParseResult                 bindHaving();
-    ParseResult                 bindOrderBy();
-    ParseResult                 bindGroupBy();
-    ParseResult                 populateTable(shared_ptr<sTable>,shared_ptr<sTable>);
-    bool                        valueSizeOutofBounds(string, shared_ptr<Column>);
-    ParseResult                 editColumn(shared_ptr<Column>,string);
-    ParseResult                 editCondition(shared_ptr<Condition>);
+    ParseResult                     bindColumnList();
+    ParseResult                     bindFunctionColumn(std::shared_ptr<columnParts>);
+    shared_ptr<sTable>              assignTable(std::shared_ptr<columnParts>);
+    shared_ptr<Column>              getColumnDetail(std::shared_ptr<columnParts>,string);
+    ParseResult                     bindValueList();
+    ParseResult                     bindConditions();
+    ParseResult                     bindCondition(shared_ptr<Condition>,bool);
+    ParseResult                     bindHaving();
+    ParseResult                     bindOrderBy();
+    ParseResult                     bindGroupBy();
+    ParseResult                     populateTable(shared_ptr<sTable>,shared_ptr<sTable>,SQLACTION);
+    bool                            valueSizeOutofBounds(string, shared_ptr<Column>);
+    ParseResult                     editColumn(shared_ptr<Column>,string);
+    ParseResult                     editCondition(shared_ptr<Condition>);
 
     public:
 
-    shared_ptr<OrderBy>         orderBy = make_shared<OrderBy>(); 
-    shared_ptr<GroupBy>         groupBy = make_shared<GroupBy>(); 
-    ParseResult                 bindTableList(list<string>);
-    list<shared_ptr<sTable>>    lstTables;  //public for diagnostic purposes
-    shared_ptr<iElements>       ielements = make_shared<iElements>();
-    shared_ptr<Statement> statement = make_shared<Statement>();     
+    list<shared_ptr<columnParts>>   reportColumns;
+    shared_ptr<OrderBy>             orderBy = make_shared<OrderBy>(); 
+    shared_ptr<GroupBy>             groupBy = make_shared<GroupBy>(); 
+    list<shared_ptr<sTable>>        lstTables;  //public for diagnostic purposes
+    shared_ptr<iElements>           ielements = make_shared<iElements>();
+    shared_ptr<Statement>           statement = make_shared<Statement>();     
 
     Binding(shared_ptr<iSQLTables>);
     shared_ptr<Statement>        bind(shared_ptr<iElements>);
@@ -144,7 +144,7 @@ ParseResult Binding::bindColumnList()
         if(ielements->lstColumns.size() == 0
         && ielements->sqlAction == SQLACTION::INSERT)
         {
-            if(populateTable(defaultTable,defaultSQLTable) == ParseResult::FAILURE)
+            if(populateTable(defaultTable,defaultSQLTable,ielements->sqlAction) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
             return ParseResult::SUCCESS;
         }
@@ -153,6 +153,7 @@ ParseResult Binding::bindColumnList()
         shared_ptr<Column> col;
         for(std::shared_ptr<columnParts> parts : ielements->lstColumns)
         {
+            
             //Case 1: function
             if(!parts->function.empty())
             {
@@ -174,12 +175,15 @@ ParseResult Binding::bindColumnList()
             if(parts->columnName.compare(sqlTokenAsterisk) == 0)
             {
                 shared_ptr<sTable> sqlTable = getTableByName(isqlTables->tables,tbl->name );
-                if(populateTable(tbl,sqlTable) == ParseResult::FAILURE)
+                if(populateTable(tbl,sqlTable,ielements->sqlAction) == ParseResult::FAILURE)
                     return ParseResult::FAILURE;
-            continue;
+                continue;
             }
-
-            col = assignTemplateColumn(parts,tbl->name);
+            /*
+                At this point, we have the column name and have identified the column - but we
+                know nothing else about it.  Now we get the edit, length, record position etc.
+            */
+            col = getColumnDetail(parts,tbl->name);
             if(col == nullptr)
             {
                 sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot assign column to table: ");
@@ -196,6 +200,8 @@ ParseResult Binding::bindColumnList()
                     return ParseResult::FAILURE;
                 col->value = parts->value;
             }
+            parts->tableName = tbl->name;
+            reportColumns.push_back(parts);
             tbl->columns.push_back(col);  
             fprintf(traceFile,"\n col %s added to table %s",col->name.c_str(), tbl->name.c_str());
         }
@@ -258,7 +264,7 @@ shared_ptr<sTable> Binding::assignTable(std::shared_ptr<columnParts> _parts)
 /******************************************************
  * Assign Template Column
  ******************************************************/
-shared_ptr<Column>  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _parts,string _tableName)
+shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts,string _tableName)
 {
     try
     {
@@ -352,7 +358,7 @@ shared_ptr<Column>  Binding::assignTemplateColumn(std::shared_ptr<columnParts> _
             return ParseResult::FAILURE;
         }
 
-        col = assignTemplateColumn(_parts,tbl->name);
+        col = getColumnDetail(_parts,tbl->name);
         if(col == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find template column: ");
@@ -470,7 +476,7 @@ ParseResult Binding::bindValueList()
 /******************************************************
  * Populate table
  ******************************************************/
-ParseResult Binding::populateTable(shared_ptr<sTable> _table,shared_ptr<sTable> _sqlTbl)
+ParseResult Binding::populateTable(shared_ptr<sTable> _table,shared_ptr<sTable> _sqlTbl,SQLACTION sqlAction)
 {
    try
    {
@@ -478,6 +484,14 @@ ParseResult Binding::populateTable(shared_ptr<sTable> _table,shared_ptr<sTable> 
             fprintf(traceFile,"\n-------------------- Populate table  ----------------");
         for (shared_ptr<Column> col : _sqlTbl->columns) 
         {
+            if(sqlAction != SQLACTION::INSERT
+            && sqlAction != SQLACTION::UPDATE)
+            {
+                shared_ptr<columnParts> parts = make_shared<columnParts>();
+                parts->columnName = col->name;
+                parts->tableName  = _table->name;
+                reportColumns.push_back(parts);
+            }
             _table->columns.push_back(col);
         }
         return ParseResult::SUCCESS;
@@ -612,7 +626,7 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
             return ParseResult::FAILURE;
         }
 
-        col = assignTemplateColumn(columnName,tbl->name);
+        col = getColumnDetail(columnName,tbl->name);
         if(col == nullptr)
         {
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot find column name: ");
@@ -620,15 +634,30 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
             return ParseResult::FAILURE;
         }
 
+        //Test if condition column is in the table list - if not, put it there as a non-display column
+        //  This will provide data for join compares in the joinEngine
+        shared_ptr<Column> testColumn = make_shared<Column>();
         if(_compareToColumn)
         {
             _con->compareToColumn = col;
             _con->compareToColumn->tableName = tbl->name;
+            testColumn = tbl->getColumn(_con->compareToColumn->name);
+            if(testColumn == nullptr)
+            {
+                _con->compareToColumn->display = false;
+                tbl->columns.push_back(_con->compareToColumn);
+            }
         }
         else
         {
             _con->col = col;
             _con->col->tableName = tbl->name;
+            testColumn = tbl->getColumn(_con->col->name);
+            if(testColumn == nullptr)
+            {
+                _con->col->display = false;
+                tbl->columns.push_back(_con->col);
+            }
         }
         if(_con->col != nullptr
         && _con->compareToColumn != nullptr)
@@ -680,7 +709,7 @@ ParseResult Binding::bindOrderBy()
                 return ParseResult::FAILURE;
             }
 
-            col = assignTemplateColumn(order.name,tbl->name);
+            col = getColumnDetail(order.name,tbl->name);
             if(col == nullptr)
             {
                 sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Order By template column to table: ");
@@ -743,7 +772,7 @@ ParseResult Binding::bindGroupBy()
                 return ParseResult::FAILURE;
             }
 
-            col = assignTemplateColumn(group.name,tbl->name);
+            col = getColumnDetail(group.name,tbl->name);
             if(col == nullptr)
             {
                 sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Group By template column to table: ");
