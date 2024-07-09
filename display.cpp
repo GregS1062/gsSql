@@ -6,33 +6,83 @@
 class display
 {
     vector<vector<shared_ptr<TempColumn>>> rows{};
+	list<shared_ptr<columnParts>>   reportColumns;
+
     ParseResult displayHeader(vector<shared_ptr<TempColumn>> _cols);
     string      textHeader      (vector<shared_ptr<TempColumn>>);
     string      htmlHeader      (vector<shared_ptr<TempColumn>>,size_t);
     string      formatColumn	(shared_ptr<TempColumn>);
 	void	    displayColumn	(shared_ptr<TempColumn>);
     void        displayRow(vector<shared_ptr<TempColumn>> _row);
-    
+
+	
     public:
-    void 		displayResponse(vector<vector<shared_ptr<TempColumn>>>);
+
+    void 							displayResponse(vector<vector<shared_ptr<TempColumn>>>,list<shared_ptr<columnParts>>);
+	vector<shared_ptr<TempColumn>> 	orderColumns(vector<shared_ptr<TempColumn>>,list<int>);
 
 };
 /******************************************************
  * Display Response
  ******************************************************/
-void display::displayResponse(vector<vector<shared_ptr<TempColumn>>> _rows)
+void display::displayResponse(vector<vector<shared_ptr<TempColumn>>> _rows,list<shared_ptr<columnParts>>   _reportColumns)
 {
 	if(_rows.size() == 0)
 		return;
-	
+
+	/*
+		Row columns are returned in table order, not in the order requested by the user
+	*/
+
+	reportColumns = _reportColumns;
 	rows = _rows;
 	vector<shared_ptr<TempColumn>> row = rows.front();
-	displayHeader(row);
+	list<int> orderMask;
+
+	/*
+		Build a mask list to put report columns in user order
+	*/
+	for(shared_ptr<columnParts> parts : reportColumns)
+	{
+		t_function ag = getFunctionType(parts->function);
+		int i = 0;
+		for( shared_ptr<TempColumn> col: row)
+		{
+			if (strcasecmp(parts->columnName.c_str(),col->name.c_str()) == 0
+			and strcasecmp(parts->tableName.c_str(),col->tableName.c_str()) == 0
+			and ag == col->functionType)
+			{
+				orderMask.push_back(i);
+				break;
+			}
+			i++;
+		}
+	}
+
+	vector<shared_ptr<TempColumn>> orderedRow = orderColumns(row,orderMask);
+	displayHeader(orderedRow);
+
 	for (size_t i = 0; i < rows.size(); i++) { 
 		row = (vector<shared_ptr<TempColumn>>)rows[i];
 		if(row.size() > 0)
-			displayRow(row);
+		{
+			orderedRow = orderColumns(row,orderMask);
+			displayRow(orderedRow);
+		}
 	}
+}
+
+/******************************************************
+ * Order columns: Arrange columns in order requested by the user
+ ******************************************************/
+vector<shared_ptr<TempColumn>> display::orderColumns(vector<shared_ptr<TempColumn>> _cols,list<int> _orderMask)
+{
+	vector<shared_ptr<TempColumn>> orderedRow;
+
+	for(int order : _orderMask)
+		orderedRow.push_back(_cols.at(order));
+
+	return orderedRow;
 }
 /******************************************************
  * Display Header

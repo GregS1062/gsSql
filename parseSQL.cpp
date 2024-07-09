@@ -375,6 +375,7 @@ ParseResult parseSql::parseColumn(shared_ptr<sTable> _tbl,string _columnString)
             }
             col->length = atoi(columnLength.c_str());
         }
+        col->tableName = _tbl->name;
 
         _tbl->columns.push_back(col);
 

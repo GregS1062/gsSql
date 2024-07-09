@@ -8,20 +8,19 @@ X store insert
     - failing to return on custid
 X conversion failing
 X != not recognised --- because it is an error SQL uses <>
-- compare two fields freight > totaldue
+X compare two fields freight > totaldue
 X condition alias failing
 > select top 25 * from orders where orderdate <> "05/31/2011" and freight > 55.93 and status <> 0  Status condition ignored
 X select top 25 o.* from orders o where o.tax > 14000
 X select top 25 orderdate from orders
 X order by desc not working.
   Delete not working properly  true and false reversed
-  Not parseing multiple joins correctly
+X  Not parseing multiple joins correctly
   Need template columns
-  where condition not added to correct join table
-  insert (probably) not trimming correctly  like "schiller" works but = "schiller" does not, yet = "jackson" does
+X where condition not added to correct join table
+X  insert (probably) not trimming correctly  like "schiller" works but = "schiller" does not, yet = "jackson" does
   Cannot set field to empty
 X  max and min functions broke
-   join columns not added to report list
-    See select top 50 o.orderid, i.orderid, i.productid from items i join orders o on o.orderid = i.orderid
-    but not select top 5 o.orderid, i.orderid, i.productid from orders o join items i on o.orderid = i.orderid
+X  join columns not added to report list
+
 

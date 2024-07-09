@@ -56,6 +56,7 @@ class controller
     shared_ptr<iSQLTables>          isqlTables;
     shared_ptr<OrderBy>             orderBy;
     shared_ptr<GroupBy>             groupBy; 
+    list<shared_ptr<columnParts>>   reportColumns;
     
     ParseResult                     prepare(string);
     ParseResult                     getElements(string);
@@ -87,8 +88,8 @@ ParseResult controller::runQuery(string _queryString)
         execute.lstStatements   = lstStatements;
         execute.groupBy         = groupBy;
         execute.orderBy         = orderBy;
-        return execute.ExecuteQuery();
-        
+        execute.reportColumns   = reportColumns;
+        return execute.ExecuteQuery();    
     }
     catch_and_throw_to_caller
 }
@@ -117,14 +118,6 @@ ParseResult controller::bindElements()
     // 5)
     try
     {
-        if(debug)
-        {
-            fprintf(traceFile,"\n ---------------------- bind Elements ------------------------");
-            for(shared_ptr<sTable> tbl : lstTables)
-            {
-              fprintf(traceFile,"\nlstTable=%s",tbl->name.c_str());
-            }
-        }
         for(shared_ptr<iElements> ielement : lstElements)
         {
             Binding binding             = Binding(isqlTables);
@@ -133,13 +126,16 @@ ParseResult controller::bindElements()
             // 6)
 
             lstStatements.push_back(binding.bind(ielement));
+            
             if(binding.orderBy != nullptr )
                 orderBy                 = binding.orderBy;
+            
             if(binding.groupBy != nullptr)
                 groupBy                 = binding.groupBy;
-
-        } 
             
+            if(binding.reportColumns.size() > 0)
+                reportColumns           = binding.reportColumns;
+        }            
         return ParseResult::SUCCESS;
     }
     catch_and_throw_to_caller
@@ -161,20 +157,9 @@ ParseResult controller::getElements(string _queryString)
         if(queries.size() == 0)
             return ParseResult::FAILURE;
 
-        if(debug)
-            for(string query : queries)
-            {
-                fprintf(traceFile,"\nSplit %s",query.c_str());
-            }
-
         // 3 And 4)
         for(string query : queries)
         {
-            if(debug)
-            {
-                fprintf(traceFile,"\nSplit %s",query.c_str());
-                fprintf(traceFile,"\n-----------------------------------------------------");
-            }
             ParseQuery parseQuery;
             if(parseQuery.parse(query) == ParseResult::FAILURE)
                 return ParseResult::FAILURE;
@@ -185,7 +170,7 @@ ParseResult controller::getElements(string _queryString)
             lstElements.push_back(parseQuery.ielements);
         }
         return ParseResult::SUCCESS;
-        }
+    }
     catch_and_throw_to_caller
 }
 /******************************************************
@@ -201,8 +186,6 @@ ParseResult controller::buildTableList(string _tableName)
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Table name is null");
             return ParseResult::FAILURE;
         }
-        if(debug)
-            fprintf(traceFile,"\n table name %s|| \n",_tableName.c_str());
 
         table = make_shared<sTable>();
 
@@ -223,7 +206,6 @@ ParseResult controller::buildTableList(string _tableName)
             aliasTableName = snipString(_tableName,posSpace+1);
         }
 
-
         shared_ptr<sTable> temp =  make_shared<sTable>();
         temp = getTableByName(isqlTables->tables,tableName);
         if(temp != nullptr)
@@ -238,7 +220,6 @@ ParseResult controller::buildTableList(string _tableName)
             }
             lstTables.push_back(table);
         }
-
 
         if(lstTables.size() == 0)
         {

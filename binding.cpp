@@ -49,7 +49,7 @@ Binding::Binding(shared_ptr<iSQLTables> _isqlTables)
     isqlTables = _isqlTables;
 };
 /******************************************************
- * Bind
+ * Bind - Binds an array of elements into a statement
  ******************************************************/
 shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
 {
@@ -66,9 +66,6 @@ shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"bind empty table list ");
             return nullptr;
         }
-        
-        if(debug)
-                fprintf(traceFile,"\nstatement table name %s",ielements->tableName.c_str());
 
         //Table name may be formated with an alias - trim this off.
         ielements->tableName = trim(ielements->tableName);
@@ -83,10 +80,8 @@ shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
             return nullptr;
         }
 
-
         statement->action = ielements->sqlAction;
         statement->rowsToReturn = ielements->rowsToReturn;
-
 
         //Will contain ONLY columns called in this query
         defaultTable = statement->table;
@@ -103,7 +98,6 @@ shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
             sendMessage(MESSAGETYPE::ERROR,presentationType,false," Binding: unable to load default SQL table");
             return nullptr;
         }
-
 
         if(bindColumnList() == ParseResult::FAILURE)
         {
@@ -130,7 +124,7 @@ shared_ptr<Statement> Binding::bind(shared_ptr<iElements> _ielements)
     return nullptr;
 }
 /******************************************************
- * Bind Column List
+ * Bind Column List - binds column name parts into table columns
  ******************************************************/
 ParseResult Binding::bindColumnList()
 {
@@ -212,7 +206,8 @@ ParseResult Binding::bindColumnList()
 }
 
 /******************************************************
- * Assign Table
+ * Assign Table - Assigns a table to column name parts
+ *      - example: s.name becomes column name - table store
  ******************************************************/
 shared_ptr<sTable> Binding::assignTable(std::shared_ptr<columnParts> _parts)
 {
@@ -262,7 +257,8 @@ shared_ptr<sTable> Binding::assignTable(std::shared_ptr<columnParts> _parts)
     return nullptr;
 }
 /******************************************************
- * Assign Template Column
+ * Get Column Detail - Populates column detail from the SQL 
+ *  definition using the table/column name pair as the key
  ******************************************************/
 shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts,string _tableName)
 {
@@ -283,19 +279,21 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
         if(col == nullptr)
             return nullptr;
 
+ 
         newCol->edit        = col->edit;
         newCol->length      = col->length;
         newCol->position    = col->position;
         newCol->name        = col->name;
         newCol->primary     = col->primary;
-        newCol->tableName   = col->tableName;
+        newCol->tableName   = _tableName;
         return newCol;
     }
     catch_and_trace
     return nullptr;
 };
 /******************************************************
- * Bind Function Columns
+ * Bind Function Columns - Fills in the column detail for
+ *  function columns
  ******************************************************/
  ParseResult Binding::bindFunctionColumn(std::shared_ptr<columnParts> _parts)
 {
@@ -305,23 +303,7 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
         if(debug)
             fprintf(traceFile,"\n------------------bind function------------");
 
-        t_function ag = t_function::NONE;
-
-        if(findKeyword(_parts->function,(char*)sqlTokenCount) != std::string::npos)
-            ag = t_function::COUNT;
-        else
-            if(findKeyword(_parts->function,(char*)sqlTokenSum) != std::string::npos)
-                ag = t_function::SUM;
-            else
-                if(findKeyword(_parts->function,(char*)sqlTokenMax) != std::string::npos)
-                    ag = t_function::MAX;
-                else
-                    if(findKeyword(_parts->function,(char*)sqlTokenMin) != std::string::npos)
-                        ag = t_function::MIN;
-                    else
-                        if(findKeyword(_parts->function,(char*)sqlTokenAvg) != std::string::npos)
-                            ag = t_function::AVG;
-
+        t_function ag = getFunctionType(_parts->function);
 
         if(ag == t_function::NONE)
         {
@@ -337,11 +319,15 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
             if(findKeyword(_parts->columnName,(char*)sqlTokenAsterisk) != std::string::npos)
             {
                     col->functionType = t_function::COUNT;
-                    col->name = (char*)"COUNT";
-                    col->edit   = t_edit::t_int;
+                    col->name           = sqlTokenAsterisk;
+                    _parts->columnName  = sqlTokenAsterisk;
+                    col->tableName      = defaultTable->name;
+                    _parts->tableName   = defaultTable->name;
+                    col->edit           = t_edit::t_int;
                     if(!_parts->columnAlias.empty())
                         col->alias  = _parts->columnAlias;
-                    defaultTable->columns.push_front(col);
+                    defaultTable->columns.push_back(col);
+                    reportColumns.push_back(_parts);
                     return ParseResult::SUCCESS;
             }
         }
@@ -379,6 +365,8 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
         }
         
         col->functionType = ag;
+        if(ag == t_function::COUNT)
+            col->edit    = t_edit::t_int;
 
         string altAlias{};
         switch(ag)
@@ -415,6 +403,7 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
             //is this table in the default table
             if(defaultSQLTable->isColumn(col->name))
             {
+                _parts->tableName = defaultTable->name;
                 defaultTable->columns.push_back(col);
                 return ParseResult::SUCCESS;
             }
@@ -425,7 +414,8 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
                 return ParseResult::FAILURE;
             }
         }
-        
+        _parts->tableName = col->tableName;
+        reportColumns.push_back(_parts);
         tbl->columns.push_back(col);
 
         return ParseResult::SUCCESS;
@@ -435,7 +425,7 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
 }; 
 
 /******************************************************
- * Bind Value List
+ * Bind Value List - Binds a value list to colums
  ******************************************************/
 ParseResult Binding::bindValueList()
 {
@@ -474,7 +464,7 @@ ParseResult Binding::bindValueList()
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Populate table
+ * Populate table - Used when a query invokes an asterisk
  ******************************************************/
 ParseResult Binding::populateTable(shared_ptr<sTable> _table,shared_ptr<sTable> _sqlTbl,SQLACTION sqlAction)
 {
@@ -500,7 +490,8 @@ ParseResult Binding::populateTable(shared_ptr<sTable> _table,shared_ptr<sTable> 
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Value Size Out Of Bounds
+ * Value Size Out Of Bounds - edit check for out of bounds
+ *  condition
  ******************************************************/
 bool Binding::valueSizeOutofBounds(string value,shared_ptr<Column> col)
 {
@@ -541,7 +532,8 @@ bool Binding::valueSizeOutofBounds(string value,shared_ptr<Column> col)
     return true;
 }
 /******************************************************
- * Bind Conditions
+ * Bind Conditions - Binds query conditions to the proper
+ *  table
  ******************************************************/
 ParseResult Binding::bindConditions()
 {
@@ -579,7 +571,7 @@ ParseResult Binding::bindConditions()
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Bind Condition
+ * Bind Condition - Binds a condition to proper table
  ******************************************************/
 ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToColumn)
 {
@@ -679,7 +671,7 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Bind Order By
+ * Bind Order By - Binds order by columns to proper table
  ******************************************************/
 ParseResult Binding::bindOrderBy()
 {
@@ -716,23 +708,7 @@ ParseResult Binding::bindOrderBy()
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,order.name->fullName);
                 return ParseResult::FAILURE;
             }
-            int columnNbr   = NEGATIVE;
-            int count       = 0;
-            for(shared_ptr<Column> column : tbl->columns)
-            {
-                if(strcasecmp(column->name.c_str(), col->name.c_str()) == 0)
-                {
-                    columnNbr = count;
-                    break;
-                }
-                count++;
-            }
-            if(columnNbr == NEGATIVE)
-            {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find order by column in the list of reporting columns ");
-                return ParseResult::FAILURE;
-            }
-            order.columnNbr = columnNbr;
+            order.name->tableName = tbl->name;
             order.col = col;
             orderBy->order.push_back(order);
             
@@ -746,7 +722,7 @@ ParseResult Binding::bindOrderBy()
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Bind Group By
+ * Bind Group By - Binds group by columns to proper table
  ******************************************************/
 ParseResult Binding::bindGroupBy()
 {
@@ -779,23 +755,7 @@ ParseResult Binding::bindGroupBy()
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,group.name->fullName);
                 return ParseResult::FAILURE;
             }
-            int columnNbr   = NEGATIVE;
-            int count       = 0;
-            for(shared_ptr<Column> column : tbl->columns)
-            {
-                if(strcasecmp(column->name.c_str(), col->name.c_str()) == 0)
-                {
-                    columnNbr = count;
-                    break;
-                }
-                count++;
-            }
-            if(columnNbr == NEGATIVE)
-            {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Could not find group by column in the list of reporting columns ");
-                return ParseResult::FAILURE;
-            }
-            group.columnNbr = columnNbr;
+            group.name->tableName = tbl->name;
             group.col = col;
             groupBy->group.push_back(group);
             
@@ -813,7 +773,7 @@ ParseResult Binding::bindGroupBy()
 }
 
 /******************************************************
- * bind Having
+ * bind Having - binds having condition to proper table
  ******************************************************/
 ParseResult Binding::bindHaving()
 {
@@ -856,7 +816,7 @@ ParseResult Binding::bindHaving()
 }
 
 /******************************************************
- * edit column
+ * edit column - edits column values
  ******************************************************/
 ParseResult Binding::editColumn(shared_ptr<Column> _col,string _value)
 {
@@ -937,7 +897,7 @@ ParseResult Binding::editColumn(shared_ptr<Column> _col,string _value)
     return ParseResult::FAILURE;
 }
 /******************************************************
- * Edit Condition Column
+ * Edit Condition Column - edits condition columns
  ******************************************************/
 ParseResult Binding::editCondition(shared_ptr<Condition> _con)
 {

@@ -166,6 +166,7 @@ enum class t_edit
 
 enum class t_function
 {
+    EMPTY,
     NONE,
     COUNT,
     MAX,

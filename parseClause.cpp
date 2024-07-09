@@ -16,7 +16,7 @@ class ParseClause
         size_t          parseOrderByGroup(string);
 };
 /******************************************************
- * Process Process
+ * Process Process - Breaks query string into clauses
  ******************************************************/
 ParseResult ParseClause::process(string _queryString)
 {
@@ -53,7 +53,7 @@ ParseResult ParseClause::process(string _queryString)
     }
 }
 /******************************************************
- * Parse Select
+ * Parse Select - Parses the select statement
  ******************************************************/
 ParseResult ParseClause::parseSelect(string _queryString)
 {
@@ -139,7 +139,7 @@ ParseResult ParseClause::parseSelect(string _queryString)
 
 }
 /******************************************************
- * Parse Join
+ * Parse Join - Parses join statements
  ******************************************************/
 ParseResult ParseClause::parseJoin(string _queryString)
 {
@@ -210,7 +210,7 @@ ParseResult ParseClause::parseJoin(string _queryString)
 }
 
 /******************************************************
- * Order By / Group By
+ * Order By / Group By - Parses order and group by
  ******************************************************/
 size_t ParseClause::parseOrderByGroup(string _queryString)
 {

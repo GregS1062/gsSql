@@ -18,6 +18,7 @@ class execute
     shared_ptr<GroupBy>                 groupBy;
     shared_ptr<OrderBy>                 orderBy;
     shared_ptr<response>		        results;
+    list<shared_ptr<columnParts>>       reportColumns;
     
     ParseResult ExecuteQuery();
    
@@ -37,7 +38,8 @@ ParseResult execute::ExecuteQuery()
         }
 
         display display;
-
+        bool functions = false;
+        
         for(shared_ptr<Statement> statement : lstStatements)
         {
             if(statement == nullptr)
@@ -47,7 +49,6 @@ ParseResult execute::ExecuteQuery()
                 printStatement(statement);
 
             //Does statement contain a function?
-            bool functions = false;
             for(shared_ptr<Column> col : statement->table->columns)
             {
                 if(col->functionType != t_function::NONE)
@@ -156,27 +157,27 @@ ParseResult execute::ExecuteQuery()
                 }
             }
 
-            if(results == nullptr)
-            {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Results = null");
-                return ParseResult::FAILURE;
-            }
-
-            if(groupBy->group.size() == 0
-            && functions)
-            {
-                printFunctions(results);
-                return ParseResult::SUCCESS;
-            }
-
-            if(groupBy->group.size() > 0)
-                results->groupBy(groupBy,functions);
-            
-            if(orderBy->order.size() > 0)
-                results->orderBy(orderBy);
-
         }
-        display.displayResponse(results->rows);
+        if(results == nullptr)
+        {
+            sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Results = null");
+            return ParseResult::FAILURE;
+        }
+
+        if(groupBy->group.size() == 0
+        && functions)
+        {
+            printFunctions(results);
+            return ParseResult::SUCCESS;
+        }
+
+        if(groupBy->group.size() > 0)
+            results->groupBy(groupBy,functions);
+        
+        if(orderBy->order.size() > 0)
+            results->orderBy(orderBy);
+            
+        display.displayResponse(results->rows,reportColumns);
         return ParseResult::SUCCESS;
     }
     catch_and_throw_to_caller
@@ -234,7 +235,8 @@ ParseResult execute::printFunctions(shared_ptr<response> _results)
         }
     }
     functionResults->addRow(reportRow);
+
     display display;
-    display.displayResponse(functionResults->rows); 
+    display.displayResponse(functionResults->rows,reportColumns); 
     return ParseResult::SUCCESS;
 }

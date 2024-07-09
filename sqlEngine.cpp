@@ -140,6 +140,7 @@ vector<shared_ptr<TempColumn>>	sqlEngine::outputLine(list<shared_ptr<Column>> _c
 	{
 		shared_ptr<TempColumn> temp = make_shared<TempColumn>();
 		temp->name		= col->name;
+		temp->tableName = col->tableName;
 		temp->length	= col->length;
 		temp->edit		= col->edit;
 		temp->alias		= col->alias;

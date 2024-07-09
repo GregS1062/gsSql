@@ -107,6 +107,31 @@ size_t findKeywordFromList(string _string, list<string> _list)
     catch_and_throw_to_caller
 }
 /******************************************************
+ * Get Function Type (convert string value in t_function value)
+ ******************************************************/
+t_function getFunctionType(string _type)
+{
+    try
+    {
+        if(findKeyword(_type,(char*)sqlTokenCount) != std::string::npos)
+            return t_function::COUNT;
+        else
+            if(findKeyword(_type,(char*)sqlTokenSum) != std::string::npos)
+                return t_function::SUM;
+            else
+                if(findKeyword(_type,(char*)sqlTokenMax) != std::string::npos)
+                    return t_function::MAX;
+                else
+                    if(findKeyword(_type,(char*)sqlTokenMin) != std::string::npos)
+                        return t_function::MIN;
+                    else
+                        if(findKeyword(_type,(char*)sqlTokenAvg) != std::string::npos)
+                            return t_function::AVG;
+        return t_function::NONE;
+    }
+    catch_and_throw_to_caller
+}
+/******************************************************
  * Snip String (string.substr wrapper)
  ******************************************************/
 string snipString(string _string, size_t _position)

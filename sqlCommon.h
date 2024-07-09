@@ -68,6 +68,7 @@ class Condition
 {
     public:
         bool                        isJoin          = false;
+        t_function                  function       = t_function::EMPTY; 
         shared_ptr<columnParts>     name            = nullptr;
         shared_ptr<columnParts>     compareToName   = nullptr;
         string                      op             {};  // operator is a reserved word

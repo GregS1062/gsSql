@@ -22,14 +22,15 @@ class response
 
 public:
 	response();
-	vector<vector<shared_ptr<TempColumn>>> rows{};
-    int                         rowCount = 0;
+	vector<vector<shared_ptr<TempColumn>>> 		rows{};
+    int                         rowCount 		= 0;
     PRESENTATION                presentation;
     ParseResult                 addRow			(vector<shared_ptr<TempColumn>>);
 	shared_ptr<TempColumn>		getCountColumn	(int);
+	int 						getColumnPosition (OrderOrGroup);
     ParseResult                 Sort			(list<int>,bool);
-	ParseResult					orderBy(shared_ptr<OrderBy>);
-	ParseResult					groupBy(shared_ptr<GroupBy>,bool);
+	ParseResult					orderBy			(shared_ptr<OrderBy>);
+	ParseResult					groupBy			(shared_ptr<GroupBy>,bool);
     
 };
 response::response()
@@ -97,6 +98,27 @@ ParseResult response::Sort(list<int> _n, bool _ascending)
     return ParseResult::SUCCESS;
 }
 /******************************************************
+ * Get Column Position (Get the position of the ordering column
+ * 	in the response row)
+ ******************************************************/
+int response::getColumnPosition(OrderOrGroup _order)
+{
+	vector<shared_ptr<TempColumn>> row = rows.front();
+	shared_ptr<columnParts> parts = _order.name;
+	int i = 0;
+	for( shared_ptr<TempColumn> col: row)
+	{
+		if (strcasecmp(parts->columnName.c_str(),col->name.c_str()) == 0
+		and strcasecmp(parts->tableName.c_str(),col->tableName.c_str()) == 0)
+		{
+			return i;
+			break;
+		}
+		i++;
+	}
+	return NEGATIVE;
+}
+/******************************************************
  * Order By
  ******************************************************/
 ParseResult response::orderBy(shared_ptr<OrderBy> _orderBy)
@@ -104,9 +126,10 @@ ParseResult response::orderBy(shared_ptr<OrderBy> _orderBy)
 	list<int> n;
 	for(OrderOrGroup order : _orderBy->order)
 	{
-		if(debug)
-			fprintf(traceFile,"\n sorting on column# %d", order.columnNbr);
-		n.push_back(order.columnNbr);
+		int i = getColumnPosition(order);
+		if(i == NEGATIVE)
+			return ParseResult::FAILURE;
+		n.push_back(i);
 	}
 	Sort(n,_orderBy->asc);
 	return ParseResult::SUCCESS;
@@ -136,12 +159,16 @@ ParseResult response::groupBy(shared_ptr<GroupBy> _groupBy, bool _functions)
 
 	// 1)
 	list<int> n;
-	for(OrderOrGroup group : _groupBy->group)
+	for(auto& group : _groupBy->group)
 	{
 		if(group.col->name.empty())
 			return ParseResult::FAILURE;
 
-		n.push_back(group.columnNbr);
+		int i = getColumnPosition(group);
+		if(i == NEGATIVE)
+			return ParseResult::FAILURE;
+		group.columnNbr = i;
+		n.push_back(i);
 	}
 
 	// 2)

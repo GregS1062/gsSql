@@ -619,6 +619,17 @@ ParseResult ParseQuery::addCondition(string _token, CONDITIONTYPE _conditionType
             return ParseResult::SUCCESS;
         }
 
+        /*
+        Is this a function literal?
+            Empty = 1st time test have been encountered
+            NONE  = this is not a function condition - so drop through
+        */
+        if(condition->function == t_function::EMPTY)
+        {
+            condition->function = getFunctionType(_token);
+            if(condition->function != t_function::NONE)
+                return ParseResult::SUCCESS;
+        }
         //--------------------------------------------------------
         // Column name
         //-------------------------------------------------------
