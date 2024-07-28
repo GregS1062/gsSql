@@ -14,7 +14,7 @@ class execute
     
     public:
 
-    list<shared_ptr<Statement>>         lstStatements;
+    vector<shared_ptr<Statement>>         lstStatements;
     shared_ptr<GroupBy>                 groupBy;
     shared_ptr<OrderBy>                 orderBy;
     shared_ptr<response>		        results;
@@ -39,14 +39,14 @@ ParseResult execute::ExecuteQuery()
 
         display display;
         bool functions = false;
+
+        if(debug)
+                printStatements(lstStatements);
         
         for(shared_ptr<Statement> statement : lstStatements)
         {
             if(statement == nullptr)
                 return ParseResult::FAILURE;
-                
-            if(debug)
-                printStatement(statement);
 
             //Does statement contain a function?
             for(shared_ptr<Column> col : statement->table->columns)
@@ -164,18 +164,22 @@ ParseResult execute::ExecuteQuery()
             return ParseResult::FAILURE;
         }
 
-        if(groupBy->group.size() == 0
-        && functions)
+        if(groupBy != nullptr)
         {
-            printFunctions(results);
-            return ParseResult::SUCCESS;
-        }
+            if(groupBy->group.size() == 0
+            && functions)
+            {
+                printFunctions(results);
+                return ParseResult::SUCCESS;
+            }
 
-        if(groupBy->group.size() > 0)
-            results->groupBy(groupBy,functions);
+            if(groupBy->group.size() > 0)
+                results->groupBy(groupBy,functions);
+        }
         
-        if(orderBy->order.size() > 0)
-            results->orderBy(orderBy);
+        if(orderBy != nullptr)
+            if(orderBy->order.size() > 0)
+                 results->orderBy(orderBy);
             
         display.displayResponse(results->rows,reportColumns);
         return ParseResult::SUCCESS;

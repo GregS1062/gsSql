@@ -237,7 +237,7 @@ class Statement
         shared_ptr<OrderBy> orderBy         {};
         shared_ptr<GroupBy> groupBy         {};     
         int                 rowsToReturn    = 0;
-        id_t                exectionOrder   = 0;
+        int                 exectionScore   = 0;
         shared_ptr<sTable>  table           {};
 };
 

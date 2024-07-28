@@ -201,8 +201,6 @@ string display::htmlHeader(vector<shared_ptr<TempColumn>> _columns, size_t _sumO
 		header.append(hdrBegin);
 		header.append(" style="" width:");
 		percentage = (double)pad / (int)_sumOfColumnSize * 100;
-		fprintf(traceFile,"\n sum of col = %li",_sumOfColumnSize);
-		fprintf(traceFile,"\n pad percent = %f",percentage);
 		header.append(to_string((int)percentage));
 		header.append("%"">");
 		header.append(hdrEnd);

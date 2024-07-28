@@ -1,7 +1,0 @@
-In file included from controller.cpp:10,
-                 from gsSqlCGI.cpp:11:
-binding.cpp: In member function ‘ParseResult Binding::bindFunctionColumn(std::shared_ptr<columnParts>)’:
-binding.cpp:372:15: error: enumeration value ‘EMPTY’ not handled in switch [-Werror=switch]
-  372 |         switch(ag)
-      |               ^
-cc1plus: all warnings being treated as errors

@@ -46,11 +46,7 @@ ParseResult ParseClause::process(string _queryString)
 
         return ParseResult::SUCCESS;
     }
-    catch(const std::exception& e)
-    {
-        sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Exception error",e.what());
-        return ParseResult::FAILURE;
-    }
+    catch_and_throw_to_caller
 }
 /******************************************************
  * Parse Select - Parses the select statement

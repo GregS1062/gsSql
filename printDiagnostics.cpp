@@ -4,7 +4,7 @@
 #include "binding.cpp"
 void printParts(std::shared_ptr<columnParts> parts)
 {
-    fprintf(traceFile,"\n\t name: %s alias: %s tableName: %s function: %s",parts->columnName.c_str(), parts->columnAlias.c_str(), parts->tableAlias.c_str(), parts->function.c_str());
+    fprintf(traceFile,"\n\t name: %s alias: %s tableName: %s  tableAlias: %s function: %s",parts->columnName.c_str(), parts->columnAlias.c_str(), parts->tableName.c_str(), parts->tableAlias.c_str(), parts->function.c_str());
 }
 void printAction(SQLACTION _action)
 {
@@ -203,4 +203,11 @@ void printStatement(shared_ptr<Statement> _statement)
         printOrderBy(_statement->orderBy);
     if(_statement->groupBy != nullptr)
         printGroupBy(_statement->groupBy);
+}
+void printStatements(vector<shared_ptr<Statement>> _lstStatements)
+{
+    for(shared_ptr<Statement> statement : _lstStatements)
+    {
+        printStatement(statement);
+    }
 }

@@ -218,6 +218,7 @@ shared_ptr<sTable> Binding::assignTable(std::shared_ptr<columnParts> _parts)
             sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Column name parts are null ");
             return nullptr;
         }
+
         shared_ptr<sTable> tbl = make_shared<sTable>();
         if(!_parts->tableAlias.empty())
         {
@@ -388,6 +389,8 @@ shared_ptr<Column>  Binding::getColumnDetail(std::shared_ptr<columnParts> _parts
                 break;
             case t_function::NONE:
                 fprintf(traceFile,"\nCounld not find function type");
+                return ParseResult::FAILURE;
+            case t_function::EMPTY:
                 return ParseResult::FAILURE;
         }
         if(!_parts->columnAlias.empty())
@@ -592,13 +595,13 @@ ParseResult Binding::bindCondition(shared_ptr<Condition> _con, bool _compareToCo
                 return ParseResult::SUCCESS;
 
             if(debug)
-                fprintf(traceFile,"\nbinding condition compareToName %s %s",_con->compareToName->columnName.c_str(), _con->compareToName->columnAlias.c_str());
+                fprintf(traceFile,"\nbinding condition compareToName %s alias:%s table:%s",_con->compareToName->columnName.c_str(), _con->compareToName->columnAlias.c_str(), _con->compareToName->tableName.c_str());
             columnName = _con->compareToName;
         }
         else
         {
             if(debug)
-                fprintf(traceFile,"\nbinding condition name %s %s",_con->name->columnName.c_str(), _con->name->columnAlias.c_str());
+                fprintf(traceFile,"\nbinding condition name %s alias:%s table:%s",_con->name->columnName.c_str(), _con->name->columnAlias.c_str(),_con->name->tableName.c_str());
             columnName = _con->name;
         }
             
@@ -691,6 +694,20 @@ ParseResult Binding::bindOrderBy()
         
         for(OrderOrGroup order : ielements->orderBy->order)
         {
+            //case: order by or group by column is referenced by alias - check reported columns for column definition
+            if(order.name->tableName.empty()
+            && order.name->tableAlias.empty())
+            {
+                for(shared_ptr<columnParts> parts : reportColumns)
+                {
+                    if(strcasecmp(parts->columnAlias.c_str(),order.name->columnName.c_str()) == 0)
+                    {
+                        order.name = parts;
+                        break;
+                    }
+                }
+            }
+
             //Bind column to table
             tbl = assignTable(order.name);
             if(tbl == nullptr)
@@ -704,7 +721,7 @@ ParseResult Binding::bindOrderBy()
             col = getColumnDetail(order.name,tbl->name);
             if(col == nullptr)
             {
-                sendMessage(MESSAGETYPE::ERROR,presentationType,true,"Cannot bind Order By template column to table: ");
+                sendMessage(MESSAGETYPE::ERROR,presentationType,true,": ");
                 sendMessage(MESSAGETYPE::ERROR,presentationType,false,order.name->fullName);
                 return ParseResult::FAILURE;
             }
@@ -739,6 +756,20 @@ ParseResult Binding::bindGroupBy()
         shared_ptr<Column> col;
         for(OrderOrGroup group : ielements->groupBy->group)
         {
+
+            //case: order by or group by column is referenced by alias - check reported columns for column definition
+            if(group.name->tableName.empty()
+            && group.name->tableAlias.empty())
+            {
+                for(shared_ptr<columnParts> parts : reportColumns)
+                {
+                    if(strcasecmp(parts->columnAlias.c_str(),group.name->columnName.c_str()) == 0)
+                    {
+                        group.name = parts;
+                        break;
+                    }
+                }
+            }
             //Bind column to table
             tbl = assignTable(group.name);
             if(tbl == nullptr)

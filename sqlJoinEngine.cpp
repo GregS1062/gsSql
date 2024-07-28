@@ -54,8 +54,11 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<res
 	//Assuming indexed read on one key column
 
 	shared_ptr<Column> key{};
-	string op;
 
+	string op;
+	if(debug)
+		fprintf(traceFile,"\njoin on %s",statement->table->name.c_str());
+	
 	// 1)
 	for(shared_ptr<Condition> condition : statement->table->conditions)
 	{
@@ -65,8 +68,10 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<res
 		*/
 		if(condition->compareToColumn == nullptr)
 			continue;
-		if(condition->compareToColumn->tableName.compare(condition->col->tableName) == 0)
+
+		if(strcasecmp(condition->compareToColumn->tableName.c_str(),condition->col->tableName.c_str()) == 0)
 			continue;
+
 		//set up the keys
 		key = condition->col;
 		op = condition->op;
@@ -77,7 +82,7 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<res
 
 	if(key == nullptr)
 	{
-		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"No condition found for this join ");
+		sendMessage(MESSAGETYPE::ERROR,presentationType,true,"No condition found for this join ",statement->table->name.c_str());
 		return ParseResult::FAILURE;
 	}
 
@@ -94,6 +99,8 @@ ParseResult sqlJoinEngine::join(shared_ptr<Statement> _statement, shared_ptr<res
 			name = (char*)row.at(i)->alias.c_str();
 		else
 			name = (char*)row.at(i)->name.c_str();
+		if(debug)
+			fprintf(traceFile,"\nkey: %s col: %s",key->name.c_str(),name);
 		if(strcasecmp(key->name.c_str(),name) == 0 )
 		{
 			keyColumnNbr = (int)i;

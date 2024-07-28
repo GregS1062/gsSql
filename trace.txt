@@ -1,0 +1,106 @@
+
+******************  BEGIN   *****************
+ query=select top 5 s.name, o.orderid, i.productid as productid from stores s 
+join items i on i.orderid = o.orderid 
+join orders o on s.custid = o.custid  
+order by productid
+------------- split ----------------
+***************************************************************
+                 BEGIN QUERY PARSE
+***************************************************************
+ query=select top 5 s.name, o.orderid, i.productid as productid from stores s 
+determine action select
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = select top 5 s.name, o.orderid, i.productid as productid from stores s 
+
+-------------------------PARSE CLAUSES - SELECT -------------------------------------------
+Query String = select top 5 s.name, o.orderid, i.productid as productid from stores s 
+
+-----------Parse Table List----------------
+tableString:stores s 
+token stores s 
+
+-----------Parse Column List----------------
+Column string: s.name, o.orderid, i.productid as productid 
+Column parts: function: name:name alias: table Alias s
+Column parts: function: name:orderid alias: table Alias o
+Column parts: function: name:productid alias:productid table Alias i
+***************************************************************
+                 BEGIN QUERY PARSE
+***************************************************************
+ query=join orders o on s.custid = o.custid order by productid
+determine action join
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = join orders o on s.custid = o.custid order by productid
+********************* parseJoin *******************
+
+-----------Parse Table List----------------
+tableString:orders o
+token orders o
+
+-----------Parse Column List----------------
+Column string:
+
+-----------Parse Conditions----------------
+Join Condition:s.custid = o.custid
+token=s.custid
+Column parts: function: name:custid alias: table Alias s
+token==
+token=o.custid
+Column parts: function: name:custid alias: table Alias o
+
+-----------Parse Order by----------------
+OrderBy string:productid
+ order by tokens productid
+Column parts: function: name:productid alias: table Alias 
+***************************************************************
+                 BEGIN QUERY PARSE
+***************************************************************
+ query=join items i on i.orderid = o.orderid
+determine action join
+
+-------------------------BEGIN PROCESS SELECT-------------------------------------------
+Query String = join items i on i.orderid = o.orderid
+********************* parseJoin *******************
+
+-----------Parse Table List----------------
+tableString:items i
+token items i
+
+-----------Parse Column List----------------
+Column string:
+
+-----------Parse Conditions----------------
+Join Condition:i.orderid = o.orderid
+token=i.orderid
+Column parts: function: name:orderid alias: table Alias i
+token==
+token=o.orderid
+Column parts: function: name:orderid alias: table Alias o
+
+-------------------------BEGIN BIND-------------------------------------------
+-------------------- bind column list ----------------
+ col name added to table stores
+ col orderid added to table orders
+ col productid added to table items
+
+-------------------------BEGIN BIND-------------------------------------------
+-------------------- bind column list ----------------
+binding condition name custid alias: table:
+binding condition compareToName custid alias: table:
+----------------------- bind order by -----------------------------------
+ bind order Column name:productid table: items  sort# 0
+
+-------------------------BEGIN BIND-------------------------------------------
+-------------------- bind column list ----------------
+binding condition name orderid alias: table:
+binding condition compareToName orderid alias: table:
+row count = 5
+*******************************************
+ Statement Table
+*******************************************
+ table name stores alias s record length 207
+	 column name name alias  value  function 1
+	 column

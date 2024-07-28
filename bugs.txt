@@ -22,5 +22,8 @@ X  insert (probably) not trimming correctly  like "schiller" works but = "schill
   Cannot set field to empty
 X  max and min functions broke
 X  join columns not added to report list
+   order by column alias name not working
+   join order not working
+
 
 

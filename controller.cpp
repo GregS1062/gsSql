@@ -9,6 +9,7 @@
 #include "parseQuery.cpp"
 #include "binding.cpp"
 #include "execute.cpp"
+#include "plan.cpp"
 #include "printDiagnostics.cpp"
 
     /*--------------------------------------------------------------------------------------------
@@ -51,7 +52,7 @@ class controller
     list<string>                    lstDeclaredTables;
     list<shared_ptr<iElements>>     lstElements;
     list<shared_ptr<sTable>>        lstTables;
-    list<shared_ptr<Statement>>     lstStatements; 
+    vector<shared_ptr<Statement>>   lstStatements; 
     list<string>                    queries;
     shared_ptr<iSQLTables>          isqlTables;
     shared_ptr<OrderBy>             orderBy;
@@ -85,6 +86,13 @@ ParseResult controller::runQuery(string _queryString)
             return ParseResult::FAILURE;
 
         execute execute;
+        if(lstStatements.size() == 0)
+            return ParseResult::FAILURE;
+       /* if(lstStatements.size() > 1)
+        {
+            unique_ptr<Plan> plan = make_unique<Plan>(isqlTables);
+            lstStatements = plan->determineExecutionOrder(lstStatements);
+        } */
         execute.lstStatements   = lstStatements;
         execute.groupBy         = groupBy;
         execute.orderBy         = orderBy;
@@ -122,16 +130,19 @@ ParseResult controller::bindElements()
         {
             Binding binding             = Binding(isqlTables);
             binding.lstTables           = lstTables;
+            binding.reportColumns       = reportColumns;
             
             // 6)
 
             lstStatements.push_back(binding.bind(ielement));
             
             if(binding.orderBy != nullptr )
-                orderBy                 = binding.orderBy;
+                if(binding.orderBy->order.size() > 0)
+                    orderBy                 = binding.orderBy;
             
             if(binding.groupBy != nullptr)
-                groupBy                 = binding.groupBy;
+                if(binding.groupBy->group.size() > 0)
+                    groupBy                 = binding.groupBy;
             
             if(binding.reportColumns.size() > 0)
                 reportColumns           = binding.reportColumns;
